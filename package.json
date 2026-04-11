@@ -1,0 +1,22 @@
+{
+  "name": "eyeflow-chorme-extension",
+  "version": "1.0.0",
+  "description": "EyeFlow Chrome extension with Puppeteer-based test automation.",
+  "main": "background.js",
+  "scripts": {
+    "test": "node tests/puppeteer-extension-smoke.js",
+    "test:extension": "node tests/puppeteer-extension-smoke.js",
+    "test:e2e": "node tests/puppeteer-extension-e2e.js",
+    "test:online": "node tests/puppeteer-extension-e2e.js --suite=sites",
+    "test:onboarding": "node tests/puppeteer-extension-e2e.js --suite=onboarding",
+    "test:popup": "node tests/puppeteer-extension-e2e.js --suite=popup",
+    "test:sites": "node tests/puppeteer-extension-e2e.js --suite=sites"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "puppeteer": "^24.40.0"
+  }
+}

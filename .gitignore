@@ -1,0 +1,13 @@
+node_modules/
+tests/artifacts/
+archive/
+release/
+.sixth/
+HANDOFF_NEXT_STEPS.md
+
+*.zip
+*.log
+*.rtf
+
+.DS_Store
+Thumbs.db
