@@ -199,21 +199,9 @@ Manual testing still covers:
 
 ## Debug Timer Chip
 
-Testing mode currently shows a live timer chip on pages:
-
-- `Eye break (tab)`
-- `Gentle (global)`
-- `Water (global)`
-
-Current debug behavior:
-
-- On DS tabs, `Gentle (global)` shows `Off`.
-- Gentle now only shows:
-  - `Off`
-  - `Hold`
-  - countdown
-
-This chip is meant for testing and tuning timer behavior.
+The debug timer chip is development-only and is disabled by default in production-like builds.
+It is included for internal testing and troubleshooting during development,
+but it does not appear in normal user-facing installations.
 
 ## Recent Fixes And Improvements
 
