@@ -164,8 +164,10 @@ const EyeFlowIntelligence = (() => {
   }
 
   // -------------------------------------------------------
-  // CHECK PROACTIVE WARNING - Warn if user is at a high-risk time
+  // CHECK PROACTIVE WARNING - Placeholder for future risk-based timing
   // -------------------------------------------------------
+  // This is intentionally not implemented yet. It exists as a stub so
+  // the API is available for later proactive warning work.
   async function checkProactiveWarning() {
     return null;
   }

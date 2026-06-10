@@ -1,16 +1,16 @@
 // ============================================================
 // SITE-RULES.JS — EyeFlow Site Detection Config
 // ============================================================
-// Pehle ye saari conditions content.js mein inline thi.
-// Ab ek jagah hai — agar koi site add/change karni ho,
-// sirf YE file update karo. content.js ko chhuna nahi padega.
+// These rules centralize the per-site context logic that used to be
+// spread across content.js. Update this file when adding or changing
+// the site-specific doom-scroll behavior.
 //
 // STRUCTURE:
 //   SITE_RULES = {
 //     'hostname': {
 //       strongDS:  [path prefixes]  → fullscreen eye break trigger
-//       gentle:    [path prefixes]  → sirf gentle reminder
-//       suppress:  [path prefixes]  → kuch bhi nahi dikhao
+//       gentle:    [path prefixes]  → gentle reminder only
+//       suppress:  [path prefixes]  → suppress reminders entirely
 //     }
 //   }
 // ============================================================

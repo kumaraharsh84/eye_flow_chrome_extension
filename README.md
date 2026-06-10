@@ -184,7 +184,7 @@ Each E2E run writes a report to:
 
 Manual testing guide:
 
-- `MANUAL_ONLY_REMAINING_CHECKLIST.md`
+- `docs/internal/MANUAL_ONLY_REMAINING_CHECKLIST.md`
 
 Manual testing still covers:
 
@@ -233,7 +233,7 @@ Recent work on the project includes:
 - Water reminder flow exists, but it still needs final real-world QA coverage in longer sessions.
 - Some site-specific detection rules may still need fine-tuning for edge cases such as chat pages, profile pages, or mixed-content surfaces.
 - Overlay and post-break UI have been improved recently, but final visual polish is still in progress.
-- Debug timer chip is enabled for testing right now and should be treated as development-only UI.
+- Debug timer chip is development-only and is disabled by default in production-like builds.
 - Project cleanup is still pending for backup and release-support folders such as `archive/` and `release/`.
 
 ## Project Structure Notes

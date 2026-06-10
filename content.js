@@ -17,7 +17,8 @@
 // -------------------------------------------------------
 // EYEFLOW CONTENT — Main content script controller
 // -------------------------------------------------------
-const EYEFLOW_DEBUG_CONTENT = true;
+// Set to true only when actively debugging timer behavior during development.
+const EYEFLOW_DEBUG_CONTENT = false;
 
 const EyeFlowContent = (() => {
   const DOOM_SCROLL_SITES = new Set([
