@@ -18,13 +18,24 @@
     "test:online": "node tests/puppeteer-extension-e2e.js --suite=sites",
     "test:onboarding": "node tests/puppeteer-extension-e2e.js --suite=onboarding",
     "test:popup": "node tests/puppeteer-extension-e2e.js --suite=popup",
-    "test:sites": "node tests/puppeteer-extension-e2e.js --suite=sites"
+    "test:sites": "node tests/puppeteer-extension-e2e.js --suite=sites",
+    "lint": "eslint .",
+    "format": "prettier --write ."
   },
-  "keywords": ["chrome-extension", "eye-care", "doom-scroll", "productivity", "wellness"],
+  "keywords": [
+    "chrome-extension",
+    "eye-care",
+    "doom-scroll",
+    "productivity",
+    "wellness"
+  ],
   "author": "kumaraharsh84",
   "license": "MIT",
   "type": "commonjs",
   "devDependencies": {
+    "eslint": "^10.4.1",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.4",
     "puppeteer": "^24.40.0"
   }
 }
