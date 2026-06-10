@@ -222,7 +222,7 @@ Recent work on the project includes:
 - Some site-specific detection rules may still need fine-tuning for edge cases such as chat pages, profile pages, or mixed-content surfaces.
 - Overlay and post-break UI have been improved recently, but final visual polish is still in progress.
 - Debug timer chip is development-only and is disabled by default in production-like builds.
-- Project cleanup is still pending for backup and release-support folders such as `archive/` and `release/`.
+- Backup and release-support folders such as `archive/` and `release/` have been moved to `docs/internal` to keep the repository root release-ready.
 
 ## Project Structure Notes
 
