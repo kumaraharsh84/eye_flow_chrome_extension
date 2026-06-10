@@ -855,6 +855,7 @@ const EyeFlowContent = (() => {
     if (isDoomScrollContext() || isWithinSinglePostGraceWindow() || warningElement) return false;
     if (isSensitiveReminderContext()) return false;
     if (isCommunicationContext()) return false;
+    if (isWatchingLongVideoPassively() || isWatchingPassiveDsVideo()) return false;
     return true;
   }
 
@@ -863,8 +864,7 @@ const EyeFlowContent = (() => {
     if (isDoomScrollContext() || isWithinSinglePostGraceWindow() || warningElement) return false;
     if (isSensitiveReminderContext()) return false;
     if (isCommunicationContext()) return false;
-    if (canShowGentleReminder()) return true;
-    return isWatchingLongVideoPassively();
+    return canShowGentleReminder();
   }
 
   function isEffectivelySystemIdle() {

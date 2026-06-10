@@ -25,8 +25,8 @@ const SITE_RULES = {
   // -------------------------------------------------------
   'instagram.com': {
     strongDS: ['/', '/explore', '/reels'],
-    gentle:   ['/direct', '/p/'],
-    suppress: ['/live', '/video/call', '/ar/']
+    gentle:   ['/p/'],
+    suppress: ['/live', '/video/call', '/ar/', '/direct']
   },
 
   // -------------------------------------------------------
@@ -50,7 +50,7 @@ const SITE_RULES = {
   'reddit.com': {
     strongDS: ['/', '/r/', '/hot', '/new', '/top', '/rising'],
     gentle:   ['/comments/'],
-    suppress: ['/notifications', '/settings', '/message']
+    suppress: ['/notifications', '/settings', '/message', '/chat']
   },
 
   // -------------------------------------------------------

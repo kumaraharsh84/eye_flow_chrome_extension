@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // BACKGROUND.JS â€” EyeFlow Chrome Extension
 // ============================================================
 // This is the "brain" of the extension. It runs in the background
@@ -1039,7 +1039,8 @@ function getNextSharedBreakTargetMs(settings) {
 
 function getWaterDelayMs(settings) {
   const minutes = settings?.hydrationReminderMin || DEFAULT_SETTINGS.hydrationReminderMin;
-  return minutes * 60 * 1000;
+  const jitterMinutes = Math.floor(Math.random() * 6);
+  return (minutes + jitterMinutes) * 60 * 1000;
 }
 
 function expireStaleWaterPending(runtimeState, settings, now = Date.now()) {
