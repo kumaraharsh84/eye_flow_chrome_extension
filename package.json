@@ -1,5 +1,5 @@
 {
-  "name": "eyeflow-chorme-extension",
+  "name": "eyeflow-chrome-extension",
   "version": "1.0.0",
   "description": "EyeFlow Chrome extension with Puppeteer-based test automation.",
   "repository": {
@@ -20,9 +20,9 @@
     "test:popup": "node tests/puppeteer-extension-e2e.js --suite=popup",
     "test:sites": "node tests/puppeteer-extension-e2e.js --suite=sites"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": ["chrome-extension", "eye-care", "doom-scroll", "productivity", "wellness"],
+  "author": "kumaraharsh84",
+  "license": "MIT",
   "type": "commonjs",
   "devDependencies": {
     "puppeteer": "^24.40.0"
