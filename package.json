@@ -2,6 +2,14 @@
   "name": "eyeflow-chorme-extension",
   "version": "1.0.0",
   "description": "EyeFlow Chrome extension with Puppeteer-based test automation.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kumaraharsh84/eye_flow_chrome_extension.git"
+  },
+  "bugs": {
+    "url": "https://github.com/kumaraharsh84/eye_flow_chrome_extension/issues"
+  },
+  "homepage": "https://github.com/kumaraharsh84/eye_flow_chrome_extension#readme",
   "main": "background.js",
   "scripts": {
     "test": "node tests/puppeteer-extension-smoke.js",
