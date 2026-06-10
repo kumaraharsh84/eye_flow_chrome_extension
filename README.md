@@ -61,7 +61,7 @@ Chrome Tab / Website
   +-- content.js
   |     - detects DS vs non-DS context
   |     - tracks page activity
-  |     - renders warnings, gentle reminders, and debug chip
+  |     - renders warnings and gentle reminders
   |
   +-- overlay.js + overlay.css
   |     - fullscreen eye-break UI
