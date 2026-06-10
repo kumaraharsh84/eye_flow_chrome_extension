@@ -1,254 +1,282 @@
-# EyeFlow
+<div align="center">
 
-EyeFlow is a Chrome extension that helps reduce doom scrolling and eye strain.
+# 👁️ EyeFlow
 
-It watches for high-risk scrolling behavior on doom-scroll surfaces such as YouTube Shorts, Instagram Reels, Reddit feeds, Facebook, and X, then responds with:
+### A Chrome Extension That Fights Doom Scrolling — And Looks After Your Eyes
 
-- gentle reminders during normal browsing
-- full eye-break overlays during doom-scrolling
-- hydration nudges over longer sessions
+[![Version](https://img.shields.io/badge/version-1.0.0-orange?style=flat-square)](https://github.com/kumaraharsh84/eye_flow_chrome_extension)
+[![Manifest](https://img.shields.io/badge/Manifest-V3-blue?style=flat-square)](https://developer.chrome.com/docs/extensions/mv3/)
+[![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
+[![Status](https://img.shields.io/badge/status-testing%20phase-yellow?style=flat-square)](https://github.com/kumaraharsh84/eye_flow_chrome_extension)
 
-The goal is to interrupt unhealthy loops without becoming annoying during normal work, chat, forms, login pages, or other sensitive contexts.
+<br/>
+
+> You open Instagram for 5 minutes. Two hours later, your eyes hurt and you forgot to drink water.
+> EyeFlow watches for that loop — and quietly breaks it.
+
+<br/>
+
+---
+
+</div>
+
+## What Is This?
+
+EyeFlow is a Chrome extension that detects doom scrolling on high-risk sites like **Instagram Reels, YouTube Shorts, Reddit, Facebook, and X** — and responds with:
+
+- **Guided eye-break exercises** — a moving dot you follow with your eyes, proven to reduce screen strain
+- **Gentle reminders** during normal browsing, when you have been staring at a screen too long
+- **Hydration nudges** because we all forget to drink water when we are deep in a scroll loop
+
+The goal is simple: interrupt unhealthy loops without becoming annoying during normal work, chats, forms, or anything that actually matters.
+
+---
+
+## Screenshots
+
+> Add your screenshots to `docs/screenshots/` folder and update the links below
+
+| Popup | Eye Break Overlay | Onboarding |
+|---|---|---|
+| ![Popup](docs/screenshots/popup.png) | ![Overlay](docs/screenshots/overlay.png) | ![Onboarding](docs/screenshots/onboarding.png) |
+
+---
 
 ## Features
 
-- Doom-scroll detection for high-risk surfaces such as Shorts, Reels, and feed-heavy pages.
-- Fullscreen guided eye-break overlay with moving-dot exercise and countdown.
-- Post-break recovery flow with mood logging and next-step suggestions.
-- Global gentle reminder timer across non-DS tabs.
-- Global hydration reminder flow.
-- Popup controls for timing, snooze, sensitivity, and suggestions.
-- Onboarding presets for Strict, Balanced, and Gentle modes.
-- Puppeteer-based automation plus a manual QA checklist for final testing.
+### Core
+| Feature | Description |
+|---|---|
+| 🔍 Doom-scroll detection | Detects high-risk scrolling on Instagram, YouTube Shorts, Reddit, Facebook, X, and TikTok |
+| 👁️ Fullscreen eye-break overlay | Guided 6-step exercise with moving dot, countdown, and progress bar |
+| 💧 Hydration reminder | Global water reminder every 2 hours |
+| 😌 Post-break recovery | Mood logging, time-on-site alert, and next-step suggestions after every break |
+| 🔔 Gentle reminder | Soft corner reminder during normal non-DS browsing |
 
-## What The Extension Does
+### Smart Behavior
+| Feature | Description |
+|---|---|
+| 🎯 Context-aware detection | Instagram DMs, login pages, payment flows, typing — all suppressed automatically |
+| 📺 Passive video detection | Watching a long YouTube video without scrolling? Extension stays quiet |
+| 🔄 Tab sync | DS timer is shared across all open doom-scroll tabs |
+| 😴 Idle detection | Walk away from your laptop — timers pause automatically |
+| ⏸️ Work mode snooze | Pause gentle reminders for 1h, 2h, or 4h without disabling DS protection |
 
-- Detects doom-scroll contexts on supported sites.
-- Tracks shared doom-scroll timing across relevant tabs.
-- Shows fullscreen eye-break exercises with a moving dot and countdown.
-- Shows a post-break recovery screen with mood logging and next-step suggestions.
-- Runs a global gentle reminder timer across non-DS tabs.
-- Runs a global hydration reminder flow.
-- Lets the user control timings, snooze, sensitivity, and suggestions from the popup.
+### User Control
+| Feature | Description |
+|---|---|
+| ⚙️ Popup settings | Sensitivity, timing, snooze, theme, suggestions — all configurable |
+| 🎨 Dark / Light theme | Popup supports both themes |
+| 📊 Stats dashboard | Blocked sessions, breaks taken, weekly history, mood trends, pattern insights |
+| 🧭 Onboarding | 3 preset modes on first install — Strict, Balanced, or Gentle |
 
-## Current Reminder Model
+---
 
-### Eye Break
+## How It Works
 
-- Eye-break timing is tied to DS surfaces.
-- The DS timer is shared across relevant doom-scroll tabs.
-- The next DS cycle should only restart after the full post-break flow is dismissed.
-
-### Gentle Reminder
-
-- Gentle reminder is a global timer across normal non-DS tabs.
-- It pauses only when:
-  - a DS surface is active
-  - snooze is active
-  - the extension is disabled
-- After a gentle reminder is shown, the timer resets immediately to a fresh cycle.
-
-### Water Reminder
-
-- Water reminder is global.
-- It runs independently from the gentle reminder.
-
-## Architecture
-
-```text
-Chrome Tab / Website
-  |
-  +-- content.js
-  |     - detects DS vs non-DS context
-  |     - tracks page activity
-  |     - renders warnings and gentle reminders
-  |
-  +-- overlay.js + overlay.css
-  |     - fullscreen eye-break UI
-  |     - hydration UI
-  |     - post-break recovery flow
-  |
-  +-- intelligence.js + site-rules.js
-        - behavior heuristics
-        - per-site context rules
-
-background.js
-  - global scheduler
-  - shared DS timing
-  - global gentle reminder timing
-  - hydration timing
-  - stats, storage, alarms, snooze
-
-popup.html / popup.js / popup.css
-  - settings UI
-  - stats and insights UI
-
-onboarding.html / onboarding.js / onboarding.css
-  - first-run setup flow
+```
+You open Instagram
+    ↓
+EyeFlow detects you are on a doom-scroll surface
+    ↓
+You start scrolling rapidly
+    ↓
+Stage 1 → Small nudge appears at the corner
+          "Still here?"
+    ↓
+You ignore it
+    ↓
+Stage 2 → Warning banner appears
+          "30 seconds — that's all"
+    ↓
+You ignore that too
+    ↓
+Stage 3 → Fullscreen eye-break overlay
+          Guided 6-step exercise with moving dot
+    ↓
+Break complete → Mood check → Next-step suggestion
+    ↓
+Timer resets — cycle begins again
 ```
 
-## Main Files
+---
 
-### Core Runtime
+## Supported Sites
 
-- `manifest.json`: Chrome extension manifest
-- `background.js`: global scheduler, storage, alarms, shared timers
-- `content.js`: page detection, per-tab behavior, reminder rendering triggers
-- `overlay.js`: fullscreen eye-break and post-break UI behavior
-- `overlay.css`: overlay styles
-- `intelligence.js`: detection and behavior heuristics
-- `site-rules.js`: per-site and per-surface logic
+| Site | Strong DS surfaces | Gentle only | Suppressed |
+|---|---|---|---|
+| **Instagram** | Home, Explore, Reels | Direct messages, single posts | Live streams, video calls |
+| **YouTube** | Shorts | Long-form videos | Live chat |
+| **Reddit** | Home, Popular, feeds | Single post + comments | Notifications, settings |
+| **X / Twitter** | Home, Explore | Single tweet, notifications | Direct messages |
+| **Facebook** | Home, Watch, Groups | — | Messenger |
+| **TikTok** | Everything | — | Direct messages |
 
-### Popup
+---
 
-- `popup.html`
-- `popup.js`
-- `popup.css`
+## Onboarding Modes
 
-The popup lets the user:
+| Mode | What It Does |
+|---|---|
+| 🔒 **Strict** | Higher sensitivity, faster reminders, no skip button |
+| ⚖️ **Balanced** | Recommended — nudge first, then warning, then full break |
+| 🌿 **Gentle** | Lower sensitivity, fewer interruptions |
 
-- enable or disable EyeFlow
-- snooze reminders
-- adjust sensitivity
-- adjust eye-break timing
-- adjust gentle reminder timing
-- adjust hydration timing
-- manage redirect suggestions
-- view stats and pattern insights
+---
 
-### Onboarding
+## Project Structure
 
-- `onboarding.html`
-- `onboarding.js`
-- `onboarding.css`
-
-Onboarding offers preset modes:
-
-- Strict
-- Balanced
-- Gentle
-
-## Install Locally
-
-1. Open Chrome.
-2. Go to `chrome://extensions/`.
-3. Turn on `Developer mode`.
-4. Click `Load unpacked`.
-5. Select this project folder:
-
-```text
-eyeflow chorme extension
+```
+eyeflow-chrome-extension/
+│
+├── manifest.json           ← Chrome extension config (MV3)
+├── background.js           ← Global scheduler, timers, storage, alarms
+├── content.js              ← Page detection, per-tab behavior
+├── overlay.js              ← Fullscreen eye-break and post-break UI
+├── overlay.css             ← Overlay styles
+├── intelligence.js         ← Detection heuristics
+├── site-rules.js           ← Per-site context rules
+│
+├── popup.html              ← Extension popup
+├── popup.js                ← Popup logic
+├── popup.css               ← Popup styles
+│
+├── onboarding.html         ← First-run setup
+├── onboarding.js           ← Onboarding logic
+├── onboarding.css          ← Onboarding styles
+│
+├── icons/                  ← Extension icons (16, 48, 128px)
+│
+└── tests/
+    ├── puppeteer-extension-smoke.js
+    ├── puppeteer-extension-e2e.js
+    └── artifacts/
+        └── eyeflow-test-report.html
 ```
 
-6. Pin the EyeFlow icon to the toolbar for easier testing.
+---
+
+## Install Locally (Developer Mode)
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/kumaraharsh84/eye_flow_chrome_extension.git
+
+# 2. Open Chrome and go to
+chrome://extensions/
+
+# 3. Turn on Developer Mode (top right toggle)
+
+# 4. Click "Load unpacked"
+
+# 5. Select the cloned folder
+
+# 6. Pin the EyeFlow icon to your toolbar
+```
+
+---
 
 ## Testing
 
-### Automated Testing
+### Automated Tests
 
-Puppeteer-based test automation is included.
+```bash
+# Install dependencies
+npm install
 
-Files:
+# Run smoke tests
+npm test
 
-- `tests/puppeteer-extension-smoke.js`
-- `tests/puppeteer-extension-e2e.js`
+# Run full E2E suite
+npm run test:e2e
 
-Available commands from `package.json`:
-
-```powershell
-npm.cmd test
-npm.cmd run test:e2e
-npm.cmd run test:onboarding
-npm.cmd run test:popup
-npm.cmd run test:sites
-npm.cmd run test:online
+# Test specific flows
+npm run test:onboarding
+npm run test:popup
+npm run test:sites
+npm run test:online
 ```
 
-### HTML Test Report
-
-Each E2E run writes a report to:
-
-- `tests/artifacts/eyeflow-test-report.html`
+Test reports are written to `tests/artifacts/eyeflow-test-report.html` after each run.
 
 ### What Is Already Automated
 
-- onboarding preset save flow
-- popup enable and disable
-- popup snooze and resume
-- advanced settings save and validation
-- redirect suggestion add and remove persistence
-- content-script presence checks on live sites
-- gentle reminder render checks
+- Onboarding preset save flow
+- Popup enable and disable
+- Popup snooze and resume
+- Advanced settings save and validation
+- Redirect suggestion add and remove
+- Content script presence checks on live sites
+- Gentle reminder render checks
 
 ### Manual QA
 
-Manual testing guide:
+The manual testing guide is at:
+```
+docs/internal/MANUAL_ONLY_REMAINING_CHECKLIST.md
+```
 
-- `docs/internal/MANUAL_ONLY_REMAINING_CHECKLIST.md`
-
-Manual testing still covers:
-
-- fresh install trigger behavior
-- real doom-scroll timing in natural use
-- full eye-break recovery UX
-- hydration flow
-- stats and insights after real usage
-- multi-tab and restart behavior
-- audio behavior
-- final visual polish and release feel
-
-## Debug Timer Chip
-
-The debug timer chip is development-only and is disabled by default in production-like builds.
-It is included for internal testing and troubleshooting during development,
-but it does not appear in normal user-facing installations.
-
-## Recent Fixes And Improvements
-
-Recent work on the project includes:
-
-- fixed DS eye-break cycle restarting too early while post-break UI was still open
-- improved DS reset behavior after laptop sleep or long inactivity
-- improved overlay and post-break sizing for large tabs
-- removed the internal scroll problem from the main eye-break overlay on desktop
-- simplified the gentle scheduler toward one global loop across non-DS tabs
-- improved debug chip clarity for testing cross-tab timer behavior
-- added Puppeteer automation and HTML test reporting
-
-## Known Issues / In-Progress Work
-
-- Gentle reminder behavior is still being tuned to make the global non-DS timer fully predictable across tab switching and media-heavy normal tabs.
-- Water reminder flow exists, but it still needs final real-world QA coverage in longer sessions.
-- Some site-specific detection rules may still need fine-tuning for edge cases such as chat pages, profile pages, or mixed-content surfaces.
-- Overlay and post-break UI have been improved recently, but final visual polish is still in progress.
-- Debug timer chip is development-only and is disabled by default in production-like builds.
-- Backup and release-support folders such as `archive/` and `release/` have been moved to `docs/internal` to keep the repository root release-ready.
-
-## Project Structure Notes
-
-Likely active or required:
-
-- `icons`
-- `tests`
-- `node_modules`
-
-Mostly backup, docs, or release support:
-
-- `archive`
-- `release`
-- `.sixth`
+---
 
 ## Current Status
 
-The project is in a strong test-and-polish phase.
+```
+✅ Extension runtime         working
+✅ Popup and onboarding      working
+✅ Shared timer logic        working
+✅ Fullscreen overlay flow   working
+✅ Automated test coverage   working
+✅ Manual QA checklist       ready
 
-It already has:
+🔄 Final QA                 in progress
+🔄 Visual polish            in progress
+🔜 Chrome Web Store         coming soon
+```
 
-- working extension runtime
-- popup and onboarding
-- shared timer logic
-- fullscreen overlay flow
-- automation for key flows
-- a manual QA guide
+---
 
-The main remaining work is final QA, polish, cleanup, and release confidence.
+## Known Issues
+
+- Gentle reminder behavior is still being tuned for predictability across tab switching and media-heavy pages
+- Water reminder flow needs final real-world QA coverage in longer sessions
+- Some site-specific detection rules may need fine-tuning for edge cases like chat pages and mixed-content feeds
+- Final visual polish is still in progress
+
+---
+
+## Roadmap
+
+### v1.1 — Post-launch polish
+- [ ] Normal mode vs Power mode UI split
+- [ ] Streak system — consecutive days tracking
+- [ ] Weekly summary notification
+- [ ] Better passive video detection across all DS sites
+
+### v2.0 — Future
+- [ ] State machine timer architecture
+- [ ] Cross-device sync
+
+---
+
+## Privacy
+
+EyeFlow does not collect, transmit, or store any personal data on any server.
+
+- All data lives in your browser's local storage only
+- No accounts required
+- No analytics or tracking
+- No data ever leaves your device
+
+---
+
+## License
+
+MIT — use it, fork it, change it, share it.
+
+---
+
+<div align="center">
+
+Built to help you pause, reset, and keep going with less strain. 👁️💧
+
+</div>

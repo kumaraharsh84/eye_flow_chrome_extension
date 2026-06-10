@@ -3,7 +3,7 @@ const os = require("os");
 const path = require("path");
 const puppeteer = require("puppeteer");
 
-const extensionPath = path.resolve(__dirname, "..");
+const extensionPath = path.resolve(__dirname, "..", "src");
 const args = process.argv.slice(2);
 const holdOpen = args.includes("--hold-open");
 const suiteArg = args.find((arg) => arg.startsWith("--suite="));
