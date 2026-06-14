@@ -12,7 +12,7 @@
   "homepage": "https://github.com/kumaraharsh84/eye_flow_chrome_extension#readme",
   "main": "background.js",
   "scripts": {
-    "test": "node tests/puppeteer-extension-smoke.js",
+    "test": "node tests/intelligence.test.js && node tests/puppeteer-extension-smoke.js",
     "test:extension": "node tests/puppeteer-extension-smoke.js",
     "test:e2e": "node tests/puppeteer-extension-e2e.js",
     "test:online": "node tests/puppeteer-extension-e2e.js --suite=sites",
