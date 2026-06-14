@@ -1,5 +1,5 @@
 // ============================================================
-// BACKGROUND.JS â€” EyeFlow Chrome Extension
+// BACKGROUND.JS — EyeFlow Chrome Extension
 // ============================================================
 // This is the "brain" of the extension. It runs in the background
 // and manages everything:
@@ -174,7 +174,7 @@ const TIMER_LIMITS = {
 
 
 // -------------------------------------------------------
-// ON INSTALL â€” Set up defaults
+// ON INSTALL — Set up defaults
 // -------------------------------------------------------
 // When the extension is installed for the first time,
 // save the default settings and stats to Chrome storage.
@@ -223,10 +223,10 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 
 // -------------------------------------------------------
-// ALARM HANDLER â€” Periodic checks
+// ALARM HANDLER — Periodic checks
 // -------------------------------------------------------
 // Every minute, this alarm fires. We use it to:
-//   1. Check if a snooze period has ended â†’ re-enable the extension
+//   1. Check if a snooze period has ended → re-enable the extension
 //   2. Reset daily stats at midnight
 chrome.alarms.onAlarm.addListener((alarm) => {
   // Legacy maintenance path kept inert while the async tick handler below owns the alarm.
@@ -249,7 +249,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
       // --- Reset daily stats at midnight ---
       const today = new Date().toDateString();
       if (stats.lastResetDate !== today) {
-        // It's a new day â€” reset daily counters
+        // It's a new day — reset daily counters
         stats.todayDoomScrollsBlocked = 0;
         stats.todayEyeBreaksCompleted = 0;
         stats.todayDsSiteTimeSpent = {};
@@ -326,7 +326,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 
 
 // -------------------------------------------------------
-// MESSAGE HANDLER â€” Communication hub
+// MESSAGE HANDLER — Communication hub
 // -------------------------------------------------------
 // This handles all messages from content.js and popup.js.
 // Each message has a "type" field that tells us what to do.
@@ -1248,6 +1248,7 @@ function mergeSettings(...sources) {
   return merged;
 }
 
+// TODO: consolidate with utils.js when ESM modules are supported in service workers
 function clampNumber(value, min, max, fallback) {
   const numericValue = Number(value);
   if (!Number.isFinite(numericValue)) return fallback;
@@ -1402,7 +1403,7 @@ async function resetRuntimeStateForFreshSession(reason = 'manual') {
 
 
 // -------------------------------------------------------
-// PATTERN ANALYSIS â€” Learn user's doom-scroll patterns
+// PATTERN ANALYSIS — Learn user's doom-scroll patterns
 // -------------------------------------------------------
 // This function looks at the history of doom-scroll sessions and
 // finds patterns like "user scrolls most on Sundays at 11pm".
@@ -1473,7 +1474,7 @@ function broadcastToAllTabs(message) {
       // Only send to tabs that can receive messages (have URLs)
       if (tab.id && tab.url && !tab.url.startsWith('chrome://')) {
         chrome.tabs.sendMessage(tab.id, message).catch(() => {
-          // Tab might not have content script loaded â€” ignore the error
+          // Tab might not have content script loaded — ignore the error
         });
       }
     });

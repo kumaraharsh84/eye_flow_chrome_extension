@@ -1,20 +1,20 @@
 ﻿// ============================================================
-// OVERLAY.JS â€” EyeFlow Eye-Break Overlay + Post-Break Experience
+// OVERLAY.JS — EyeFlow Eye-Break Overlay + Post-Break Experience
 // ============================================================
 // This file creates and manages the fullscreen eye-break overlay.
 // It handles:
-//   1. The eye exercise â€” animated dot that moves around the screen
-//   2. Countdown timer â€” shows remaining time
-//   3. Post-break mood check â€” "How are you feeling?" (ðŸ˜Œ ðŸ˜ ðŸ˜¤)
-//   4. Time-on-site alert â€” "You've been on Instagram for 34 min"
-//   5. Redirect suggestions â€” "Instead of scrolling, how about..."
+//   1. The eye exercise — animated dot that moves around the screen
+//   2. Countdown timer — shows remaining time
+//   3. Post-break mood check — "How are you feeling?" (😌 ðŸ˜ 😤)
+//   4. Time-on-site alert — "You've been on Instagram for 34 min"
+//   5. Redirect suggestions — "Instead of scrolling, how about..."
 //   6. Strict enforcement - hides the skip button on high-risk sites
 // ============================================================
 
 const EYEFLOW_DEBUG_OVERLAY = false;
 
 // -------------------------------------------------------
-// EYEFLOW OVERLAY â€” Main overlay controller
+// EYEFLOW OVERLAY — Main overlay controller
 // -------------------------------------------------------
 const EyeFlowOverlay = (() => {
   const ENFORCED_STRICT_SITES = new Set([
@@ -54,7 +54,7 @@ const EyeFlowOverlay = (() => {
 
 
   // -------------------------------------------------------
-  // DOT POSITIONS â€” Where the eye dot moves to
+  // DOT POSITIONS — Where the eye dot moves to
   // -------------------------------------------------------
   // These positions guide the eye movement exercise.
   // The dot moves to each position in sequence, and the user
@@ -80,13 +80,13 @@ const EyeFlowOverlay = (() => {
 
 
   // -------------------------------------------------------
-  // SHOW OVERLAY â€” Display the fullscreen eye-break overlay
+  // SHOW OVERLAY — Display the fullscreen eye-break overlay
   // -------------------------------------------------------
   // Called when content.js determines it's time for a break.
   // Parameters:
-  //   settings â€” current extension settings
-  //   site     â€” the hostname where doom scrolling was detected
-  //   timeOnSite â€” how many minutes the user has been on this site
+  //   settings — current extension settings
+  //   site     — the hostname where doom scrolling was detected
+  //   timeOnSite — how many minutes the user has been on this site
   function show(settings, site, timeOnSite, options = {}) {
     // Don't show multiple overlays
     if (isShowing && ensureOverlayStateIsFresh()) return;
@@ -152,7 +152,7 @@ const EyeFlowOverlay = (() => {
 
 
   // -------------------------------------------------------
-  // BUILD EXERCISE HTML â€” Create the exercise screen HTML
+  // BUILD EXERCISE HTML — Create the exercise screen HTML
   // -------------------------------------------------------
   function buildExerciseHTML(duration, isStrict, site, timeOnSite, suggestions) {
     const breakLine = `${duration} seconds. Look away, breathe, come back.`;
@@ -161,7 +161,7 @@ const EyeFlowOverlay = (() => {
         <div class="eyeflow-title">Your eyes have been working hard</div>
         <div class="eyeflow-subtitle">${breakLine}</div>
 
-        <!-- Eye exercise area â€” the dot moves here -->
+        <!-- Eye exercise area — the dot moves here -->
         <div class="eyeflow-exercise-area">
           <div class="eyeflow-dot"></div>
         </div>
@@ -214,7 +214,7 @@ const EyeFlowOverlay = (() => {
 
 
   // -------------------------------------------------------
-  // START EXERCISE â€” Begin the eye movement exercise
+  // START EXERCISE — Begin the eye movement exercise
   // -------------------------------------------------------
   // Moves the dot to different positions and counts down.
   function startExercise(duration, site, timeOnSite, suggestions, settings, options = {}) {
@@ -341,7 +341,7 @@ const EyeFlowOverlay = (() => {
 
 
   // -------------------------------------------------------
-  // SHOW POST-BREAK â€” The experience after the eye exercise
+  // SHOW POST-BREAK — The experience after the eye exercise
   // -------------------------------------------------------
   // Instead of just closing, we show:
   //   1. Mood check (one tap)
@@ -377,22 +377,22 @@ const EyeFlowOverlay = (() => {
         <div class="eyeflow-title">Your eyes got a little room to breathe.</div>
         <div class="eyeflow-subtitle">Take a second to notice how they feel before you jump back in.</div>
 
-        <!-- MOOD CHECK â€” How are you feeling? -->
+        <!-- MOOD CHECK — How are you feeling? -->
         <div class="eyeflow-mood-title">How do your eyes feel now?</div>
         <div class="eyeflow-mood-options">
-          <button class="eyeflow-mood-btn" data-mood="good" title="Feeling good">ðŸ˜Œ</button>
+          <button class="eyeflow-mood-btn" data-mood="good" title="Feeling good">😌</button>
           <button class="eyeflow-mood-btn" data-mood="okay" title="Feeling okay">ðŸ˜</button>
-          <button class="eyeflow-mood-btn" data-mood="bad" title="Feeling stressed">ðŸ˜¤</button>
+          <button class="eyeflow-mood-btn" data-mood="bad" title="Feeling stressed">😤</button>
         </div>
 
-        <!-- TIME-ON-SITE ALERT â€” How long you've been scrolling -->
+        <!-- TIME-ON-SITE ALERT — How long you've been scrolling -->
         <div class="eyeflow-time-alert">
           You have been on <strong>${site}</strong> for <strong>${timeOnSite} minutes</strong>. You can keep going, or use this as a clean stopping point.
         </div>
 
         ${hydrationSection}
 
-        <!-- ACTION BUTTONS â€” Close tab or keep going -->
+        <!-- ACTION BUTTONS — Close tab or keep going -->
         <div class="eyeflow-action-btns">
           <button class="eyeflow-action-btn eyeflow-action-primary" id="eyeflow-close-tab">
             Close tab and step away
@@ -402,7 +402,7 @@ const EyeFlowOverlay = (() => {
           </button>
         </div>
 
-        <!-- REDIRECT SUGGESTIONS â€” What to do instead -->
+        <!-- REDIRECT SUGGESTIONS — What to do instead -->
         <div class="eyeflow-redirect-title">If you want a next step, try one of these:</div>
         <div class="eyeflow-redirect-list">
           ${suggestionsHTML}
@@ -496,7 +496,7 @@ const EyeFlowOverlay = (() => {
 
 
   // -------------------------------------------------------
-  // HIDE OVERLAY â€” Remove the overlay from the page
+  // HIDE OVERLAY — Remove the overlay from the page
   // -------------------------------------------------------
   function hide() {
     const shouldFinalizeBreakCycle = shouldResetBreakCycleOnHide;
@@ -579,7 +579,7 @@ const EyeFlowOverlay = (() => {
 
 
   // -------------------------------------------------------
-  // PUBLIC API â€” What content.js can call
+  // PUBLIC API — What content.js can call
   // -------------------------------------------------------
   return {
     show,
