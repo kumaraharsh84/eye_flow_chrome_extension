@@ -1,5 +1,6 @@
 import { EyeFlowIntelligence } from './intelligence.js';
 import { EyeFlowOverlay } from './overlay.js';
+import { clampNumber } from './utils.js';
 
 // ============================================================
 // CONTENT.JS — EyeFlow Doom-Scroll Detection
@@ -16,7 +17,6 @@ import { EyeFlowOverlay } from './overlay.js';
 // to determine thresholds and interruption stages.
 // ============================================================
 
-
 // -------------------------------------------------------
 // EYEFLOW CONTENT — Main content script controller
 // -------------------------------------------------------
@@ -30,7 +30,7 @@ const EyeFlowContent = (() => {
     'reddit.com',
     'facebook.com',
     'twitter.com',
-    'x.com'
+    'x.com',
   ]);
   const SENSITIVE_HOST_KEYWORDS = [
     'bank',
@@ -60,7 +60,7 @@ const EyeFlowContent = (() => {
     'canva',
     'zoom',
     'meet',
-    'teams'
+    'teams',
   ];
   const SENSITIVE_PATH_KEYWORDS = [
     'login',
@@ -77,9 +77,17 @@ const EyeFlowContent = (() => {
     'quiz',
     'test',
     'assessment',
-    'proctor'
+    'proctor',
   ];
-  const COMMUNICATION_HOST_KEYWORDS = ['instagram', 'facebook', 'messenger', 'x.com', 'twitter', 'discord', 'snapchat'];
+  const COMMUNICATION_HOST_KEYWORDS = [
+    'instagram',
+    'facebook',
+    'messenger',
+    'x.com',
+    'twitter',
+    'discord',
+    'snapchat',
+  ];
   const SITE_TIME_REPORT_INTERVAL_MS = 60 * 1000;
   const HYDRATION_JITTER_MINUTES = 3;
   const PRESENCE_WINDOW_MS = 35 * 1000;
@@ -95,25 +103,25 @@ const EyeFlowContent = (() => {
   const DEBUG_CHIP_INTERVAL_MS = 1000;
 
   // --- Scroll tracking variables ---
-  let scrollEvents = [];            // Array of timestamps when scroll events happened
-  let lastDoomScrollTime = 0;       // When doom scroll was last detected
-  let scrollCheckInterval = null;   // Interval ID for periodic scroll checking
-  let siteEntryTime = Date.now();   // When the user entered this page
-  let timeTrackingInterval = null;  // Interval for tracking time on site
-  let isActive = true;              // Whether the extension is currently active
-  let currentSettings = null;       // Cached extension settings
-  let lastScrollSignalAt = 0;       // Deduplicates scroll-like signals across listeners
-  let lastActivityAt = Date.now();  // Tracks recent feed activity for strict sites
+  let scrollEvents = []; // Array of timestamps when scroll events happened
+  let lastDoomScrollTime = 0; // When doom scroll was last detected
+  let scrollCheckInterval = null; // Interval ID for periodic scroll checking
+  let siteEntryTime = Date.now(); // When the user entered this page
+  let timeTrackingInterval = null; // Interval for tracking time on site
+  let isActive = true; // Whether the extension is currently active
+  let currentSettings = null; // Cached extension settings
+  let lastScrollSignalAt = 0; // Deduplicates scroll-like signals across listeners
+  let lastActivityAt = Date.now(); // Tracks recent feed activity for strict sites
   let lastMeaningfulInputAt = Date.now();
   let lastKnownUrl = window.location.href;
   let pendingHydrationPopup = false;
-  let activeSiteMs = 0;             // Counts DS time while this tab is actively visible and present
+  let activeSiteMs = 0; // Counts DS time while this tab is actively visible and present
   let activeSessionStartedAt = 0;
   let lastReportedActiveSiteMs = 0;
   let hydrationTargetMs = 0;
   let lastContextKey = '';
   let isSystemIdle = false;
-  let totalActiveUsageMs = 0;       // Counts active usage beyond DS so hydration can follow normal browsing too
+  let totalActiveUsageMs = 0; // Counts active usage beyond DS so hydration can follow normal browsing too
   let totalUsageStartedAt = 0;
   let hydrationMergedIntoNextBreak = false;
   let hydrationGentleReminderAt = 0;
@@ -124,10 +132,10 @@ const EyeFlowContent = (() => {
   let singlePostGraceStartedAt = 0;
 
   // --- UI elements (nudge and warning) ---
-  let nudgeElement = null;          // The small floating nudge pill
-  let warningElement = null;        // The larger warning banner
+  let nudgeElement = null; // The small floating nudge pill
+  let warningElement = null; // The larger warning banner
   let subtleReminderElement = null; // The gentle side reminder during normal work
-  let debugTimerElement = null;     // Temporary live DS countdown while timing behavior is being tuned
+  let debugTimerElement = null; // Temporary live DS countdown while timing behavior is being tuned
   let debugTimerInterval = null;
   let debugTimerMeta = {
     nextGentleReminderAt: 0,
@@ -137,7 +145,7 @@ const EyeFlowContent = (() => {
     nextWaterReminderAt: 0,
     waterReminderPending: false,
     waterQueuedForNextBreak: false,
-    lastFetchedAt: 0
+    lastFetchedAt: 0,
   };
   let sharedDsSyncInFlight = false;
   let sharedDsState = {
@@ -146,13 +154,12 @@ const EyeFlowContent = (() => {
     isActive: false,
     contextKey: '',
     activeTabId: 0,
-    lastSyncedAt: 0
+    lastSyncedAt: 0,
   };
 
   function runtimeCallbackFailed() {
     return Boolean(chrome.runtime?.lastError);
   }
-
 
   // -------------------------------------------------------
   // GET HOSTNAME — Extract clean domain name from URL
@@ -181,7 +188,7 @@ const EyeFlowContent = (() => {
       'linkedin.com': 'LinkedIn',
       'twitch.tv': 'Twitch',
       'tiktok.com': 'TikTok',
-      'youtube.com': 'YouTube'
+      'youtube.com': 'YouTube',
     };
 
     return siteLabels[hostname] || hostname;
@@ -259,7 +266,7 @@ const EyeFlowContent = (() => {
       return false;
     }
 
-    return (Date.now() - singlePostGraceStartedAt) < SINGLE_POST_GRACE_MS;
+    return Date.now() - singlePostGraceStartedAt < SINGLE_POST_GRACE_MS;
   }
 
   function getSinglePostGraceRemainingMs(contextKey = getDoomScrollContextKey()) {
@@ -301,11 +308,11 @@ const EyeFlowContent = (() => {
   }
 
   function hasRecentMeaningfulInput() {
-    return (Date.now() - lastMeaningfulInputAt) <= PRESENCE_WINDOW_MS;
+    return Date.now() - lastMeaningfulInputAt <= PRESENCE_WINDOW_MS;
   }
 
   function hasRecentRegularPageInput() {
-    return (Date.now() - lastMeaningfulInputAt) <= REGULAR_PAGE_INACTIVITY_WINDOW_MS;
+    return Date.now() - lastMeaningfulInputAt <= REGULAR_PAGE_INACTIVITY_WINDOW_MS;
   }
 
   function getInstagramDoomSurfaceKey() {
@@ -332,12 +339,16 @@ const EyeFlowContent = (() => {
     }
 
     if (path.startsWith('/explore')) {
-      const gridVisible = Boolean(document.querySelector('main img, main video, main article, main [role="link"]'));
+      const gridVisible = Boolean(
+        document.querySelector('main img, main video, main article, main [role="link"]')
+      );
       return gridVisible ? 'instagram.com/explore' : '';
     }
 
     if (path === '/' || path === '') {
-      const feedVisible = Boolean(document.querySelector('main article, main [role="main"] article, main video'));
+      const feedVisible = Boolean(
+        document.querySelector('main article, main [role="main"] article, main video')
+      );
       return feedVisible ? 'instagram.com/home' : '';
     }
 
@@ -408,14 +419,20 @@ const EyeFlowContent = (() => {
       return 'facebook.com/feeds-pages';
     }
 
-    if (search.includes('filter=favourites') || search.includes('filter=favorites') || search.includes('filter=friends')) {
+    if (
+      search.includes('filter=favourites') ||
+      search.includes('filter=favorites') ||
+      search.includes('filter=friends')
+    ) {
       return '';
     }
 
     if (path === '/' || path === '') {
-      const feedVisible = Boolean(document.querySelector(
-        '[role="feed"], div[role="feed"], [role="main"] [role="article"], div[data-pagelet*="FeedUnit"], div[data-pagelet*="MainFeed"], div[aria-posinset][role="article"]'
-      ));
+      const feedVisible = Boolean(
+        document.querySelector(
+          '[role="feed"], div[role="feed"], [role="main"] [role="article"], div[data-pagelet*="FeedUnit"], div[data-pagelet*="MainFeed"], div[aria-posinset][role="article"]'
+        )
+      );
       return feedVisible ? 'facebook.com/home' : '';
     }
 
@@ -439,7 +456,7 @@ const EyeFlowContent = (() => {
       '/i/spaces/start',
       '/i/spaces',
       '/i/creators/studio',
-      '/i/business'
+      '/i/business',
     ];
 
     if (reservedOffPaths.some((prefix) => path.startsWith(prefix))) {
@@ -454,7 +471,11 @@ const EyeFlowContent = (() => {
       return 'x.com/explore';
     }
 
-    if (path.startsWith('/i/communities') || /^\/[^/]+\/communities(\/|$)/.test(path) || path.startsWith('/communities')) {
+    if (
+      path.startsWith('/i/communities') ||
+      /^\/[^/]+\/communities(\/|$)/.test(path) ||
+      path.startsWith('/communities')
+    ) {
       return 'x.com/communities';
     }
 
@@ -466,7 +487,11 @@ const EyeFlowContent = (() => {
       return '';
     }
 
-    if (/^\/[^/]+(?:\/(with_replies|media|likes|highlights|articles|followers|following))?\/?$/.test(path)) {
+    if (
+      /^\/[^/]+(?:\/(with_replies|media|likes|highlights|articles|followers|following))?\/?$/.test(
+        path
+      )
+    ) {
       return '';
     }
 
@@ -486,7 +511,9 @@ const EyeFlowContent = (() => {
       )
     );
     const shortsGridVisible = Boolean(
-      document.querySelector('ytd-rich-grid-renderer ytd-reel-item-renderer, ytd-reel-shelf-renderer, ytd-reel-video-renderer')
+      document.querySelector(
+        'ytd-rich-grid-renderer ytd-reel-item-renderer, ytd-reel-shelf-renderer, ytd-reel-video-renderer'
+      )
     );
 
     if (shortsTabSelected && shortsGridVisible) {
@@ -576,8 +603,8 @@ const EyeFlowContent = (() => {
 
     if (
       path.startsWith('/clips') ||
-      path.startsWith('/directory/game/') && path.includes('/clips') ||
-      path.startsWith('/directory/all/tags/') && path.includes('/clips')
+      (path.startsWith('/directory/game/') && path.includes('/clips')) ||
+      (path.startsWith('/directory/all/tags/') && path.includes('/clips'))
     ) {
       return 'twitch.tv/feed';
     }
@@ -600,7 +627,7 @@ const EyeFlowContent = (() => {
       'verification',
       'checkpoint',
       'forgot',
-      'reset'
+      'reset',
     ].some((token) => path.includes(token));
     const authFieldsVisible = Boolean(
       document.querySelector(
@@ -625,7 +652,7 @@ const EyeFlowContent = (() => {
         ' ',
         'Enter',
         'j',
-        'k'
+        'k',
       ]);
 
       if (activeKeys.has(event.key)) {
@@ -647,11 +674,13 @@ const EyeFlowContent = (() => {
 
   function getLocalGentleDelayMs() {
     const minMinutes = Math.max(1, Number(currentSettings?.subtleReminderMin) || 25);
-    const maxMinutes = Math.max(minMinutes, Number(currentSettings?.subtleReminderMax) || minMinutes);
+    const maxMinutes = Math.max(
+      minMinutes,
+      Number(currentSettings?.subtleReminderMax) || minMinutes
+    );
     const randomMinutes = Math.floor(Math.random() * (maxMinutes - minMinutes + 1)) + minMinutes;
     return randomMinutes * 60 * 1000;
   }
-
 
   function applySharedDsState(snapshot) {
     if (!snapshot) return;
@@ -662,7 +691,7 @@ const EyeFlowContent = (() => {
       isActive: Boolean(snapshot.isActive),
       contextKey: snapshot.contextKey || '',
       activeTabId: snapshot.activeTabId || 0,
-      lastSyncedAt: Date.now()
+      lastSyncedAt: Date.now(),
     };
   }
 
@@ -673,7 +702,7 @@ const EyeFlowContent = (() => {
     pendingHydrationPopup = false;
     lastReportedActiveSiteMs = 0;
     const jitterMs = Math.floor(Math.random() * (HYDRATION_JITTER_MINUTES + 1)) * 60 * 1000;
-    hydrationTargetMs = ((currentSettings?.hydrationReminderMin ?? 80) * 60 * 1000) + jitterMs;
+    hydrationTargetMs = (currentSettings?.hydrationReminderMin ?? 80) * 60 * 1000 + jitterMs;
 
     if (resetTotalTime) {
       activeSiteMs = 0;
@@ -710,8 +739,8 @@ const EyeFlowContent = (() => {
           stats: {
             ...stats,
             siteTimeSpent,
-            todayDsSiteTimeSpent
-          }
+            todayDsSiteTimeSpent,
+          },
         });
       });
     } catch (e) {
@@ -780,18 +809,23 @@ const EyeFlowContent = (() => {
     const activeElement = document.activeElement;
     const focusedEditable = Boolean(
       activeElement &&
-      (
-        activeElement.isContentEditable ||
+      (activeElement.isContentEditable ||
         activeElement.tagName === 'TEXTAREA' ||
-        (activeElement.tagName === 'INPUT' && !['checkbox', 'radio', 'range', 'button', 'submit'].includes((activeElement.type || '').toLowerCase()))
-      )
+        (activeElement.tagName === 'INPUT' &&
+          !['checkbox', 'radio', 'range', 'button', 'submit'].includes(
+            (activeElement.type || '').toLowerCase()
+          )))
     );
     const passwordOrOtpField = Boolean(
-      document.querySelector('input[type="password"], input[autocomplete="one-time-code"], input[name*="otp" i], input[id*="otp" i]')
+      document.querySelector(
+        'input[type="password"], input[autocomplete="one-time-code"], input[name*="otp" i], input[id*="otp" i]'
+      )
     );
     const largeForm = document.querySelectorAll('input, textarea, select').length >= 6;
     const videoMeetingSignals = Boolean(
-      document.querySelector('[data-meeting-title], [aria-label*="meeting" i], [class*="meeting" i], [class*="conference" i]')
+      document.querySelector(
+        '[data-meeting-title], [aria-label*="meeting" i], [class*="meeting" i], [class*="conference" i]'
+      )
     );
 
     if (overlayShowing || document.fullscreenElement) return true;
@@ -813,11 +847,10 @@ const EyeFlowContent = (() => {
     const activeElement = document.activeElement;
     const chatFocused = Boolean(
       activeElement &&
-      (
-        activeElement.isContentEditable ||
+      (activeElement.isContentEditable ||
         activeElement.tagName === 'TEXTAREA' ||
-        (activeElement.tagName === 'INPUT' && ['text', 'search'].includes((activeElement.type || '').toLowerCase()))
-      )
+        (activeElement.tagName === 'INPUT' &&
+          ['text', 'search'].includes((activeElement.type || '').toLowerCase())))
     );
     const chatUiSignals = Boolean(
       document.querySelector(
@@ -843,7 +876,8 @@ const EyeFlowContent = (() => {
     // Keep call/live suppression scoped to communication-heavy products so video sites like
     // YouTube Shorts are not mistaken for an active call just because they contain "video" UI.
     if (communicationHost && (callUiSignals || liveOrSharedWatchSignals)) return true;
-    if (path.includes('/direct/') || path.includes('/messages/') || path.includes('/inbox')) return true;
+    if (path.includes('/direct/') || path.includes('/messages/') || path.includes('/inbox'))
+      return true;
 
     return false;
   }
@@ -880,7 +914,10 @@ const EyeFlowContent = (() => {
   function findPassiveVideoCandidate({ requireLongDuration = false } = {}) {
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-    const minimumVisibleArea = Math.max(160 * 160, Math.round(viewportWidth * viewportHeight * 0.06));
+    const minimumVisibleArea = Math.max(
+      160 * 160,
+      Math.round(viewportWidth * viewportHeight * 0.06)
+    );
     const minimumVideoArea = Math.max(220 * 160, Math.round(viewportWidth * viewportHeight * 0.08));
 
     const videos = Array.from(document.querySelectorAll('video'));
@@ -894,8 +931,14 @@ const EyeFlowContent = (() => {
       const rect = video.getBoundingClientRect();
       if (rect.width < 180 || rect.height < 120) return;
 
-      const visibleWidth = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0));
-      const visibleHeight = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
+      const visibleWidth = Math.max(
+        0,
+        Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0)
+      );
+      const visibleHeight = Math.max(
+        0,
+        Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0)
+      );
       const visibleArea = visibleWidth * visibleHeight;
       const videoArea = rect.width * rect.height;
 
@@ -958,7 +1001,14 @@ const EyeFlowContent = (() => {
 
   function shouldCountActiveTime() {
     const overlayShowing = typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing();
-    return isActive && !isEffectivelySystemIdle() && isDoomScrollContext() && isTabActivelyVisible() && !overlayShowing && (hasRecentMeaningfulInput() || isPassiveViewerDoomContext() || isWatchingPassiveDsVideo());
+    return (
+      isActive &&
+      !isEffectivelySystemIdle() &&
+      isDoomScrollContext() &&
+      isTabActivelyVisible() &&
+      !overlayShowing &&
+      (hasRecentMeaningfulInput() || isPassiveViewerDoomContext() || isWatchingPassiveDsVideo())
+    );
   }
 
   function isUsageActiveNow() {
@@ -1050,11 +1100,11 @@ const EyeFlowContent = (() => {
     );
 
     if (!lastPresenceAt) return;
-    if ((now - lastPresenceAt) < SESSION_RESET_INACTIVITY_MS) return;
+    if (now - lastPresenceAt < SESSION_RESET_INACTIVITY_MS) return;
 
     resetTrackedSession();
     sharedDsState.activeMs = 0;
-    sharedDsState.nextBreakTargetMs = getLocalEyeBreakDelayMs();
+    sharedDsState.nextBreakTargetMs = EyeFlowIntelligence.getNextBreakTargetMs();
     sharedDsState.isActive = false;
     sharedDsState.contextKey = '';
     sharedDsState.activeTabId = 0;
@@ -1085,7 +1135,7 @@ const EyeFlowContent = (() => {
   function canShowBreakOverlay() {
     const overlayShowing = typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing();
     if (overlayShowing) return false;
-    return (Date.now() - lastBreakOverlayShownAt) > BREAK_DUPLICATE_GUARD_MS;
+    return Date.now() - lastBreakOverlayShownAt > BREAK_DUPLICATE_GUARD_MS;
   }
 
   function syncSharedDsTimer() {
@@ -1102,14 +1152,17 @@ const EyeFlowContent = (() => {
       sharedDsState.lastSyncedAt = now;
 
       sharedDsSyncInFlight = true;
-      chrome.runtime.sendMessage({
-        type: 'SYNC_SHARED_DS_STATE',
-        isActive: isActiveNow,
-        contextKey: isActiveNow ? sharedDsState.contextKey : ''
-      }, (response) => {
-        sharedDsSyncInFlight = false;
-        applySharedDsState(response);
-      });
+      chrome.runtime.sendMessage(
+        {
+          type: 'SYNC_SHARED_DS_STATE',
+          isActive: isActiveNow,
+          contextKey: isActiveNow ? sharedDsState.contextKey : '',
+        },
+        (response) => {
+          sharedDsSyncInFlight = false;
+          applySharedDsState(response);
+        }
+      );
     } catch (e) {
       sharedDsSyncInFlight = false;
     }
@@ -1143,7 +1196,7 @@ const EyeFlowContent = (() => {
 
   function syncDebugTimerMeta(force = false) {
     const now = Date.now();
-    if (!force && (now - debugTimerMeta.lastFetchedAt) < 1000) return;
+    if (!force && now - debugTimerMeta.lastFetchedAt < 1000) return;
 
     debugTimerMeta.lastFetchedAt = now;
     try {
@@ -1254,7 +1307,9 @@ const EyeFlowContent = (() => {
     if (!eyeValueElement || !gentleValueElement || !waterValueElement) return;
 
     if (isDoomScrollContext()) {
-      eyeValueElement.textContent = shouldCountActiveTime() ? formatCountdown(getMsUntilEyeBreak()) : 'Paused';
+      eyeValueElement.textContent = shouldCountActiveTime()
+        ? formatCountdown(getMsUntilEyeBreak())
+        : 'Paused';
     } else if (isWithinSinglePostGraceWindow()) {
       eyeValueElement.textContent = `Read ${formatCountdown(getSinglePostGraceRemainingMs())}`;
     } else {
@@ -1266,9 +1321,10 @@ const EyeFlowContent = (() => {
     } else if (debugTimerMeta.gentleState === 'off') {
       gentleValueElement.textContent = 'Off';
     } else if (debugTimerMeta.gentleState === 'paused' || debugTimerMeta.gentleState === 'hold') {
-      const holdMs = debugTimerMeta.gentlePausedRemainingMs > 0
-        ? debugTimerMeta.gentlePausedRemainingMs
-        : Math.max(0, debugTimerMeta.nextGentleReminderAt - Date.now());
+      const holdMs =
+        debugTimerMeta.gentlePausedRemainingMs > 0
+          ? debugTimerMeta.gentlePausedRemainingMs
+          : Math.max(0, debugTimerMeta.nextGentleReminderAt - Date.now());
       gentleValueElement.textContent = `Hold ${formatCountdown(holdMs)}`;
     } else if (debugTimerMeta.nextGentleReminderAt > 0) {
       const gentleRemainingMs = Math.max(0, debugTimerMeta.nextGentleReminderAt - Date.now());
@@ -1282,7 +1338,9 @@ const EyeFlowContent = (() => {
     } else if (debugTimerMeta.waterReminderPending) {
       waterValueElement.textContent = 'Pending';
     } else if (debugTimerMeta.nextWaterReminderAt > 0) {
-      waterValueElement.textContent = formatReadableTimer(debugTimerMeta.nextWaterReminderAt - Date.now());
+      waterValueElement.textContent = formatReadableTimer(
+        debugTimerMeta.nextWaterReminderAt - Date.now()
+      );
     } else {
       waterValueElement.textContent = 'Waiting';
     }
@@ -1304,9 +1362,9 @@ const EyeFlowContent = (() => {
   function maybeTriggerGentleReminderFailsafe() {
     if (isDoomScrollContext()) return;
     if (!debugTimerMeta.nextGentleReminderAt) return;
-    if ((Date.now() - debugTimerMeta.nextGentleReminderAt) < 0) return;
-    if ((Date.now() - lastGentleReminderFallbackAt) < 15000) return;
-    if ((Date.now() - lastGentleReminderShownAt) < GENTLE_REMINDER_DUPLICATE_GUARD_MS) return;
+    if (Date.now() - debugTimerMeta.nextGentleReminderAt < 0) return;
+    if (Date.now() - lastGentleReminderFallbackAt < 15000) return;
+    if (Date.now() - lastGentleReminderShownAt < GENTLE_REMINDER_DUPLICATE_GUARD_MS) return;
     if (!canShowGentleReminderWithPassiveVideoSupport()) return;
 
     lastGentleReminderFallbackAt = Date.now();
@@ -1362,7 +1420,7 @@ const EyeFlowContent = (() => {
       if (canShowGentleReminder()) {
         showGentleReminder({
           title: 'Stay Hydrated',
-          text: 'Just a gentle nudge to take a sip of water!'
+          text: 'Just a gentle nudge to take a sip of water!',
         });
         hydrationGentleReminderAt = 0;
         return true;
@@ -1380,24 +1438,27 @@ const EyeFlowContent = (() => {
     }
 
     try {
-      chrome.runtime.sendMessage({
-        type: 'DOOM_SCROLL_DETECTED',
-        site: hostname,
-        stage: stage,
-        duration: duration,
-        scrollCount: scrollEvents.length
-      }, (response) => {
-        handled = true;
-        if (response && response.action === 'INTERVENE') {
-          if (stage === 'break' && !canShowBreakOverlay()) {
-            return;
+      chrome.runtime.sendMessage(
+        {
+          type: 'DOOM_SCROLL_DETECTED',
+          site: hostname,
+          stage: stage,
+          duration: duration,
+          scrollCount: scrollEvents.length,
+        },
+        (response) => {
+          handled = true;
+          if (response && response.action === 'INTERVENE') {
+            if (stage === 'break' && !canShowBreakOverlay()) {
+              return;
+            }
+            if (typeof EyeFlowIntelligence !== 'undefined') {
+              EyeFlowIntelligence.markReminderShown();
+            }
+            showInterruption(response.stage, response.settings);
           }
-          if (typeof EyeFlowIntelligence !== 'undefined') {
-            EyeFlowIntelligence.markReminderShown();
-          }
-          showInterruption(response.stage, response.settings);
         }
-      });
+      );
 
       // Keep the stats/reporting round-trip, but do not let a missed callback block the
       // actual eye-break UI on fast-moving reels/shorts surfaces during testing.
@@ -1419,7 +1480,6 @@ const EyeFlowContent = (() => {
       showInterruption(stage, currentSettings || {});
     }
   }
-
 
   // -------------------------------------------------------
   // HANDLE SCROLL EVENT — Called on every scroll
@@ -1445,7 +1505,12 @@ const EyeFlowContent = (() => {
 
     // Clean up old scroll events (outside the detection window)
     const timeWindow = EyeFlowIntelligence.getTimeWindow(getHostname());
-    scrollEvents = scrollEvents.filter(t => (now - t) < timeWindow);
+    scrollEvents = scrollEvents.filter((t) => now - t < timeWindow);
+
+    // Hard cap to prevent memory leaks from infinite micro-scrolls
+    if (scrollEvents.length > 250) {
+      scrollEvents = scrollEvents.slice(-250);
+    }
   }
 
   function isMeaningfulScrollSignal(event) {
@@ -1465,7 +1530,6 @@ const EyeFlowContent = (() => {
 
     return false;
   }
-
 
   // -------------------------------------------------------
   // CHECK FOR DOOM SCROLL — Periodic check (runs every 2 sec)
@@ -1490,9 +1554,15 @@ const EyeFlowContent = (() => {
     // typing checks. Once the timer reaches zero on a real DS surface, fire the
     // break flow instead of letting the chip sit at 00:00 forever.
     if (isDoomScrollContext()) {
-      const isBreakDue = Boolean(sharedDsState.nextBreakTargetMs) && getBreakCycleMs() >= sharedDsState.nextBreakTargetMs;
+      const isBreakDue =
+        Boolean(sharedDsState.nextBreakTargetMs) &&
+        getBreakCycleMs() >= sharedDsState.nextBreakTargetMs;
       if (isBreakDue) {
-        if (pendingHydrationPopup && !warningElement && !(typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing())) {
+        if (
+          pendingHydrationPopup &&
+          !warningElement &&
+          !(typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing())
+        ) {
           tryShowHydrationPopup();
           return;
         }
@@ -1503,7 +1573,6 @@ const EyeFlowContent = (() => {
         return;
       }
     }
-
 
     // Don't check if user is typing (they're working)
     if (EyeFlowIntelligence.isUserTyping()) return;
@@ -1516,7 +1585,11 @@ const EyeFlowContent = (() => {
       return;
     }
 
-    if (pendingHydrationPopup && !warningElement && !(typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing())) {
+    if (
+      pendingHydrationPopup &&
+      !warningElement &&
+      !(typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing())
+    ) {
       tryShowHydrationPopup();
       return;
     }
@@ -1532,7 +1605,7 @@ const EyeFlowContent = (() => {
       } else if (canShowGentleReminder()) {
         showGentleReminder({
           title: 'Water check-in',
-          text: 'Take a few sips if you have not had water in a while.'
+          text: 'Take a few sips if you have not had water in a while.',
         });
         resetHydrationTimer();
         return;
@@ -1542,8 +1615,8 @@ const EyeFlowContent = (() => {
     if (isDoomScrollContext()) {
       const scrollThreshold = EyeFlowIntelligence.getScrollThreshold(hostname);
       const timeWindow = EyeFlowIntelligence.getTimeWindow(hostname);
-      const recentScrollCount = scrollEvents.filter(t => (now - t) < timeWindow).length;
-      if (recentScrollCount >= scrollThreshold && (now - lastDoomScrollTime) > 5000) {
+      const recentScrollCount = scrollEvents.filter((t) => now - t < timeWindow).length;
+      if (recentScrollCount >= scrollThreshold && now - lastDoomScrollTime > 5000) {
         lastDoomScrollTime = now;
         scrollEvents = [];
         resetBreakCycle();
@@ -1551,7 +1624,8 @@ const EyeFlowContent = (() => {
         return;
       }
 
-      if (!sharedDsState.nextBreakTargetMs || getBreakCycleMs() < sharedDsState.nextBreakTargetMs) return;
+      if (!sharedDsState.nextBreakTargetMs || getBreakCycleMs() < sharedDsState.nextBreakTargetMs)
+        return;
       const stage = 'break';
       if (now - lastDoomScrollTime < 5000) return;
 
@@ -1602,7 +1676,6 @@ const EyeFlowContent = (() => {
         break;
     }
   }
-
 
   // -------------------------------------------------------
   // SHOW NUDGE — Small floating pill at the bottom of screen
@@ -1695,7 +1768,6 @@ const EyeFlowContent = (() => {
     setTimeout(removeNudge, 15000);
   }
 
-
   // -------------------------------------------------------
   // REMOVE NUDGE — Hide the nudge pill
   // -------------------------------------------------------
@@ -1707,7 +1779,6 @@ const EyeFlowContent = (() => {
     const style = document.getElementById('eyeflow-nudge-style');
     if (style) style.remove();
   }
-
 
   // -------------------------------------------------------
   // SHOW WARNING — Larger banner at the top of screen
@@ -1878,10 +1949,11 @@ const EyeFlowContent = (() => {
     });
 
     // "Later" button — dismiss for now
-    warningElement.querySelector('.eyeflow-warning-dismiss').addEventListener('click', removeWarning);
+    warningElement
+      .querySelector('.eyeflow-warning-dismiss')
+      .addEventListener('click', removeWarning);
     setTimeout(removeWarning, 30000);
   }
-
 
   // -------------------------------------------------------
   // REMOVE WARNING — Hide the warning banner
@@ -1901,7 +1973,7 @@ const EyeFlowContent = (() => {
       return false;
     }
 
-    if ((Date.now() - lastGentleReminderShownAt) < GENTLE_REMINDER_DUPLICATE_GUARD_MS) {
+    if (Date.now() - lastGentleReminderShownAt < GENTLE_REMINDER_DUPLICATE_GUARD_MS) {
       return false;
     }
 
@@ -1971,12 +2043,12 @@ const EyeFlowContent = (() => {
     if (style) style.remove();
   }
 
-
   // -------------------------------------------------------
   // SHOW PROACTIVE WARNING — Pattern-based early warning
   // -------------------------------------------------------
   // If the intelligence layer detects this is a high-risk time,
   // show a gentle proactive nudge when the user enters the page.
+  let proactiveElement = null;
   function showProactiveWarning(warning) {
     if (proactiveElement) return;
 
@@ -2069,7 +2141,6 @@ const EyeFlowContent = (() => {
     }, 20000);
   }
 
-
   // -------------------------------------------------------
   // TRACK TIME ON SITE — Send time data to background.js
   // -------------------------------------------------------
@@ -2080,7 +2151,6 @@ const EyeFlowContent = (() => {
       flushDsSiteTime();
     }, SITE_TIME_REPORT_INTERVAL_MS);
   }
-
 
   // -------------------------------------------------------
   // LISTEN FOR MESSAGES — From background.js
@@ -2137,7 +2207,7 @@ const EyeFlowContent = (() => {
         if (message.type === 'SHOW_WATER_GENTLE_REMINDER') {
           showGentleReminder({
             title: 'Water check-in',
-            text: 'Take a few sips of water when you get a moment.'
+            text: 'Take a few sips of water when you get a moment.',
           });
         }
 
@@ -2163,16 +2233,19 @@ const EyeFlowContent = (() => {
             hasPassiveVideoPresence: isWatchingLongVideoPassively() || isWatchingPassiveDsVideo(),
             hasRecentRegularPageInput: hasRecentRegularPageInput(),
             isUsageActive: isUsageActiveNow(),
-            isDsActive: shouldCountActiveTime()
+            isDsActive: shouldCountActiveTime(),
           });
           return true;
         }
+        if (!message.type.startsWith('GET_') && message.type !== 'CAN_SHOW_GENTLE_REMINDER') {
+          sendResponse({ success: true });
+        }
+        return true;
       });
     } catch (e) {
       // Ignore if extension context is invalid
     }
   }
-
 
   // -------------------------------------------------------
   // INITIALIZE — Set everything up when page loads
@@ -2213,38 +2286,54 @@ const EyeFlowContent = (() => {
     document.addEventListener('click', handleInteraction, { passive: true, capture: true });
     document.addEventListener('pointerup', handleInteraction, { passive: true, capture: true });
     document.addEventListener('keydown', handleInteraction, { passive: true, capture: true });
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) {
-        flushDsSiteTime();
-      } else {
+    document.addEventListener(
+      'visibilitychange',
+      () => {
+        if (document.hidden) {
+          flushDsSiteTime();
+        } else {
+          recordActivity();
+        }
+        syncSessionAndSharedTimer();
+        syncDebugTimerMeta();
+      },
+      { passive: true }
+    );
+    window.addEventListener(
+      'focus',
+      () => {
         recordActivity();
-      }
-      syncSessionAndSharedTimer();
-      syncDebugTimerMeta();
-    }, { passive: true });
-    window.addEventListener('focus', () => {
-      recordActivity();
-      syncSessionAndSharedTimer();
-      syncDebugTimerMeta();
-    }, { passive: true });
-    window.addEventListener('blur', () => {
-      flushDsSiteTime();
-      syncSessionAndSharedTimer();
-    }, { passive: true });
+        syncSessionAndSharedTimer();
+        syncDebugTimerMeta();
+      },
+      { passive: true }
+    );
+    window.addEventListener(
+      'blur',
+      () => {
+        flushDsSiteTime();
+        syncSessionAndSharedTimer();
+      },
+      { passive: true }
+    );
     window.addEventListener('pagehide', flushDsSiteTime, { passive: true });
     window.addEventListener('beforeunload', flushDsSiteTime, { passive: true });
     window.addEventListener('eyeflow-break-flow-closed', resetBreakCycle, { passive: true });
     // Hydration actions are handled in content so the timer state stays in one place.
     window.addEventListener('eyeflow-hydration-completed', resetHydrationTimer, { passive: true });
-    window.addEventListener('eyeflow-hydration-remind-soon', () => {
-      hydrationMergedIntoNextBreak = false;
-      pendingHydrationPopup = false;
-      try {
-        chrome.runtime.sendMessage({ type: 'HYDRATION_REMIND_SOON' });
-      } catch (e) {
-        // Ignore temporary extension-context issues.
-      }
-    }, { passive: true });
+    window.addEventListener(
+      'eyeflow-hydration-remind-soon',
+      () => {
+        hydrationMergedIntoNextBreak = false;
+        pendingHydrationPopup = false;
+        try {
+          chrome.runtime.sendMessage({ type: 'HYDRATION_REMIND_SOON' });
+        } catch (e) {
+          // Ignore temporary extension-context issues.
+        }
+      },
+      { passive: true }
+    );
 
     lastContextKey = getDoomScrollContextKey();
     if (isSinglePostGraceContextKey(lastContextKey)) {
@@ -2266,12 +2355,10 @@ const EyeFlowContent = (() => {
 
     // Start listening for messages from background.js
     setupMessageListener();
-
   }
 
   // Start everything
   init();
-
 
   // -------------------------------------------------------
   // PUBLIC API
@@ -2279,7 +2366,6 @@ const EyeFlowContent = (() => {
   return {
     getHostname,
     removeNudge,
-    removeWarning
+    removeWarning,
   };
-
 })();

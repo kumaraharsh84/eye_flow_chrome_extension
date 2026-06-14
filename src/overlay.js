@@ -1,3 +1,5 @@
+import { EyeFlowIntelligence } from './intelligence.js';
+
 // ============================================================
 // OVERLAY.JS — EyeFlow Eye-Break Overlay + Post-Break Experience
 // ============================================================
@@ -23,22 +25,20 @@ export const EyeFlowOverlay = (() => {
     'reddit.com',
     'facebook.com',
     'twitter.com',
-    'x.com'
+    'x.com',
   ]);
 
-  let overlayElement = null;       // The overlay DOM element
-  let exerciseTimer = null;        // Interval for the countdown
-  let dotMoveTimer = null;         // Interval for moving the dot
-  let mediaGuardTimer = null;      // Re-pauses autoplaying media while the overlay is visible
-  let isShowing = false;           // Whether the overlay is currently visible
-  let pausedMediaElements = [];    // Media paused while overlay is visible
+  let overlayElement = null; // The overlay DOM element
+  let exerciseTimer = null; // Interval for the countdown
+  let dotMoveTimer = null; // Interval for moving the dot
+  let mediaGuardTimer = null; // Re-pauses autoplaying media while the overlay is visible
+  let isShowing = false; // Whether the overlay is currently visible
+  let pausedMediaElements = []; // Media paused while overlay is visible
   let shouldResetBreakCycleOnHide = false; // Delay the next break cycle until the post-break UI is dismissed
 
   function hasLiveOverlayElement() {
     return Boolean(
-      overlayElement &&
-      overlayElement.isConnected &&
-      document.contains(overlayElement)
+      overlayElement && overlayElement.isConnected && document.contains(overlayElement)
     );
   }
 
@@ -52,7 +52,6 @@ export const EyeFlowOverlay = (() => {
     return false;
   }
 
-
   // -------------------------------------------------------
   // DOT POSITIONS — Where the eye dot moves to
   // -------------------------------------------------------
@@ -60,24 +59,23 @@ export const EyeFlowOverlay = (() => {
   // The dot moves to each position in sequence, and the user
   // follows it with their eyes. Uses percentages of the area.
   const DOT_POSITIONS = [
-    { top: '50%', left: '50%' },   // Center
-    { top: '10%', left: '10%' },   // Top-left
-    { top: '10%', left: '90%' },   // Top-right
-    { top: '90%', left: '90%' },   // Bottom-right
-    { top: '90%', left: '10%' },   // Bottom-left
-    { top: '10%', left: '50%' },   // Top-center
-    { top: '90%', left: '50%' },   // Bottom-center
-    { top: '50%', left: '10%' },   // Left-center
-    { top: '50%', left: '90%' },   // Right-center
-    { top: '22%', left: '24%' },   // Upper-left area
-    { top: '22%', left: '76%' },   // Upper-right area
-    { top: '78%', left: '24%' },   // Lower-left area
-    { top: '78%', left: '76%' },   // Lower-right area
-    { top: '18%', left: '50%' },   // Higher center
-    { top: '82%', left: '50%' },   // Lower center
-    { top: '50%', left: '50%' },   // Back to center
+    { top: '50%', left: '50%' }, // Center
+    { top: '10%', left: '10%' }, // Top-left
+    { top: '10%', left: '90%' }, // Top-right
+    { top: '90%', left: '90%' }, // Bottom-right
+    { top: '90%', left: '10%' }, // Bottom-left
+    { top: '10%', left: '50%' }, // Top-center
+    { top: '90%', left: '50%' }, // Bottom-center
+    { top: '50%', left: '10%' }, // Left-center
+    { top: '50%', left: '90%' }, // Right-center
+    { top: '22%', left: '24%' }, // Upper-left area
+    { top: '22%', left: '76%' }, // Upper-right area
+    { top: '78%', left: '24%' }, // Lower-left area
+    { top: '78%', left: '76%' }, // Lower-right area
+    { top: '18%', left: '50%' }, // Higher center
+    { top: '82%', left: '50%' }, // Lower center
+    { top: '50%', left: '50%' }, // Back to center
   ];
-
 
   // -------------------------------------------------------
   // SHOW OVERLAY — Display the fullscreen eye-break overlay
@@ -99,7 +97,7 @@ export const EyeFlowOverlay = (() => {
       'Drink a glass of water',
       'Do a quick stretch',
       'Read a book for 5 min',
-      'Step outside for fresh air'
+      'Step outside for fresh air',
     ];
 
     // Create the overlay DOM
@@ -149,7 +147,6 @@ export const EyeFlowOverlay = (() => {
 
     return site === 'youtube.com' && window.location.pathname.startsWith('/shorts');
   }
-
 
   // -------------------------------------------------------
   // BUILD EXERCISE HTML — Create the exercise screen HTML
@@ -212,7 +209,6 @@ export const EyeFlowOverlay = (() => {
     `;
   }
 
-
   // -------------------------------------------------------
   // START EXERCISE — Begin the eye movement exercise
   // -------------------------------------------------------
@@ -233,7 +229,7 @@ export const EyeFlowOverlay = (() => {
       'Keep your head still and move only your eyes',
       'Reach the wider edges without rushing',
       'Stay soft and steady',
-      'Almost done, let your eyes settle'
+      'Almost done, let your eyes settle',
     ];
 
     // --- Move the dot every 1.5 seconds ---
@@ -267,7 +263,9 @@ export const EyeFlowOverlay = (() => {
         // Report eye break completion to background.js
         try {
           chrome.runtime.sendMessage({ type: 'EYE_BREAK_COMPLETED' });
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+          /* ignore */
+        }
 
         if (typeof EyeFlowIntelligence !== 'undefined') {
           EyeFlowIntelligence.recordBreakCompleted();
@@ -304,7 +302,7 @@ export const EyeFlowOverlay = (() => {
       'Take a slow sip and breathe.',
       'Relax your jaw and shoulders.',
       'Let your eyes rest away from the feed.',
-      'A little water and a little pause help a lot.'
+      'A little water and a little pause help a lot.',
     ];
 
     exerciseTimer = setInterval(() => {
@@ -339,7 +337,6 @@ export const EyeFlowOverlay = (() => {
     }
   }
 
-
   // -------------------------------------------------------
   // SHOW POST-BREAK — The experience after the eye exercise
   // -------------------------------------------------------
@@ -355,10 +352,12 @@ export const EyeFlowOverlay = (() => {
     card.classList.add('eyeflow-card-postbreak');
 
     // Build the redirect suggestions HTML
-    const suggestionsHTML = suggestions.slice(0, 4).map(s =>
-      `<div class="eyeflow-redirect-chip">${s}</div>`
-    ).join('');
-    const hydrationSection = options.hydrationPrompt ? `
+    const suggestionsHTML = suggestions
+      .slice(0, 4)
+      .map((s) => `<div class="eyeflow-redirect-chip">${s}</div>`)
+      .join('');
+    const hydrationSection = options.hydrationPrompt
+      ? `
         <div class="eyeflow-hydration-followup">
           <div class="eyeflow-hydration-followup-title">Before you jump back in, take a few sips of water.</div>
           <div class="eyeflow-hydration-followup-text">Hydration is also due, so this is a good moment to reset both your eyes and your body.</div>
@@ -367,7 +366,8 @@ export const EyeFlowOverlay = (() => {
             <button class="eyeflow-action-btn eyeflow-action-secondary" data-hydration-followup="later">Not right now</button>
           </div>
         </div>
-    ` : '';
+    `
+      : '';
 
     // Replace the card content with post-break UI
     card.innerHTML = `
@@ -419,10 +419,10 @@ export const EyeFlowOverlay = (() => {
     // --- Mood button handlers ---
     // When user taps a mood emoji, save it and highlight the selection
     const moodBtns = card.querySelectorAll('.eyeflow-mood-btn');
-    moodBtns.forEach(btn => {
+    moodBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
         // Highlight selected mood
-        moodBtns.forEach(b => b.classList.remove('selected'));
+        moodBtns.forEach((b) => b.classList.remove('selected'));
         btn.classList.add('selected');
 
         // Send mood to background.js for stats
@@ -431,9 +431,11 @@ export const EyeFlowOverlay = (() => {
           chrome.runtime.sendMessage({
             type: 'MOOD_RECORDED',
             mood: mood,
-            site: site
+            site: site,
           });
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+          /* ignore */
+        }
       });
     });
 
@@ -445,7 +447,9 @@ export const EyeFlowOverlay = (() => {
         // Try to close the tab via Chrome extension API
         try {
           chrome.runtime.sendMessage({ type: 'CLOSE_TAB' });
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+          /* ignore */
+        }
         // Also try window.close() as fallback
         window.close();
         // If that didn't work, just hide the overlay
@@ -481,10 +485,10 @@ export const EyeFlowOverlay = (() => {
     // When user clicks a suggestion, close the overlay
     // (the suggestion itself is just a reminder)
     const chips = card.querySelectorAll('.eyeflow-redirect-chip');
-    chips.forEach(chip => {
+    chips.forEach((chip) => {
       chip.addEventListener('click', () => {
         // Highlight the chosen suggestion
-        chips.forEach(c => c.style.borderColor = 'rgba(52, 211, 153, 0.2)');
+        chips.forEach((c) => (c.style.borderColor = 'rgba(52, 211, 153, 0.2)'));
         chip.style.borderColor = '#34d399';
         chip.style.background = 'rgba(52, 211, 153, 0.25)';
 
@@ -493,7 +497,6 @@ export const EyeFlowOverlay = (() => {
       });
     });
   }
-
 
   // -------------------------------------------------------
   // HIDE OVERLAY — Remove the overlay from the page
@@ -531,7 +534,9 @@ export const EyeFlowOverlay = (() => {
     window.dispatchEvent(new CustomEvent('eyeflow-break-flow-closed'));
     try {
       chrome.runtime.sendMessage({ type: 'EYE_BREAK_FLOW_CLOSED' });
-    } catch (e) { /* ignore */ }
+    } catch (e) {
+      /* ignore */
+    }
   }
 
   function pausePageMedia() {
@@ -566,7 +571,7 @@ export const EyeFlowOverlay = (() => {
         pausedMediaElements.push({
           element: media,
           wasPlaying: !media.paused,
-          wasMuted: media.muted
+          wasMuted: media.muted,
         });
       }
 
@@ -576,7 +581,6 @@ export const EyeFlowOverlay = (() => {
       }
     });
   }
-
 
   // -------------------------------------------------------
   // PUBLIC API — What content.js can call
@@ -588,8 +592,6 @@ export const EyeFlowOverlay = (() => {
     isShowing: () => {
       if (!isShowing) return false;
       return ensureOverlayStateIsFresh();
-    }
+    },
   };
-
 })();
-

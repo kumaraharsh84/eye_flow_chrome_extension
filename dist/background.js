@@ -1,16 +1,40 @@
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
-  var __commonJS = (cb, mod) => function __require() {
-    try {
-      return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
-    } catch (e) {
-      throw mod = 0, e;
-    }
-  };
+  var __esm = (fn, res, err) =>
+    function __init() {
+      if (err) throw err[0];
+      try {
+        return (fn && (res = (0, fn[__getOwnPropNames(fn)[0]])((fn = 0))), res);
+      } catch (e) {
+        throw ((err = [e]), e);
+      }
+    };
+  var __commonJS = (cb, mod) =>
+    function __require() {
+      try {
+        return (
+          mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod),
+          mod.exports
+        );
+      } catch (e) {
+        throw ((mod = 0), e);
+      }
+    };
+
+  // src/utils.js
+  function clampNumber(value, min, max, fallback = min) {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) return fallback;
+    return Math.min(max, Math.max(min, Math.round(numericValue)));
+  }
+  var init_utils = __esm({
+    'src/utils.js'() {},
+  });
 
   // src/background.js
   var require_background = __commonJS({
-    "src/background.js"() {
+    'src/background.js'() {
+      init_utils();
       var DEFAULT_SETTINGS = {
         enabled: true,
         // Is the extension active?
@@ -34,7 +58,7 @@
         // Soft reminder interval (in minutes)
         subtleReminderMax: 25,
         // Soft reminder interval (in minutes)
-        timingMode: "fixed",
+        timingMode: 'fixed',
         // fixed = exact intervals, surprise = random ranges
         customTimingEnabled: false,
         // Let advanced users override reminder timing from the popup
@@ -44,40 +68,40 @@
         // Minimum gap for the background sound reminder
         soundReminderMax: 30,
         // Maximum gap for the background sound reminder
-        popupTheme: "dark",
+        popupTheme: 'dark',
         // Popup theme preference: dark or light
         // Site-specific sensitivity tiers
         // "strict" = triggers faster, "moderate" = normal, "relaxed" = triggers slower
         siteTiers: {
-          "instagram.com": "strict",
-          "tiktok.com": "strict",
-          "reddit.com": "strict",
-          "facebook.com": "strict",
-          "twitter.com": "strict",
-          "x.com": "strict",
-          "snapchat.com": "strict",
-          "twitch.tv": "strict",
-          "youtube.com": "moderate",
-          "youtube.com/shorts": "strict",
-          "linkedin.com": "moderate",
-          "stackoverflow.com": "relaxed",
-          "github.com": "relaxed"
+          'instagram.com': 'strict',
+          'tiktok.com': 'strict',
+          'reddit.com': 'strict',
+          'facebook.com': 'strict',
+          'twitter.com': 'strict',
+          'x.com': 'strict',
+          'snapchat.com': 'strict',
+          'twitch.tv': 'strict',
+          'youtube.com': 'moderate',
+          'youtube.com/shorts': 'strict',
+          'linkedin.com': 'moderate',
+          'stackoverflow.com': 'relaxed',
+          'github.com': 'relaxed',
         },
         // User's custom redirect suggestions (what to do instead of scrolling)
         redirectSuggestions: [
-          "Take a short walk",
-          "Drink a glass of water",
-          "Do a quick stretch",
-          "Read a book for 5 min",
-          "Step outside for fresh air"
-        ]
+          'Take a short walk',
+          'Drink a glass of water',
+          'Do a quick stretch',
+          'Read a book for 5 min',
+          'Step outside for fresh air',
+        ],
       };
       DEFAULT_SETTINGS.redirectSuggestions = [
-        "Take a short walk",
-        "Drink a glass of water",
-        "Do a quick stretch",
-        "Read a book for 5 min",
-        "Step outside for fresh air"
+        'Take a short walk',
+        'Drink a glass of water',
+        'Do a quick stretch',
+        'Read a book for 5 min',
+        'Step outside for fresh air',
       ];
       var DEFAULT_STATS = {
         totalDoomScrollsBlocked: 0,
@@ -94,7 +118,7 @@
         // Eye exercises this week
         lastBreakTime: 0,
         // Timestamp of last eye break
-        lastResetDate: "",
+        lastResetDate: '',
         // The date when daily counters were last reset
         moodHistory: [],
         // Array of { mood, timestamp, site }
@@ -102,14 +126,14 @@
         // Array of { site, day, hour, duration, scrollCount }
         siteTimeSpent: {},
         // Legacy aggregate site-time bucket
-        todayDsSiteTimeSpent: {}
+        todayDsSiteTimeSpent: {},
         // { 'Instagram': totalMinutes, ... } persisted across reload/restart, resets only on a new day
       };
       var DEFAULT_RUNTIME_STATE = {
         nextGentleReminderAt: 0,
         gentlePausedRemainingMs: 0,
-        gentleState: "off",
-        gentlePauseReason: "none",
+        gentleState: 'off',
+        gentlePauseReason: 'none',
         nextWaterReminderAt: 0,
         waterReminderPending: false,
         waterReminderPendingSince: 0,
@@ -123,36 +147,36 @@
         sharedDsLastUpdateAt: 0,
         sharedDsActiveTabId: 0,
         sharedDsIsActive: false,
-        sharedDsContextKey: "",
-        sharedDsState: "off",
-        sharedDsPauseReason: "none"
+        sharedDsContextKey: '',
+        sharedDsState: 'off',
+        sharedDsPauseReason: 'none',
       };
       var GENTLE_TIMER_STATES = Object.freeze({
-        OFF: "off",
-        RUNNING: "running",
-        PAUSED: "paused",
-        DUE: "due"
+        OFF: 'off',
+        RUNNING: 'running',
+        PAUSED: 'paused',
+        DUE: 'due',
       });
       var GENTLE_PAUSE_REASONS = Object.freeze({
-        NONE: "none",
-        SNOOZE: "snooze",
-        DS_ACTIVE: "ds_active",
-        INACTIVE: "inactive",
-        NO_WINDOW: "no_window",
-        DISABLED: "disabled",
-        FEATURE_OFF: "feature_off"
+        NONE: 'none',
+        SNOOZE: 'snooze',
+        DS_ACTIVE: 'ds_active',
+        INACTIVE: 'inactive',
+        NO_WINDOW: 'no_window',
+        DISABLED: 'disabled',
+        FEATURE_OFF: 'feature_off',
       });
       var SHARED_DS_TIMER_STATES = Object.freeze({
-        OFF: "off",
-        RUNNING: "running",
-        PAUSED: "paused"
+        OFF: 'off',
+        RUNNING: 'running',
+        PAUSED: 'paused',
       });
       var SHARED_DS_PAUSE_REASONS = Object.freeze({
-        NONE: "none",
-        INACTIVE: "inactive",
-        SESSION_TIMEOUT: "session_timeout",
-        DISABLED: "disabled",
-        BREAK_FLOW: "break_flow"
+        NONE: 'none',
+        INACTIVE: 'inactive',
+        SESSION_TIMEOUT: 'session_timeout',
+        DISABLED: 'disabled',
+        BREAK_FLOW: 'break_flow',
       });
       var GENTLE_REMINDER_DUPLICATE_GUARD_MS = 15 * 1e3;
       var SOUND_REMINDER_FOLLOWUP_MS = 10 * 60 * 1e3;
@@ -162,31 +186,35 @@
       var TICK_ALARM_PERIOD_MINUTES = 0.5;
       var IDLE_DETECTION_INTERVAL_SECONDS = 60;
       var DOOM_SCROLL_HOSTS = /* @__PURE__ */ new Set([
-        "instagram.com",
-        "tiktok.com",
-        "reddit.com",
-        "facebook.com",
-        "twitter.com",
-        "x.com"
+        'instagram.com',
+        'tiktok.com',
+        'reddit.com',
+        'facebook.com',
+        'twitter.com',
+        'x.com',
       ]);
       var TIMER_LIMITS = {
         doomReminderMin: { min: 5, max: 30, fallback: DEFAULT_SETTINGS.reminderIntervalMin },
         doomReminderMax: { min: 5, max: 30, fallback: DEFAULT_SETTINGS.reminderIntervalMax },
         eyeBreakDurationSec: { min: 15, max: 40, fallback: DEFAULT_SETTINGS.eyeBreakDurationSec },
-        hydrationReminderMin: { min: 60, max: 240, fallback: DEFAULT_SETTINGS.hydrationReminderMin },
+        hydrationReminderMin: {
+          min: 60,
+          max: 240,
+          fallback: DEFAULT_SETTINGS.hydrationReminderMin,
+        },
         subtleReminderMin: { min: 20, max: 60, fallback: DEFAULT_SETTINGS.subtleReminderMin },
-        subtleReminderMax: { min: 20, max: 60, fallback: DEFAULT_SETTINGS.subtleReminderMax }
+        subtleReminderMax: { min: 20, max: 60, fallback: DEFAULT_SETTINGS.subtleReminderMax },
       };
       chrome.runtime.onInstalled.addListener((details) => {
         ensureDefaults({ freshSession: true });
         ensureTickAlarm();
         ensureIdleDetection();
-        if (details.reason === "install") {
-          chrome.storage.local.get(["onboardingComplete"], (result) => {
+        if (details.reason === 'install') {
+          chrome.storage.local.get(['onboardingComplete'], (result) => {
             if (!result.onboardingComplete) {
               chrome.tabs.create({
-                url: chrome.runtime.getURL("onboarding.html"),
-                active: true
+                url: chrome.runtime.getURL('onboarding.html'),
+                active: true,
               });
             }
           });
@@ -199,47 +227,21 @@
       });
       ensureIdleDetection();
       chrome.idle.onStateChanged.addListener((state) => {
-        broadcastToAllTabs({ type: "SYSTEM_IDLE_STATE_CHANGED", state });
-        if (state === "locked") {
-          resetRuntimeStateForFreshSession("locked");
+        broadcastToAllTabs({ type: 'SYSTEM_IDLE_STATE_CHANGED', state });
+        if (state === 'locked') {
+          resetRuntimeStateForFreshSession('locked');
         }
       });
       chrome.storage.onChanged.addListener((changes, area) => {
-        if (area !== "local" || !changes.settings?.newValue) return;
+        if (area !== 'local' || !changes.settings?.newValue) return;
         broadcastToAllTabs({
-          type: "SETTINGS_UPDATED",
-          settings: changes.settings.newValue
+          type: 'SETTINGS_UPDATED',
+          settings: changes.settings.newValue,
         });
       });
-      chrome.alarms.onAlarm.addListener((alarm) => {
-        if (false) {
-          chrome.storage.local.get(["settings", "stats"], (result) => {
-            const settings = mergeSettings(result.settings);
-            const stats = mergeStats(result.stats);
-            const now = Date.now();
-            if (settings.snoozedUntil > 0 && now >= settings.snoozedUntil) {
-              settings.snoozedUntil = 0;
-              chrome.storage.local.set({ settings });
-              broadcastToAllTabs({ type: "SNOOZE_ENDED" });
-            }
-            const today = (/* @__PURE__ */ new Date()).toDateString();
-            if (stats.lastResetDate !== today) {
-              stats.todayDoomScrollsBlocked = 0;
-              stats.todayEyeBreaksCompleted = 0;
-              stats.todayDsSiteTimeSpent = {};
-              stats.lastResetDate = today;
-              if ((/* @__PURE__ */ new Date()).getDay() === 1) {
-                stats.weekDoomScrollsBlocked = 0;
-                stats.weekEyeBreaksCompleted = 0;
-              }
-              chrome.storage.local.set({ stats });
-            }
-          });
-        }
-      });
       chrome.alarms.onAlarm.addListener(async (alarm) => {
-        if (alarm.name !== "eyeflow-tick") return;
-        const result = await chrome.storage.local.get(["settings", "stats", "runtimeState"]);
+        if (alarm.name !== 'eyeflow-tick') return;
+        const result = await chrome.storage.local.get(['settings', 'stats', 'runtimeState']);
         const settings = mergeSettings(result.settings);
         const stats = mergeStats(result.stats);
         const runtimeState = mergeRuntimeState(result.runtimeState);
@@ -267,13 +269,13 @@
         }
         if (settingsChanged || statsChanged || runtimeStateChanged) {
           await chrome.storage.local.set({
-            ...settingsChanged ? { settings } : {},
-            ...statsChanged ? { stats } : {},
-            ...runtimeStateChanged ? { runtimeState } : {}
+            ...(settingsChanged ? { settings } : {}),
+            ...(statsChanged ? { stats } : {}),
+            ...(runtimeStateChanged ? { runtimeState } : {}),
           });
         }
         if (settingsChanged) {
-          broadcastToAllTabs({ type: "SNOOZE_ENDED" });
+          broadcastToAllTabs({ type: 'SNOOZE_ENDED' });
         }
         if (runtimeStateChanged) {
           broadcastRuntimeReset(runtimeState);
@@ -281,20 +283,20 @@
         await runAmbientReminderTick(settings, runtimeState, now);
       });
       chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-        if (message.type === "GET_SETTINGS") {
-          chrome.storage.local.get(["settings"], (result) => {
+        if (message.type === 'GET_SETTINGS') {
+          chrome.storage.local.get(['settings'], (result) => {
             sendResponse(mergeSettings(result.settings));
           });
           return true;
         }
-        if (message.type === "GET_SYSTEM_STATE") {
+        if (message.type === 'GET_SYSTEM_STATE') {
           chrome.idle.queryState(60, (state) => {
             sendResponse({ state });
           });
           return true;
         }
-        if (message.type === "GET_SHARED_DS_STATE") {
-          chrome.storage.local.get(["settings", "runtimeState"], (result) => {
+        if (message.type === 'GET_SHARED_DS_STATE') {
+          chrome.storage.local.get(['settings', 'runtimeState'], (result) => {
             const settings = mergeSettings(result.settings);
             const runtimeState = mergeRuntimeState(result.runtimeState);
             if (!settings.enabled) {
@@ -309,8 +311,8 @@
           });
           return true;
         }
-        if (message.type === "GET_DEBUG_TIMERS") {
-          chrome.storage.local.get(["settings", "runtimeState"], (result) => {
+        if (message.type === 'GET_DEBUG_TIMERS') {
+          chrome.storage.local.get(['settings', 'runtimeState'], (result) => {
             const settings = mergeSettings(result.settings);
             const runtimeState = mergeRuntimeState(result.runtimeState);
             if (!settings.enabled) {
@@ -323,12 +325,16 @@
                 gentlePauseReason: GENTLE_PAUSE_REASONS.DISABLED,
                 nextWaterReminderAt: 0,
                 waterReminderPending: false,
-                waterQueuedForNextBreak: false
+                waterQueuedForNextBreak: false,
               });
               return;
             }
             expireStaleWaterPending(runtimeState, settings);
-            if (!runtimeState.nextWaterReminderAt && !runtimeState.waterReminderPending && !runtimeState.waterQueuedForNextBreak) {
+            if (
+              !runtimeState.nextWaterReminderAt &&
+              !runtimeState.waterReminderPending &&
+              !runtimeState.waterQueuedForNextBreak
+            ) {
               runtimeState.nextWaterReminderAt = Date.now() + getWaterDelayMs(settings);
               chrome.storage.local.set({ runtimeState });
             }
@@ -341,13 +347,13 @@
               gentlePauseReason: runtimeState.gentlePauseReason || GENTLE_PAUSE_REASONS.NONE,
               nextWaterReminderAt: runtimeState.nextWaterReminderAt || 0,
               waterReminderPending: Boolean(runtimeState.waterReminderPending),
-              waterQueuedForNextBreak: Boolean(runtimeState.waterQueuedForNextBreak)
+              waterQueuedForNextBreak: Boolean(runtimeState.waterQueuedForNextBreak),
             });
           });
           return true;
         }
-        if (message.type === "SYNC_SHARED_DS_STATE") {
-          chrome.storage.local.get(["settings", "runtimeState"], (result) => {
+        if (message.type === 'SYNC_SHARED_DS_STATE') {
+          chrome.storage.local.get(['settings', 'runtimeState'], (result) => {
             const settings = mergeSettings(result.settings);
             const runtimeState = mergeRuntimeState(result.runtimeState);
             const now = Date.now();
@@ -362,21 +368,26 @@
             if (message.isActive) {
               runtimeState.sharedDsIsActive = true;
               runtimeState.sharedDsActiveTabId = senderTabId;
-              runtimeState.sharedDsContextKey = message.contextKey || "";
+              runtimeState.sharedDsContextKey = message.contextKey || '';
               runtimeState.sharedDsLastUpdateAt = now;
               runtimeState.sharedDsState = SHARED_DS_TIMER_STATES.RUNNING;
               runtimeState.sharedDsPauseReason = SHARED_DS_PAUSE_REASONS.NONE;
             } else if (runtimeState.sharedDsActiveTabId === senderTabId || senderTabIsActive) {
               runtimeState.sharedDsIsActive = false;
               runtimeState.sharedDsActiveTabId = 0;
-              runtimeState.sharedDsContextKey = "";
+              runtimeState.sharedDsContextKey = '';
               runtimeState.sharedDsLastUpdateAt = now;
               runtimeState.sharedDsState = SHARED_DS_TIMER_STATES.PAUSED;
               runtimeState.sharedDsPauseReason = SHARED_DS_PAUSE_REASONS.INACTIVE;
             }
             if (runtimeState.sharedDsIsActive) {
               pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.DS_ACTIVE, now);
-            } else if (!isSnoozed && wasDsActive && !runtimeState.sharedDsIsActive && settings.subtleReminderEnabled) {
+            } else if (
+              !isSnoozed &&
+              wasDsActive &&
+              !runtimeState.sharedDsIsActive &&
+              settings.subtleReminderEnabled
+            ) {
               resumeGentleReminder(runtimeState, now);
               if (!runtimeState.nextGentleReminderAt) {
                 runtimeState.nextGentleReminderAt = now + getGentleDelayMs(settings);
@@ -388,8 +399,8 @@
           });
           return true;
         }
-        if (message.type === "SAVE_SETTINGS") {
-          chrome.storage.local.get(["settings", "runtimeState"], (result) => {
+        if (message.type === 'SAVE_SETTINGS') {
+          chrome.storage.local.get(['settings', 'runtimeState'], (result) => {
             const previousSettings = mergeSettings(result.settings);
             const settings = mergeSettings(result.settings, message.settings);
             const runtimeState = mergeRuntimeState(result.runtimeState);
@@ -412,33 +423,33 @@
           });
           return true;
         }
-        if (message.type === "GET_STATS") {
-          chrome.storage.local.get(["stats"], (result) => {
+        if (message.type === 'GET_STATS') {
+          chrome.storage.local.get(['stats'], (result) => {
             sendResponse(mergeStats(result.stats));
           });
           return true;
         }
-        if (message.type === "DOOM_SCROLL_DETECTED") {
-          chrome.storage.local.get(["settings", "stats", "runtimeState"], (result) => {
+        if (message.type === 'DOOM_SCROLL_DETECTED') {
+          chrome.storage.local.get(['settings', 'stats', 'runtimeState'], (result) => {
             const settings = mergeSettings(result.settings);
             const stats = mergeStats(result.stats);
             const runtimeState = mergeRuntimeState(result.runtimeState);
             if (!settings.enabled) {
-              sendResponse({ action: "IGNORE" });
+              sendResponse({ action: 'IGNORE' });
               return;
             }
             stats.totalDoomScrollsBlocked++;
             stats.todayDoomScrollsBlocked++;
             stats.weekDoomScrollsBlocked++;
             const sessionData = {
-              site: message.site || "unknown",
-              day: (/* @__PURE__ */ new Date()).getDay(),
+              site: message.site || 'unknown',
+              day: /* @__PURE__ */ new Date().getDay(),
               // 0=Sunday, 1=Monday, etc.
-              hour: (/* @__PURE__ */ new Date()).getHours(),
+              hour: /* @__PURE__ */ new Date().getHours(),
               // 0-23
               duration: message.duration || 0,
               scrollCount: message.scrollCount || 0,
-              timestamp: Date.now()
+              timestamp: Date.now(),
             };
             stats.doomScrollSessions.push(sessionData);
             if (stats.doomScrollSessions.length > 200) {
@@ -448,16 +459,16 @@
             runtimeState.nextSoundReminderAt = 0;
             chrome.storage.local.set({ stats, runtimeState });
             sendResponse({
-              action: "INTERVENE",
-              stage: message.stage || "nudge",
+              action: 'INTERVENE',
+              stage: message.stage || 'nudge',
               // nudge, warning, or break
-              settings
+              settings,
             });
           });
           return true;
         }
-        if (message.type === "EYE_BREAK_COMPLETED") {
-          chrome.storage.local.get(["settings", "stats", "runtimeState"], (result) => {
+        if (message.type === 'EYE_BREAK_COMPLETED') {
+          chrome.storage.local.get(['settings', 'stats', 'runtimeState'], (result) => {
             const stats = mergeStats(result.stats);
             stats.totalEyeBreaksCompleted++;
             stats.todayEyeBreaksCompleted++;
@@ -468,8 +479,8 @@
           });
           return true;
         }
-        if (message.type === "EYE_BREAK_FLOW_CLOSED") {
-          chrome.storage.local.get(["settings", "runtimeState"], (result) => {
+        if (message.type === 'EYE_BREAK_FLOW_CLOSED') {
+          chrome.storage.local.get(['settings', 'runtimeState'], (result) => {
             const settings = mergeSettings(result.settings);
             const runtimeState = mergeRuntimeState(result.runtimeState);
             runtimeState.lastPrimaryInterventionAt = 0;
@@ -484,8 +495,8 @@
           });
           return true;
         }
-        if (message.type === "HYDRATION_COMPLETED") {
-          chrome.storage.local.get(["settings", "runtimeState"], (result) => {
+        if (message.type === 'HYDRATION_COMPLETED') {
+          chrome.storage.local.get(['settings', 'runtimeState'], (result) => {
             const settings = mergeSettings(result.settings);
             const runtimeState = mergeRuntimeState(result.runtimeState);
             const now = Date.now();
@@ -498,8 +509,8 @@
           });
           return true;
         }
-        if (message.type === "HYDRATION_REMIND_SOON") {
-          chrome.storage.local.get(["runtimeState"], (result) => {
+        if (message.type === 'HYDRATION_REMIND_SOON') {
+          chrome.storage.local.get(['runtimeState'], (result) => {
             const runtimeState = mergeRuntimeState(result.runtimeState);
             const now = Date.now();
             runtimeState.nextWaterReminderAt = now + WATER_REMIND_SOON_DELAY_MS;
@@ -511,8 +522,8 @@
           });
           return true;
         }
-        if (message.type === "GENTLE_REMINDER_SHOWN") {
-          chrome.storage.local.get(["settings", "runtimeState"], (result) => {
+        if (message.type === 'GENTLE_REMINDER_SHOWN') {
+          chrome.storage.local.get(['settings', 'runtimeState'], (result) => {
             const settings = mergeSettings(result.settings);
             const runtimeState = mergeRuntimeState(result.runtimeState);
             const now = Date.now();
@@ -523,14 +534,14 @@
           });
           return true;
         }
-        if (message.type === "MOOD_RECORDED") {
-          chrome.storage.local.get(["stats"], (result) => {
+        if (message.type === 'MOOD_RECORDED') {
+          chrome.storage.local.get(['stats'], (result) => {
             const stats = mergeStats(result.stats);
             stats.moodHistory.push({
               mood: message.mood,
               // 'good', 'okay', or 'bad'
               timestamp: Date.now(),
-              site: message.site || "unknown"
+              site: message.site || 'unknown',
             });
             if (stats.moodHistory.length > 100) {
               stats.moodHistory = stats.moodHistory.slice(-100);
@@ -540,24 +551,24 @@
           });
           return true;
         }
-        if (message.type === "SNOOZE") {
-          chrome.storage.local.get(["settings"], (result) => {
+        if (message.type === 'SNOOZE') {
+          chrome.storage.local.get(['settings'], (result) => {
             const settings = mergeSettings(result.settings);
             const now = Date.now();
             settings.snoozedUntil = now + message.hours * 60 * 60 * 1e3;
-            chrome.storage.local.get(["runtimeState"], (runtimeResult) => {
+            chrome.storage.local.get(['runtimeState'], (runtimeResult) => {
               const runtimeState = mergeRuntimeState(runtimeResult.runtimeState);
               pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.SNOOZE, now);
               runtimeState.nextSoundReminderAt = 0;
               chrome.storage.local.set({ settings, runtimeState });
-              broadcastToAllTabs({ type: "SNOOZE_STARTED", until: settings.snoozedUntil });
+              broadcastToAllTabs({ type: 'SNOOZE_STARTED', until: settings.snoozedUntil });
               sendResponse({ success: true, until: settings.snoozedUntil });
             });
           });
           return true;
         }
-        if (message.type === "RESUME") {
-          chrome.storage.local.get(["settings", "runtimeState"], (result) => {
+        if (message.type === 'RESUME') {
+          chrome.storage.local.get(['settings', 'runtimeState'], (result) => {
             const settings = mergeSettings(result.settings);
             const runtimeState = mergeRuntimeState(result.runtimeState);
             const now = Date.now();
@@ -566,12 +577,12 @@
               resumeGentleReminder(runtimeState, now);
             }
             chrome.storage.local.set({ settings, runtimeState });
-            broadcastToAllTabs({ type: "SNOOZE_ENDED" });
+            broadcastToAllTabs({ type: 'SNOOZE_ENDED' });
             sendResponse({ success: true });
           });
           return true;
         }
-        if (message.type === "CLOSE_TAB") {
+        if (message.type === 'CLOSE_TAB') {
           if (!sender.tab || !sender.tab.id) {
             sendResponse({ success: false });
             return false;
@@ -581,14 +592,18 @@
           });
           return true;
         }
-        if (message.type === "GET_PATTERN_INSIGHTS") {
-          chrome.storage.local.get(["stats"], (result) => {
+        if (message.type === 'GET_PATTERN_INSIGHTS') {
+          chrome.storage.local.get(['stats'], (result) => {
             const stats = mergeStats(result.stats);
             const insights = analyzePatterns(stats.doomScrollSessions);
             sendResponse(insights);
           });
           return true;
         }
+        if (!message.type.startsWith('GET_')) {
+          sendResponse({ success: true, unhandled: true });
+        }
+        return true;
       });
       async function runAmbientReminderTick(settings, runtimeState, now) {
         if (!settings.enabled) {
@@ -601,15 +616,24 @@
         if (runtimeState.waterReminderPending) {
           await reconcilePendingWaterReminder(runtimeState, settings, now);
         }
-        if (!runtimeState.nextWaterReminderAt && !runtimeState.waterReminderPending && !runtimeState.waterQueuedForNextBreak) {
+        if (
+          !runtimeState.nextWaterReminderAt &&
+          !runtimeState.waterReminderPending &&
+          !runtimeState.waterQueuedForNextBreak
+        ) {
           runtimeState.nextWaterReminderAt = now + getWaterDelayMs(settings);
         }
-        if (runtimeState.nextWaterReminderAt && now >= runtimeState.nextWaterReminderAt && !runtimeState.waterReminderPending && !runtimeState.waterQueuedForNextBreak) {
+        if (
+          runtimeState.nextWaterReminderAt &&
+          now >= runtimeState.nextWaterReminderAt &&
+          !runtimeState.waterReminderPending &&
+          !runtimeState.waterQueuedForNextBreak
+        ) {
           const waterResult = await deliverWaterReminder(now);
-          if (waterResult === "queued") {
+          if (waterResult === 'queued') {
             runtimeState.waterQueuedForNextBreak = true;
             runtimeState.nextWaterReminderAt = 0;
-          } else if (waterResult === "popup") {
+          } else if (waterResult === 'popup') {
             runtimeState.waterReminderPending = true;
             runtimeState.waterReminderPendingSince = now;
             runtimeState.nextWaterReminderAt = 0;
@@ -673,10 +697,12 @@
             return;
           }
           if (!runtimeState.nextSoundReminderAt) {
-            runtimeState.nextSoundReminderAt = now + getRandomDelayMs(settings.soundReminderMin, settings.soundReminderMax);
+            runtimeState.nextSoundReminderAt =
+              now + getRandomDelayMs(settings.soundReminderMin, settings.soundReminderMax);
           } else if (now >= runtimeState.nextSoundReminderAt) {
             const soundPlayed = await playReminderSound();
-            runtimeState.nextSoundReminderAt = now + getRandomDelayMs(settings.soundReminderMin, settings.soundReminderMax);
+            runtimeState.nextSoundReminderAt =
+              now + getRandomDelayMs(settings.soundReminderMin, settings.soundReminderMax);
             if (!soundPlayed) {
               runtimeState.nextSoundReminderAt = now + SOUND_REMINDER_FOLLOWUP_MS;
             } else {
@@ -698,9 +724,16 @@
         runtimeState.gentleState = GENTLE_TIMER_STATES.RUNNING;
         runtimeState.gentlePauseReason = GENTLE_PAUSE_REASONS.NONE;
       }
-      function pauseGentleReminder(runtimeState, reason = GENTLE_PAUSE_REASONS.NO_WINDOW, now = Date.now()) {
+      function pauseGentleReminder(
+        runtimeState,
+        reason = GENTLE_PAUSE_REASONS.NO_WINDOW,
+        now = Date.now()
+      ) {
         if (runtimeState.nextGentleReminderAt > 0) {
-          runtimeState.gentlePausedRemainingMs = Math.max(1e3, runtimeState.nextGentleReminderAt - now);
+          runtimeState.gentlePausedRemainingMs = Math.max(
+            1e3,
+            runtimeState.nextGentleReminderAt - now
+          );
           runtimeState.nextGentleReminderAt = 0;
         }
         runtimeState.gentleState = GENTLE_TIMER_STATES.PAUSED;
@@ -717,25 +750,27 @@
         }
       }
       async function getChromeWindowState() {
-        const windows = await chrome.windows.getAll({ windowTypes: ["normal"] });
+        const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
         return {
           hasChromeWindow: windows.length > 0,
-          chromeFocused: windows.some((windowInfo) => windowInfo.focused)
+          chromeFocused: windows.some((windowInfo) => windowInfo.focused),
         };
       }
       async function sendGentleReminderToActiveTab() {
         const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-        const activeTab = tabs.find((tab) => tab.id && tab.url && !tab.url.startsWith("chrome://"));
+        const activeTab = tabs.find((tab) => tab.id && tab.url && !tab.url.startsWith('chrome://'));
         if (!activeTab || !activeTab.id) return false;
-        if (isLikelyDoomScrollUrl(activeTab.url || "")) {
+        if (isLikelyDoomScrollUrl(activeTab.url || '')) {
           return false;
         }
         try {
-          const pageContext = await chrome.tabs.sendMessage(activeTab.id, { type: "CAN_SHOW_GENTLE_REMINDER" });
+          const pageContext = await chrome.tabs.sendMessage(activeTab.id, {
+            type: 'CAN_SHOW_GENTLE_REMINDER',
+          });
           if (!pageContext || !pageContext.allow) {
             return false;
           }
-          await chrome.tabs.sendMessage(activeTab.id, { type: "SHOW_GENTLE_REMINDER" });
+          await chrome.tabs.sendMessage(activeTab.id, { type: 'SHOW_GENTLE_REMINDER' });
           return true;
         } catch (e) {
           return false;
@@ -743,12 +778,14 @@
       }
       async function getActiveTabReminderContext() {
         const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-        const activeTab = tabs.find((tab) => tab.id && tab.url && !tab.url.startsWith("chrome://"));
+        const activeTab = tabs.find((tab) => tab.id && tab.url && !tab.url.startsWith('chrome://'));
         if (!activeTab || !activeTab.id) {
           return { activeTab: null, pageContext: null };
         }
         try {
-          const pageContext = await chrome.tabs.sendMessage(activeTab.id, { type: "GET_PAGE_REMINDER_CONTEXT" });
+          const pageContext = await chrome.tabs.sendMessage(activeTab.id, {
+            type: 'GET_PAGE_REMINDER_CONTEXT',
+          });
           return { activeTab, pageContext };
         } catch (e) {
           return { activeTab, pageContext: null };
@@ -756,93 +793,98 @@
       }
       async function deliverWaterReminder(now = Date.now()) {
         const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-        const activeTab = tabs.find((tab) => tab.id && tab.url && !tab.url.startsWith("chrome://"));
+        const activeTab = tabs.find((tab) => tab.id && tab.url && !tab.url.startsWith('chrome://'));
         if (!activeTab || !activeTab.id) {
           await showBasicNotification(
-            "water-reminder",
-            "EyeFlow water reminder",
-            "Take a few sips of water when you get a moment."
+            'water-reminder',
+            'EyeFlow water reminder',
+            'Take a few sips of water when you get a moment.'
           );
-          return "notification";
+          return 'notification';
         }
         try {
-          const pageContext = await chrome.tabs.sendMessage(activeTab.id, { type: "GET_PAGE_REMINDER_CONTEXT" });
+          const pageContext = await chrome.tabs.sendMessage(activeTab.id, {
+            type: 'GET_PAGE_REMINDER_CONTEXT',
+          });
           if (pageContext?.isDoomScrollContext) {
             if ((pageContext.msUntilEyeBreak || Infinity) <= 3 * 60 * 1e3) {
-              await chrome.tabs.sendMessage(activeTab.id, { type: "QUEUE_HYDRATION_FOR_NEXT_BREAK" });
-              return "queued";
+              await chrome.tabs.sendMessage(activeTab.id, {
+                type: 'QUEUE_HYDRATION_FOR_NEXT_BREAK',
+              });
+              return 'queued';
             }
-            await chrome.tabs.sendMessage(activeTab.id, { type: "SHOW_HYDRATION_POPUP" });
-            return "popup";
+            await chrome.tabs.sendMessage(activeTab.id, { type: 'SHOW_HYDRATION_POPUP' });
+            return 'popup';
           }
           if (pageContext?.canShowGentleReminder) {
-            await chrome.tabs.sendMessage(activeTab.id, { type: "SHOW_WATER_GENTLE_REMINDER" });
-            return "gentle";
+            await chrome.tabs.sendMessage(activeTab.id, { type: 'SHOW_WATER_GENTLE_REMINDER' });
+            return 'gentle';
           }
-        } catch (e) {
-        }
+        } catch (e) {}
         await showBasicNotification(
-          "water-reminder",
-          "EyeFlow water reminder",
-          "Take a few sips of water when you get a moment."
+          'water-reminder',
+          'EyeFlow water reminder',
+          'Take a few sips of water when you get a moment.'
         );
-        return "notification";
+        return 'notification';
       }
       async function reconcilePendingWaterReminder(runtimeState, settings, now = Date.now()) {
         if (!runtimeState.waterReminderPending) return false;
         const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-        const activeTab = tabs.find((tab) => tab.id && tab.url && !tab.url.startsWith("chrome://"));
+        const activeTab = tabs.find((tab) => tab.id && tab.url && !tab.url.startsWith('chrome://'));
         if (!activeTab || !activeTab.id) {
           expireStaleWaterPending(runtimeState, settings, now);
           return false;
         }
         try {
-          const pageContext = await chrome.tabs.sendMessage(activeTab.id, { type: "GET_PAGE_REMINDER_CONTEXT" });
+          const pageContext = await chrome.tabs.sendMessage(activeTab.id, {
+            type: 'GET_PAGE_REMINDER_CONTEXT',
+          });
           if (pageContext?.isDoomScrollContext) {
             expireStaleWaterPending(runtimeState, settings, now);
             return false;
           }
           if (pageContext?.canShowGentleReminder) {
-            await chrome.tabs.sendMessage(activeTab.id, { type: "SHOW_WATER_GENTLE_REMINDER" });
+            await chrome.tabs.sendMessage(activeTab.id, { type: 'SHOW_WATER_GENTLE_REMINDER' });
             runtimeState.waterReminderPending = false;
             runtimeState.waterReminderPendingSince = 0;
             runtimeState.waterQueuedForNextBreak = false;
             runtimeState.nextWaterReminderAt = now + getWaterDelayMs(settings);
             return true;
           }
-        } catch (e) {
-        }
+        } catch (e) {}
         expireStaleWaterPending(runtimeState, settings, now);
         return false;
       }
       async function showBasicNotification(id, title, message) {
         await chrome.notifications.create(id, {
-          type: "basic",
-          iconUrl: "icons/icon128.png",
+          type: 'basic',
+          iconUrl: 'icons/icon128.png',
           title,
-          message
+          message,
         });
       }
       async function playReminderSound() {
         try {
           await ensureOffscreenDocument();
-          await chrome.runtime.sendMessage({ type: "PLAY_REMINDER_SOUND" });
+          await chrome.runtime.sendMessage({ type: 'PLAY_REMINDER_SOUND' });
           return true;
         } catch (e) {
           return false;
         }
       }
       async function ensureOffscreenDocument() {
-        const offscreenUrl = chrome.runtime.getURL("offscreen.html");
+        const offscreenUrl = chrome.runtime.getURL('offscreen.html');
         const contexts = await chrome.runtime.getContexts({
-          contextTypes: ["OFFSCREEN_DOCUMENT"],
-          documentUrls: [offscreenUrl]
+          contextTypes: ['OFFSCREEN_DOCUMENT'],
+          documentUrls: [offscreenUrl],
         });
         if (contexts.length > 0) return;
         await chrome.offscreen.createDocument({
-          url: "offscreen.html",
-          reasons: ["AUDIO_PLAYBACK"],
-          justification: "Play a short eye-care reminder sound when Chrome is open in the background."
+          url: 'offscreen.html',
+          reasons: ['AUDIO_PLAYBACK'],
+          justification:
+            'Play a short eye-care reminder sound when Chrome is open in the background.',
         });
       }
       function getRandomDelayMs(minMinutes, maxMinutes) {
@@ -883,7 +925,7 @@
           runtimeState.sharedDsActiveMs = 0;
           runtimeState.sharedDsIsActive = false;
           runtimeState.sharedDsActiveTabId = 0;
-          runtimeState.sharedDsContextKey = "";
+          runtimeState.sharedDsContextKey = '';
           runtimeState.sharedDsLastUpdateAt = now;
           runtimeState.sharedDsState = SHARED_DS_TIMER_STATES.PAUSED;
           runtimeState.sharedDsPauseReason = SHARED_DS_PAUSE_REASONS.SESSION_TIMEOUT;
@@ -905,18 +947,20 @@
           activeMs: runtimeState.sharedDsActiveMs || 0,
           nextBreakTargetMs: runtimeState.sharedDsNextBreakTargetMs || 0,
           isActive: Boolean(runtimeState.sharedDsIsActive),
-          contextKey: runtimeState.sharedDsContextKey || "",
-          activeTabId: runtimeState.sharedDsActiveTabId || 0
+          contextKey: runtimeState.sharedDsContextKey || '',
+          activeTabId: runtimeState.sharedDsActiveTabId || 0,
         };
       }
       function normalizeTimingMode(timingMode, customTimingEnabled) {
-        if (timingMode === "fixed" || timingMode === "surprise") {
+        if (timingMode === 'fixed' || timingMode === 'surprise') {
           return timingMode;
         }
-        return customTimingEnabled ? "surprise" : "fixed";
+        return customTimingEnabled ? 'surprise' : 'fixed';
       }
       function isSurpriseTiming(settings) {
-        return normalizeTimingMode(settings?.timingMode, settings?.customTimingEnabled) === "surprise";
+        return (
+          normalizeTimingMode(settings?.timingMode, settings?.customTimingEnabled) === 'surprise'
+        );
       }
       function getEyeBreakDelayMs(settings) {
         if (isSurpriseTiming(settings)) {
@@ -951,22 +995,43 @@
       function isLikelyDoomScrollUrl(url) {
         try {
           const parsedUrl = new URL(url);
-          const hostname = parsedUrl.hostname.replace(/^(www|m)\./, "");
-          const pathname = (parsedUrl.pathname || "/").toLowerCase();
-          if (hostname === "youtube.com" && pathname.startsWith("/shorts")) return true;
-          if (hostname === "snapchat.com") {
-            return pathname.startsWith("/spotlight") || pathname.includes("/spotlight/") || pathname.startsWith("/stories") || pathname.startsWith("/discover") || pathname === "/";
+          const hostname = parsedUrl.hostname.replace(/^(www|m)\./, '');
+          const pathname = (parsedUrl.pathname || '/').toLowerCase();
+          if (hostname === 'youtube.com' && pathname.startsWith('/shorts')) return true;
+          if (hostname === 'snapchat.com') {
+            return (
+              pathname.startsWith('/spotlight') ||
+              pathname.includes('/spotlight/') ||
+              pathname.startsWith('/stories') ||
+              pathname.startsWith('/discover') ||
+              pathname === '/'
+            );
           }
-          if (hostname === "linkedin.com") {
-            return pathname.startsWith("/feed/") || pathname.startsWith("/video/") || pathname.startsWith("/posts/") || pathname.startsWith("/feed/update/");
+          if (hostname === 'linkedin.com') {
+            return (
+              pathname.startsWith('/feed/') ||
+              pathname.startsWith('/video/') ||
+              pathname.startsWith('/posts/') ||
+              pathname.startsWith('/feed/update/')
+            );
           }
-          if (hostname === "twitch.tv") {
-            return pathname.startsWith("/clips") || pathname.startsWith("/clip/") || pathname.startsWith("/directory/game/") && pathname.includes("/clips") || pathname.startsWith("/directory/all/tags/") && pathname.includes("/clips");
+          if (hostname === 'twitch.tv') {
+            return (
+              pathname.startsWith('/clips') ||
+              pathname.startsWith('/clip/') ||
+              (pathname.startsWith('/directory/game/') && pathname.includes('/clips')) ||
+              (pathname.startsWith('/directory/all/tags/') && pathname.includes('/clips'))
+            );
           }
-          if (hostname === "x.com" || hostname === "twitter.com") {
-            if (pathname.startsWith("/home") || pathname.startsWith("/explore")) return true;
-            if (pathname.startsWith("/i/communities") || /^\/[^/]+\/communities(\/|$)/.test(pathname) || pathname.startsWith("/communities")) return true;
-            if (pathname.includes("/status/")) return true;
+          if (hostname === 'x.com' || hostname === 'twitter.com') {
+            if (pathname.startsWith('/home') || pathname.startsWith('/explore')) return true;
+            if (
+              pathname.startsWith('/i/communities') ||
+              /^\/[^/]+\/communities(\/|$)/.test(pathname) ||
+              pathname.startsWith('/communities')
+            )
+              return true;
+            if (pathname.includes('/status/')) return true;
             return false;
           }
           return DOOM_SCROLL_HOSTS.has(hostname);
@@ -978,7 +1043,7 @@
         const merged = {
           ...DEFAULT_SETTINGS,
           siteTiers: { ...DEFAULT_SETTINGS.siteTiers },
-          redirectSuggestions: [...DEFAULT_SETTINGS.redirectSuggestions]
+          redirectSuggestions: [...DEFAULT_SETTINGS.redirectSuggestions],
         };
         sources.filter(Boolean).forEach((source) => {
           Object.assign(merged, source);
@@ -1026,8 +1091,8 @@
           Math.max(merged.subtleReminderMin, TIMER_LIMITS.subtleReminderMax.fallback)
         );
         merged.timingMode = normalizeTimingMode(merged.timingMode, merged.customTimingEnabled);
-        merged.customTimingEnabled = merged.timingMode === "surprise";
-        if (merged.timingMode === "fixed") {
+        merged.customTimingEnabled = merged.timingMode === 'surprise';
+        if (merged.timingMode === 'fixed') {
           merged.reminderIntervalMax = merged.reminderIntervalMin;
           merged.subtleReminderMax = merged.subtleReminderMin;
         }
@@ -1036,19 +1101,27 @@
       function mergeStats(source) {
         return {
           ...DEFAULT_STATS,
-          ...source || {},
-          moodHistory: Array.isArray(source?.moodHistory) ? source.moodHistory : [...DEFAULT_STATS.moodHistory],
-          doomScrollSessions: Array.isArray(source?.doomScrollSessions) ? source.doomScrollSessions : [...DEFAULT_STATS.doomScrollSessions],
-          siteTimeSpent: source?.siteTimeSpent ? { ...source.siteTimeSpent } : { ...DEFAULT_STATS.siteTimeSpent },
-          todayDsSiteTimeSpent: source?.todayDsSiteTimeSpent ? { ...source.todayDsSiteTimeSpent } : { ...DEFAULT_STATS.todayDsSiteTimeSpent }
+          ...(source || {}),
+          moodHistory: Array.isArray(source?.moodHistory)
+            ? source.moodHistory
+            : [...DEFAULT_STATS.moodHistory],
+          doomScrollSessions: Array.isArray(source?.doomScrollSessions)
+            ? source.doomScrollSessions
+            : [...DEFAULT_STATS.doomScrollSessions],
+          siteTimeSpent: source?.siteTimeSpent
+            ? { ...source.siteTimeSpent }
+            : { ...DEFAULT_STATS.siteTimeSpent },
+          todayDsSiteTimeSpent: source?.todayDsSiteTimeSpent
+            ? { ...source.todayDsSiteTimeSpent }
+            : { ...DEFAULT_STATS.todayDsSiteTimeSpent },
         };
       }
       function mergeRuntimeState(source) {
         const merged = {
           ...DEFAULT_RUNTIME_STATE,
-          ...source || {}
+          ...(source || {}),
         };
-        if (merged.gentleState === "hold") {
+        if (merged.gentleState === 'hold') {
           merged.gentleState = GENTLE_TIMER_STATES.PAUSED;
         }
         return merged;
@@ -1057,8 +1130,14 @@
         Object.assign(runtimeState, DEFAULT_RUNTIME_STATE, {
           nextGentleReminderAt: settings.enabled ? now + getGentleDelayMs(settings) : 0,
           gentlePausedRemainingMs: 0,
-          gentleState: settings.enabled && settings.subtleReminderEnabled ? GENTLE_TIMER_STATES.RUNNING : GENTLE_TIMER_STATES.OFF,
-          gentlePauseReason: settings.enabled && settings.subtleReminderEnabled ? GENTLE_PAUSE_REASONS.NONE : GENTLE_PAUSE_REASONS.FEATURE_OFF,
+          gentleState:
+            settings.enabled && settings.subtleReminderEnabled
+              ? GENTLE_TIMER_STATES.RUNNING
+              : GENTLE_TIMER_STATES.OFF,
+          gentlePauseReason:
+            settings.enabled && settings.subtleReminderEnabled
+              ? GENTLE_PAUSE_REASONS.NONE
+              : GENTLE_PAUSE_REASONS.FEATURE_OFF,
           nextWaterReminderAt: settings.enabled ? now + getWaterDelayMs(settings) : 0,
           waterReminderPending: false,
           waterReminderPendingSince: 0,
@@ -1068,9 +1147,13 @@
           sharedDsLastUpdateAt: settings.enabled ? now : 0,
           sharedDsActiveTabId: 0,
           sharedDsIsActive: false,
-          sharedDsContextKey: "",
-          sharedDsState: settings.enabled ? SHARED_DS_TIMER_STATES.PAUSED : SHARED_DS_TIMER_STATES.OFF,
-          sharedDsPauseReason: settings.enabled ? SHARED_DS_PAUSE_REASONS.INACTIVE : SHARED_DS_PAUSE_REASONS.DISABLED
+          sharedDsContextKey: '',
+          sharedDsState: settings.enabled
+            ? SHARED_DS_TIMER_STATES.PAUSED
+            : SHARED_DS_TIMER_STATES.OFF,
+          sharedDsPauseReason: settings.enabled
+            ? SHARED_DS_PAUSE_REASONS.INACTIVE
+            : SHARED_DS_PAUSE_REASONS.DISABLED,
         });
       }
       function clearRuntimeStateForDisabled(runtimeState) {
@@ -1087,7 +1170,7 @@
         runtimeState.sharedDsLastUpdateAt = 0;
         runtimeState.sharedDsActiveTabId = 0;
         runtimeState.sharedDsIsActive = false;
-        runtimeState.sharedDsContextKey = "";
+        runtimeState.sharedDsContextKey = '';
         runtimeState.sharedDsState = SHARED_DS_TIMER_STATES.OFF;
         runtimeState.sharedDsPauseReason = SHARED_DS_PAUSE_REASONS.DISABLED;
       }
@@ -1106,45 +1189,60 @@
         runtimeState.sharedDsLastUpdateAt = now;
         runtimeState.sharedDsActiveTabId = 0;
         runtimeState.sharedDsIsActive = false;
-        runtimeState.sharedDsContextKey = "";
+        runtimeState.sharedDsContextKey = '';
         runtimeState.sharedDsState = SHARED_DS_TIMER_STATES.PAUSED;
         runtimeState.sharedDsPauseReason = SHARED_DS_PAUSE_REASONS.INACTIVE;
         runtimeState.lastPrimaryInterventionAt = 0;
         runtimeState.lastGentleReminderAt = 0;
       }
       function shouldRestartMainTimers(previousSettings, nextSettings) {
-        return previousSettings.enabled !== nextSettings.enabled || previousSettings.timingMode !== nextSettings.timingMode || previousSettings.customTimingEnabled !== nextSettings.customTimingEnabled || previousSettings.reminderIntervalMin !== nextSettings.reminderIntervalMin || previousSettings.reminderIntervalMax !== nextSettings.reminderIntervalMax || previousSettings.eyeBreakDurationSec !== nextSettings.eyeBreakDurationSec || previousSettings.hydrationReminderMin !== nextSettings.hydrationReminderMin || previousSettings.subtleReminderMin !== nextSettings.subtleReminderMin || previousSettings.subtleReminderMax !== nextSettings.subtleReminderMax || previousSettings.subtleReminderEnabled !== nextSettings.subtleReminderEnabled;
+        return (
+          previousSettings.enabled !== nextSettings.enabled ||
+          previousSettings.timingMode !== nextSettings.timingMode ||
+          previousSettings.customTimingEnabled !== nextSettings.customTimingEnabled ||
+          previousSettings.reminderIntervalMin !== nextSettings.reminderIntervalMin ||
+          previousSettings.reminderIntervalMax !== nextSettings.reminderIntervalMax ||
+          previousSettings.eyeBreakDurationSec !== nextSettings.eyeBreakDurationSec ||
+          previousSettings.hydrationReminderMin !== nextSettings.hydrationReminderMin ||
+          previousSettings.subtleReminderMin !== nextSettings.subtleReminderMin ||
+          previousSettings.subtleReminderMax !== nextSettings.subtleReminderMax ||
+          previousSettings.subtleReminderEnabled !== nextSettings.subtleReminderEnabled
+        );
       }
       function ensureDefaults({ freshSession = false } = {}) {
-        chrome.storage.local.get(["settings", "stats", "runtimeState"], (result) => {
+        chrome.storage.local.get(['settings', 'stats', 'runtimeState'], (result) => {
           const settings = mergeSettings(result.settings);
           const runtimeState = mergeRuntimeState(result.runtimeState);
           if (freshSession) {
             resetRuntimeStateFields(runtimeState, settings);
-          } else if (!runtimeState.nextWaterReminderAt && !runtimeState.waterReminderPending && !runtimeState.waterQueuedForNextBreak) {
+          } else if (
+            !runtimeState.nextWaterReminderAt &&
+            !runtimeState.waterReminderPending &&
+            !runtimeState.waterQueuedForNextBreak
+          ) {
             runtimeState.nextWaterReminderAt = Date.now() + getWaterDelayMs(settings);
           }
           chrome.storage.local.set({
             settings,
             stats: mergeStats(result.stats),
-            runtimeState
+            runtimeState,
           });
         });
       }
       function ensureTickAlarm() {
-        chrome.alarms.create("eyeflow-tick", { periodInMinutes: TICK_ALARM_PERIOD_MINUTES });
+        chrome.alarms.create('eyeflow-tick', { periodInMinutes: TICK_ALARM_PERIOD_MINUTES });
       }
       function ensureIdleDetection() {
         chrome.idle.setDetectionInterval(IDLE_DETECTION_INTERVAL_SECONDS);
       }
       function broadcastRuntimeReset(runtimeState) {
         broadcastToAllTabs({
-          type: "RESET_SESSION_TIMERS",
-          snapshot: getSharedDsSnapshot(runtimeState)
+          type: 'RESET_SESSION_TIMERS',
+          snapshot: getSharedDsSnapshot(runtimeState),
         });
       }
-      async function resetRuntimeStateForFreshSession(reason = "manual") {
-        const result = await chrome.storage.local.get(["settings", "runtimeState"]);
+      async function resetRuntimeStateForFreshSession(reason = 'manual') {
+        const result = await chrome.storage.local.get(['settings', 'runtimeState']);
         const settings = mergeSettings(result.settings);
         const runtimeState = mergeRuntimeState(result.runtimeState);
         const now = Date.now();
@@ -1163,41 +1261,54 @@
           dayHourCounts[key] = (dayHourCounts[key] || 0) + 1;
           siteCounts[session.site] = (siteCounts[session.site] || 0) + 1;
         });
-        const riskTimes = Object.entries(dayHourCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([key, count]) => {
-          const [day, hour] = key.split("-").map(Number);
-          return {
-            day,
-            // 0=Sun, 1=Mon, ...
-            hour,
-            // 0-23
-            count,
-            // How many times
-            dayName: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][day],
-            timeLabel: formatHour(hour)
-            // "11 PM", "3 AM", etc.
-          };
-        });
-        const topSites = Object.entries(siteCounts).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([site, count]) => ({ site, count }));
+        const riskTimes = Object.entries(dayHourCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([key, count]) => {
+            const [day, hour] = key.split('-').map(Number);
+            return {
+              day,
+              // 0=Sun, 1=Mon, ...
+              hour,
+              // 0-23
+              count,
+              // How many times
+              dayName: [
+                'Sunday',
+                'Monday',
+                'Tuesday',
+                'Wednesday',
+                'Thursday',
+                'Friday',
+                'Saturday',
+              ][day],
+              timeLabel: formatHour(hour),
+              // "11 PM", "3 AM", etc.
+            };
+          });
+        const topSites = Object.entries(siteCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([site, count]) => ({ site, count }));
         return { hasEnoughData: true, riskTimes, topSites };
       }
       function formatHour(hour) {
-        if (hour === 0) return "12 AM";
+        if (hour === 0) return '12 AM';
         if (hour < 12) return `${hour} AM`;
-        if (hour === 12) return "12 PM";
+        if (hour === 12) return '12 PM';
         return `${hour - 12} PM`;
       }
       function broadcastToAllTabs(message) {
         chrome.tabs.query({}, (tabs) => {
           tabs.forEach((tab) => {
-            if (tab.id && tab.url && !tab.url.startsWith("chrome://")) {
-              chrome.tabs.sendMessage(tab.id, message).catch(() => {
-              });
+            if (tab.id && tab.url && !tab.url.startsWith('chrome://')) {
+              chrome.tabs.sendMessage(tab.id, message).catch(() => {});
             }
           });
         });
       }
       chrome.tabs.onRemoved.addListener((tabId) => {
-        chrome.storage.local.get(["settings", "runtimeState"], (result) => {
+        chrome.storage.local.get(['settings', 'runtimeState'], (result) => {
           const settings = mergeSettings(result.settings);
           const runtimeState = mergeRuntimeState(result.runtimeState);
           if (runtimeState.sharedDsActiveTabId !== tabId) return;
@@ -1206,19 +1317,19 @@
           runtimeState.sharedDsLastUpdateAt = 0;
           runtimeState.sharedDsActiveTabId = 0;
           runtimeState.sharedDsIsActive = false;
-          runtimeState.sharedDsContextKey = "";
+          runtimeState.sharedDsContextKey = '';
           runtimeState.sharedDsState = SHARED_DS_TIMER_STATES.PAUSED;
           runtimeState.sharedDsPauseReason = SHARED_DS_PAUSE_REASONS.INACTIVE;
           chrome.storage.local.set({ runtimeState });
         });
       });
       chrome.windows.onRemoved.addListener(async () => {
-        const windows = await chrome.windows.getAll({ windowTypes: ["normal"] });
+        const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
         if (windows.length === 0) {
-          await resetRuntimeStateForFreshSession("all-windows-closed");
+          await resetRuntimeStateForFreshSession('all-windows-closed');
         }
       });
-    }
+    },
   });
   require_background();
 })();

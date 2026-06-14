@@ -1,36 +1,41 @@
 (() => {
   var __getOwnPropNames = Object.getOwnPropertyNames;
-  var __esm = (fn, res, err) => function __init() {
-    if (err) throw err[0];
-    try {
-      return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
-    } catch (e) {
-      throw err = [e], e;
-    }
-  };
-  var __commonJS = (cb, mod) => function __require() {
-    try {
-      return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
-    } catch (e) {
-      throw mod = 0, e;
-    }
-  };
+  var __esm = (fn, res, err) =>
+    function __init() {
+      if (err) throw err[0];
+      try {
+        return (fn && (res = (0, fn[__getOwnPropNames(fn)[0]])((fn = 0))), res);
+      } catch (e) {
+        throw ((err = [e]), e);
+      }
+    };
+  var __commonJS = (cb, mod) =>
+    function __require() {
+      try {
+        return (
+          mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod),
+          mod.exports
+        );
+      } catch (e) {
+        throw ((mod = 0), e);
+      }
+    };
 
   // src/intelligence.js
-  var EyeFlowIntelligence2;
+  var EyeFlowIntelligence;
   var init_intelligence = __esm({
-    "src/intelligence.js"() {
-      EyeFlowIntelligence2 = (() => {
+    'src/intelligence.js'() {
+      EyeFlowIntelligence = (() => {
         let currentBreakTargetMs = 0;
         let lastReminderAt = 0;
         let cachedSettings = null;
         let lastTypingTime = 0;
         function getCurrentContextKeys(hostname) {
-          const cleanHost = hostname.replace(/^www\./, "");
-          const path = window.location.pathname || "";
+          const cleanHost = hostname.replace(/^www\./, '');
+          const path = window.location.pathname || '';
           const keys = [];
-          if (cleanHost.includes("youtube.com") && path.startsWith("/shorts")) {
-            keys.push("youtube.com/shorts");
+          if (cleanHost.includes('youtube.com') && path.startsWith('/shorts')) {
+            keys.push('youtube.com/shorts');
           }
           keys.push(hostname);
           if (cleanHost !== hostname) {
@@ -47,7 +52,7 @@
               }
             }
           }
-          return "moderate";
+          return 'moderate';
         }
         function getScrollThreshold(hostname) {
           const tier = getSiteTier(hostname);
@@ -55,7 +60,7 @@
           const baseThresholds = {
             strict: cachedSettings?.scrollThresholdStrict ?? 20,
             moderate: cachedSettings?.scrollThresholdModerate ?? 30,
-            relaxed: cachedSettings?.scrollThresholdRelaxed ?? 45
+            relaxed: cachedSettings?.scrollThresholdRelaxed ?? 45,
           };
           const base = baseThresholds[tier] || 15;
           const multiplier = 1.5 - sensitivity / 100;
@@ -66,7 +71,7 @@
           const windows = {
             strict: 1e4,
             moderate: 15e3,
-            relaxed: 2e4
+            relaxed: 2e4,
           };
           return windows[tier] || 15e3;
         }
@@ -76,12 +81,12 @@
             currentBreakTargetMs = getNextBreakTargetMs();
           }
           if (activeSessionMs < currentBreakTargetMs) {
-            return "none";
+            return 'none';
           }
           if (!lastReminderAt || now - lastReminderAt >= 60 * 1e3) {
-            return "warning";
+            return 'warning';
           }
-          return "none";
+          return 'none';
         }
         function getMsUntilBreak(activeSessionMs = 0) {
           if (!currentBreakTargetMs) {
@@ -109,12 +114,15 @@
           lastReminderAt = Date.now();
         }
         function getNextBreakTargetMs() {
-          const minMinutes = cachedSettings && cachedSettings.reminderIntervalMin || 5;
+          const minMinutes = (cachedSettings && cachedSettings.reminderIntervalMin) || 5;
           const maxMinutes = Math.max(
             minMinutes,
-            cachedSettings && cachedSettings.reminderIntervalMax || minMinutes
+            (cachedSettings && cachedSettings.reminderIntervalMax) || minMinutes
           );
-          const sensitivity = cachedSettings && cachedSettings.sensitivity !== void 0 ? cachedSettings.sensitivity : 50;
+          const sensitivity =
+            cachedSettings && cachedSettings.sensitivity !== void 0
+              ? cachedSettings.sensitivity
+              : 50;
           const multiplier = 1.5 - sensitivity / 100;
           return Math.round(getRandomInt(minMinutes, maxMinutes) * 60 * 1e3 * multiplier);
         }
@@ -126,21 +134,25 @@
         function isSingleVideoPage() {
           const url = window.location.href;
           const hostname = window.location.hostname;
-          if (hostname.includes("youtube.com") && url.includes("/watch")) {
+          if (hostname.includes('youtube.com') && url.includes('/watch')) {
             return true;
           }
-          if (hostname.includes("vimeo.com") && /\/\d+/.test(window.location.pathname)) {
+          if (hostname.includes('vimeo.com') && /\/\d+/.test(window.location.pathname)) {
             return true;
           }
-          if (hostname.includes("netflix.com") && url.includes("/watch")) {
+          if (hostname.includes('netflix.com') && url.includes('/watch')) {
             return true;
           }
           return false;
         }
         function trackTyping() {
-          document.addEventListener("keydown", () => {
-            lastTypingTime = Date.now();
-          }, { passive: true });
+          document.addEventListener(
+            'keydown',
+            () => {
+              lastTypingTime = Date.now();
+            },
+            { passive: true }
+          );
         }
         function isUserTyping() {
           return Date.now() - lastTypingTime < 3e4;
@@ -154,11 +166,10 @@
         function init() {
           trackTyping();
           try {
-            chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (settings) => {
+            chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, (settings) => {
               if (settings) cachedSettings = settings;
             });
-          } catch (e) {
-          }
+          } catch (e) {}
         }
         init();
         return {
@@ -174,24 +185,25 @@
           markReminderShown,
           isSingleVideoPage,
           isUserTyping,
-          updateSettings
+          updateSettings,
         };
       })();
-    }
+    },
   });
 
   // src/overlay.js
   var EyeFlowOverlay;
   var init_overlay = __esm({
-    "src/overlay.js"() {
+    'src/overlay.js'() {
+      init_intelligence();
       EyeFlowOverlay = /* @__PURE__ */ (() => {
         const ENFORCED_STRICT_SITES = /* @__PURE__ */ new Set([
-          "instagram.com",
-          "tiktok.com",
-          "reddit.com",
-          "facebook.com",
-          "twitter.com",
-          "x.com"
+          'instagram.com',
+          'tiktok.com',
+          'reddit.com',
+          'facebook.com',
+          'twitter.com',
+          'x.com',
         ]);
         let overlayElement = null;
         let exerciseTimer = null;
@@ -214,71 +226,77 @@
           return false;
         }
         const DOT_POSITIONS = [
-          { top: "50%", left: "50%" },
+          { top: '50%', left: '50%' },
           // Center
-          { top: "10%", left: "10%" },
+          { top: '10%', left: '10%' },
           // Top-left
-          { top: "10%", left: "90%" },
+          { top: '10%', left: '90%' },
           // Top-right
-          { top: "90%", left: "90%" },
+          { top: '90%', left: '90%' },
           // Bottom-right
-          { top: "90%", left: "10%" },
+          { top: '90%', left: '10%' },
           // Bottom-left
-          { top: "10%", left: "50%" },
+          { top: '10%', left: '50%' },
           // Top-center
-          { top: "90%", left: "50%" },
+          { top: '90%', left: '50%' },
           // Bottom-center
-          { top: "50%", left: "10%" },
+          { top: '50%', left: '10%' },
           // Left-center
-          { top: "50%", left: "90%" },
+          { top: '50%', left: '90%' },
           // Right-center
-          { top: "22%", left: "24%" },
+          { top: '22%', left: '24%' },
           // Upper-left area
-          { top: "22%", left: "76%" },
+          { top: '22%', left: '76%' },
           // Upper-right area
-          { top: "78%", left: "24%" },
+          { top: '78%', left: '24%' },
           // Lower-left area
-          { top: "78%", left: "76%" },
+          { top: '78%', left: '76%' },
           // Lower-right area
-          { top: "18%", left: "50%" },
+          { top: '18%', left: '50%' },
           // Higher center
-          { top: "82%", left: "50%" },
+          { top: '82%', left: '50%' },
           // Lower center
-          { top: "50%", left: "50%" }
+          { top: '50%', left: '50%' },
           // Back to center
         ];
         function show(settings, site, timeOnSite, options = {}) {
           if (isShowing && ensureOverlayStateIsFresh()) return;
           isShowing = true;
-          const duration = settings && settings.eyeBreakDurationSec || 20;
+          const duration = (settings && settings.eyeBreakDurationSec) || 20;
           const isStrict = isEnforcedStrictSite(site);
-          const suggestions = settings && settings.redirectSuggestions || [
-            "Take a short walk",
-            "Drink a glass of water",
-            "Do a quick stretch",
-            "Read a book for 5 min",
-            "Step outside for fresh air"
+          const suggestions = (settings && settings.redirectSuggestions) || [
+            'Take a short walk',
+            'Drink a glass of water',
+            'Do a quick stretch',
+            'Read a book for 5 min',
+            'Step outside for fresh air',
           ];
-          overlayElement = document.createElement("div");
-          overlayElement.id = "eyeflow-overlay";
+          overlayElement = document.createElement('div');
+          overlayElement.id = 'eyeflow-overlay';
           pausePageMedia();
           if (isStrict) {
-            overlayElement.classList.add("eyeflow-strict");
+            overlayElement.classList.add('eyeflow-strict');
           }
-          overlayElement.innerHTML = buildExerciseHTML(duration, isStrict, site, timeOnSite, suggestions);
+          overlayElement.innerHTML = buildExerciseHTML(
+            duration,
+            isStrict,
+            site,
+            timeOnSite,
+            suggestions
+          );
           document.body.appendChild(overlayElement);
           startExercise(duration, site, timeOnSite, suggestions, settings, options);
         }
         function showHydration(settings, site, timeOnSite) {
           if (isShowing && ensureOverlayStateIsFresh()) return;
           isShowing = true;
-          const duration = settings && settings.hydrationBreakDurationSec || 40;
+          const duration = (settings && settings.hydrationBreakDurationSec) || 40;
           const isStrict = isEnforcedStrictSite(site);
-          overlayElement = document.createElement("div");
-          overlayElement.id = "eyeflow-overlay";
+          overlayElement = document.createElement('div');
+          overlayElement.id = 'eyeflow-overlay';
           pausePageMedia();
           if (isStrict) {
-            overlayElement.classList.add("eyeflow-strict");
+            overlayElement.classList.add('eyeflow-strict');
           }
           overlayElement.innerHTML = buildHydrationHTML(duration);
           document.body.appendChild(overlayElement);
@@ -288,7 +306,7 @@
           if (ENFORCED_STRICT_SITES.has(site)) {
             return true;
           }
-          return site === "youtube.com" && window.location.pathname.startsWith("/shorts");
+          return site === 'youtube.com' && window.location.pathname.startsWith('/shorts');
         }
         function buildExerciseHTML(duration, isStrict, site, timeOnSite, suggestions) {
           const breakLine = `${duration} seconds. Look away, breathe, come back.`;
@@ -349,17 +367,17 @@
         function startExercise(duration, site, timeOnSite, suggestions, settings, options = {}) {
           let timeLeft = duration;
           let dotIndex = 0;
-          const dot = overlayElement.querySelector(".eyeflow-dot");
-          const countdown = overlayElement.querySelector(".eyeflow-countdown");
-          const progressFill = overlayElement.querySelector(".eyeflow-progress-fill");
-          const instruction = overlayElement.querySelector(".eyeflow-instruction");
-          const skipBtn = overlayElement.querySelector(".eyeflow-skip-btn");
+          const dot = overlayElement.querySelector('.eyeflow-dot');
+          const countdown = overlayElement.querySelector('.eyeflow-countdown');
+          const progressFill = overlayElement.querySelector('.eyeflow-progress-fill');
+          const instruction = overlayElement.querySelector('.eyeflow-instruction');
+          const skipBtn = overlayElement.querySelector('.eyeflow-skip-btn');
           const instructions = [
-            "Follow the point slowly...",
-            "Keep your head still and move only your eyes",
-            "Reach the wider edges without rushing",
-            "Stay soft and steady",
-            "Almost done, let your eyes settle"
+            'Follow the point slowly...',
+            'Keep your head still and move only your eyes',
+            'Reach the wider edges without rushing',
+            'Stay soft and steady',
+            'Almost done, let your eyes settle',
           ];
           dotMoveTimer = setInterval(() => {
             dotIndex = (dotIndex + 1) % DOT_POSITIONS.length;
@@ -370,18 +388,17 @@
           exerciseTimer = setInterval(() => {
             timeLeft--;
             countdown.textContent = timeLeft;
-            const progress = (duration - timeLeft) / duration * 100;
+            const progress = ((duration - timeLeft) / duration) * 100;
             progressFill.style.width = `${progress}%`;
-            const instrIndex = Math.floor((duration - timeLeft) / duration * instructions.length);
+            const instrIndex = Math.floor(((duration - timeLeft) / duration) * instructions.length);
             instruction.textContent = instructions[Math.min(instrIndex, instructions.length - 1)];
             if (timeLeft <= 0) {
               clearInterval(exerciseTimer);
               clearInterval(dotMoveTimer);
               try {
-                chrome.runtime.sendMessage({ type: "EYE_BREAK_COMPLETED" });
-              } catch (e) {
-              }
-              if (typeof EyeFlowIntelligence !== "undefined") {
+                chrome.runtime.sendMessage({ type: 'EYE_BREAK_COMPLETED' });
+              } catch (e) {}
+              if (typeof EyeFlowIntelligence !== 'undefined') {
                 EyeFlowIntelligence.recordBreakCompleted();
               }
               shouldResetBreakCycleOnHide = true;
@@ -389,7 +406,7 @@
             }
           }, 1e3);
           if (skipBtn) {
-            skipBtn.addEventListener("click", () => {
+            skipBtn.addEventListener('click', () => {
               clearInterval(exerciseTimer);
               clearInterval(dotMoveTimer);
               hide();
@@ -398,52 +415,54 @@
         }
         function startHydration(duration) {
           let timeLeft = duration;
-          const countdown = overlayElement.querySelector(".eyeflow-countdown");
-          const progressFill = overlayElement.querySelector(".eyeflow-progress-fill");
-          const instruction = overlayElement.querySelector(".eyeflow-instruction");
+          const countdown = overlayElement.querySelector('.eyeflow-countdown');
+          const progressFill = overlayElement.querySelector('.eyeflow-progress-fill');
+          const instruction = overlayElement.querySelector('.eyeflow-instruction');
           const doneBtn = overlayElement.querySelector('[data-hydration-action="done"]');
           const laterBtn = overlayElement.querySelector('[data-hydration-action="later"]');
           const instructions = [
-            "Take a slow sip and breathe.",
-            "Relax your jaw and shoulders.",
-            "Let your eyes rest away from the feed.",
-            "A little water and a little pause help a lot."
+            'Take a slow sip and breathe.',
+            'Relax your jaw and shoulders.',
+            'Let your eyes rest away from the feed.',
+            'A little water and a little pause help a lot.',
           ];
           exerciseTimer = setInterval(() => {
             timeLeft--;
             countdown.textContent = timeLeft;
-            const progress = (duration - timeLeft) / duration * 100;
+            const progress = ((duration - timeLeft) / duration) * 100;
             progressFill.style.width = `${progress}%`;
-            const instrIndex = Math.floor((duration - timeLeft) / duration * instructions.length);
+            const instrIndex = Math.floor(((duration - timeLeft) / duration) * instructions.length);
             instruction.textContent = instructions[Math.min(instrIndex, instructions.length - 1)];
             if (timeLeft <= 0) {
               clearInterval(exerciseTimer);
-              window.dispatchEvent(new CustomEvent("eyeflow-hydration-completed"));
+              window.dispatchEvent(new CustomEvent('eyeflow-hydration-completed'));
               hide();
             }
           }, 1e3);
           if (doneBtn) {
-            doneBtn.addEventListener("click", () => {
-              window.dispatchEvent(new CustomEvent("eyeflow-hydration-completed"));
+            doneBtn.addEventListener('click', () => {
+              window.dispatchEvent(new CustomEvent('eyeflow-hydration-completed'));
               hide();
             });
           }
           if (laterBtn) {
-            laterBtn.addEventListener("click", () => {
-              window.dispatchEvent(new CustomEvent("eyeflow-hydration-remind-soon"));
+            laterBtn.addEventListener('click', () => {
+              window.dispatchEvent(new CustomEvent('eyeflow-hydration-remind-soon'));
               hide();
             });
           }
         }
         function showPostBreak(site, timeOnSite, suggestions, settings, options = {}) {
           if (!overlayElement) return;
-          const card = overlayElement.querySelector(".eyeflow-card");
+          const card = overlayElement.querySelector('.eyeflow-card');
           if (!card) return;
-          card.classList.add("eyeflow-card-postbreak");
-          const suggestionsHTML = suggestions.slice(0, 4).map(
-            (s) => `<div class="eyeflow-redirect-chip">${s}</div>`
-          ).join("");
-          const hydrationSection = options.hydrationPrompt ? `
+          card.classList.add('eyeflow-card-postbreak');
+          const suggestionsHTML = suggestions
+            .slice(0, 4)
+            .map((s) => `<div class="eyeflow-redirect-chip">${s}</div>`)
+            .join('');
+          const hydrationSection = options.hydrationPrompt
+            ? `
         <div class="eyeflow-hydration-followup">
           <div class="eyeflow-hydration-followup-title">Before you jump back in, take a few sips of water.</div>
           <div class="eyeflow-hydration-followup-text">Hydration is also due, so this is a good moment to reset both your eyes and your body.</div>
@@ -452,7 +471,8 @@
             <button class="eyeflow-action-btn eyeflow-action-secondary" data-hydration-followup="later">Not right now</button>
           </div>
         </div>
-    ` : "";
+    `
+            : '';
           card.innerHTML = `
       <div class="eyeflow-postbreak">
         <!-- Title -->
@@ -495,62 +515,60 @@
         <div class="eyeflow-done-msg">Done - back to it</div>
       </div>
     `;
-          card.querySelector('[data-mood="good"]').textContent = "Good";
-          card.querySelector('[data-mood="okay"]').textContent = "Okay";
-          card.querySelector('[data-mood="bad"]').textContent = "Strained";
-          const moodBtns = card.querySelectorAll(".eyeflow-mood-btn");
+          card.querySelector('[data-mood="good"]').textContent = 'Good';
+          card.querySelector('[data-mood="okay"]').textContent = 'Okay';
+          card.querySelector('[data-mood="bad"]').textContent = 'Strained';
+          const moodBtns = card.querySelectorAll('.eyeflow-mood-btn');
           moodBtns.forEach((btn) => {
-            btn.addEventListener("click", () => {
-              moodBtns.forEach((b) => b.classList.remove("selected"));
-              btn.classList.add("selected");
+            btn.addEventListener('click', () => {
+              moodBtns.forEach((b) => b.classList.remove('selected'));
+              btn.classList.add('selected');
               const mood = btn.dataset.mood;
               try {
                 chrome.runtime.sendMessage({
-                  type: "MOOD_RECORDED",
+                  type: 'MOOD_RECORDED',
                   mood,
-                  site
+                  site,
                 });
-              } catch (e) {
-              }
+              } catch (e) {}
             });
           });
-          const closeBtn = card.querySelector("#eyeflow-close-tab");
+          const closeBtn = card.querySelector('#eyeflow-close-tab');
           if (closeBtn) {
-            closeBtn.addEventListener("click", () => {
+            closeBtn.addEventListener('click', () => {
               try {
-                chrome.runtime.sendMessage({ type: "CLOSE_TAB" });
-              } catch (e) {
-              }
+                chrome.runtime.sendMessage({ type: 'CLOSE_TAB' });
+              } catch (e) {}
               window.close();
               hide();
             });
           }
-          const keepBtn = card.querySelector("#eyeflow-keep-going");
+          const keepBtn = card.querySelector('#eyeflow-keep-going');
           if (keepBtn) {
-            keepBtn.addEventListener("click", hide);
+            keepBtn.addEventListener('click', hide);
           }
           const hydrationDoneBtn = card.querySelector('[data-hydration-followup="done"]');
           const hydrationLaterBtn = card.querySelector('[data-hydration-followup="later"]');
           if (hydrationDoneBtn) {
-            hydrationDoneBtn.addEventListener("click", () => {
-              window.dispatchEvent(new CustomEvent("eyeflow-hydration-completed"));
+            hydrationDoneBtn.addEventListener('click', () => {
+              window.dispatchEvent(new CustomEvent('eyeflow-hydration-completed'));
               hydrationDoneBtn.disabled = true;
-              hydrationDoneBtn.textContent = "Done - back to it";
+              hydrationDoneBtn.textContent = 'Done - back to it';
             });
           }
           if (hydrationLaterBtn) {
-            hydrationLaterBtn.addEventListener("click", () => {
-              window.dispatchEvent(new CustomEvent("eyeflow-hydration-remind-soon"));
+            hydrationLaterBtn.addEventListener('click', () => {
+              window.dispatchEvent(new CustomEvent('eyeflow-hydration-remind-soon'));
               hydrationLaterBtn.disabled = true;
-              hydrationLaterBtn.textContent = "Not right now";
+              hydrationLaterBtn.textContent = 'Not right now';
             });
           }
-          const chips = card.querySelectorAll(".eyeflow-redirect-chip");
+          const chips = card.querySelectorAll('.eyeflow-redirect-chip');
           chips.forEach((chip) => {
-            chip.addEventListener("click", () => {
-              chips.forEach((c) => c.style.borderColor = "rgba(52, 211, 153, 0.2)");
-              chip.style.borderColor = "#34d399";
-              chip.style.background = "rgba(52, 211, 153, 0.25)";
+            chip.addEventListener('click', () => {
+              chips.forEach((c) => (c.style.borderColor = 'rgba(52, 211, 153, 0.2)'));
+              chip.style.borderColor = '#34d399';
+              chip.style.background = 'rgba(52, 211, 153, 0.25)';
               setTimeout(hide, 800);
             });
           });
@@ -563,7 +581,7 @@
           exerciseTimer = null;
           dotMoveTimer = null;
           if (overlayElement) {
-            overlayElement.style.animation = "eyeflow-overlay-fadein 0.3s ease-in reverse";
+            overlayElement.style.animation = 'eyeflow-overlay-fadein 0.3s ease-in reverse';
             setTimeout(() => {
               if (overlayElement) {
                 overlayElement.remove();
@@ -580,11 +598,10 @@
           }
         }
         function finalizeBreakCycleClose() {
-          window.dispatchEvent(new CustomEvent("eyeflow-break-flow-closed"));
+          window.dispatchEvent(new CustomEvent('eyeflow-break-flow-closed'));
           try {
-            chrome.runtime.sendMessage({ type: "EYE_BREAK_FLOW_CLOSED" });
-          } catch (e) {
-          }
+            chrome.runtime.sendMessage({ type: 'EYE_BREAK_FLOW_CLOSED' });
+          } catch (e) {}
         }
         function pausePageMedia() {
           pausedMediaElements = [];
@@ -601,19 +618,18 @@
             if (!document.contains(media.element)) return;
             media.element.muted = media.wasMuted;
             if (media.wasPlaying) {
-              media.element.play().catch(() => {
-              });
+              media.element.play().catch(() => {});
             }
           });
           pausedMediaElements = [];
         }
         function enforceMediaPause() {
-          document.querySelectorAll("video, audio").forEach((media) => {
+          document.querySelectorAll('video, audio').forEach((media) => {
             if (!pausedMediaElements.some((entry) => entry.element === media)) {
               pausedMediaElements.push({
                 element: media,
                 wasPlaying: !media.paused,
-                wasMuted: media.muted
+                wasMuted: media.muted,
               });
             }
             media.muted = true;
@@ -629,75 +645,89 @@
           isShowing: () => {
             if (!isShowing) return false;
             return ensureOverlayStateIsFresh();
-          }
+          },
         };
       })();
-    }
+    },
+  });
+
+  // src/utils.js
+  var init_utils = __esm({
+    'src/utils.js'() {},
   });
 
   // src/content.js
   var require_content = __commonJS({
-    "src/content.js"() {
+    'src/content.js'() {
       init_intelligence();
       init_overlay();
+      init_utils();
       var EYEFLOW_DEBUG_CONTENT = false;
       var EyeFlowContent = (() => {
         const DOOM_SCROLL_SITES = /* @__PURE__ */ new Set([
-          "instagram.com",
-          "tiktok.com",
-          "reddit.com",
-          "facebook.com",
-          "twitter.com",
-          "x.com"
+          'instagram.com',
+          'tiktok.com',
+          'reddit.com',
+          'facebook.com',
+          'twitter.com',
+          'x.com',
         ]);
         const SENSITIVE_HOST_KEYWORDS = [
-          "bank",
-          "pay",
-          "billing",
-          "checkout",
-          "wallet",
-          "stripe",
-          "paypal",
-          "razorpay",
-          "exam",
-          "quiz",
-          "test",
-          "assessment",
-          "proctor",
-          "auth",
-          "login",
-          "signin",
-          "verify",
-          "otp",
-          "docs",
-          "sheets",
-          "slides",
-          "notion",
-          "figma",
-          "miro",
-          "canva",
-          "zoom",
-          "meet",
-          "teams"
+          'bank',
+          'pay',
+          'billing',
+          'checkout',
+          'wallet',
+          'stripe',
+          'paypal',
+          'razorpay',
+          'exam',
+          'quiz',
+          'test',
+          'assessment',
+          'proctor',
+          'auth',
+          'login',
+          'signin',
+          'verify',
+          'otp',
+          'docs',
+          'sheets',
+          'slides',
+          'notion',
+          'figma',
+          'miro',
+          'canva',
+          'zoom',
+          'meet',
+          'teams',
         ];
         const SENSITIVE_PATH_KEYWORDS = [
-          "login",
-          "signin",
-          "signup",
-          "verify",
-          "checkout",
-          "billing",
-          "payment",
-          "wallet",
-          "otp",
-          "auth",
-          "exam",
-          "quiz",
-          "test",
-          "assessment",
-          "proctor"
+          'login',
+          'signin',
+          'signup',
+          'verify',
+          'checkout',
+          'billing',
+          'payment',
+          'wallet',
+          'otp',
+          'auth',
+          'exam',
+          'quiz',
+          'test',
+          'assessment',
+          'proctor',
         ];
-        const COMMUNICATION_HOST_KEYWORDS = ["instagram", "facebook", "messenger", "x.com", "twitter", "discord", "snapchat"];
+        const COMMUNICATION_HOST_KEYWORDS = [
+          'instagram',
+          'facebook',
+          'messenger',
+          'x.com',
+          'twitter',
+          'discord',
+          'snapchat',
+        ];
         const SITE_TIME_REPORT_INTERVAL_MS = 60 * 1e3;
         const HYDRATION_JITTER_MINUTES = 3;
         const PRESENCE_WINDOW_MS = 35 * 1e3;
@@ -727,7 +757,7 @@
         let activeSessionStartedAt = 0;
         let lastReportedActiveSiteMs = 0;
         let hydrationTargetMs = 0;
-        let lastContextKey = "";
+        let lastContextKey = '';
         let isSystemIdle = false;
         let totalActiveUsageMs = 0;
         let totalUsageStartedAt = 0;
@@ -736,7 +766,7 @@
         let lastBreakOverlayShownAt = 0;
         let lastGentleReminderFallbackAt = 0;
         let lastGentleReminderShownAt = 0;
-        let singlePostGraceContextKey = "";
+        let singlePostGraceContextKey = '';
         let singlePostGraceStartedAt = 0;
         let nudgeElement = null;
         let warningElement = null;
@@ -746,94 +776,97 @@
         let debugTimerMeta = {
           nextGentleReminderAt: 0,
           gentlePausedRemainingMs: 0,
-          gentleState: "off",
-          gentlePauseReason: "none",
+          gentleState: 'off',
+          gentlePauseReason: 'none',
           nextWaterReminderAt: 0,
           waterReminderPending: false,
           waterQueuedForNextBreak: false,
-          lastFetchedAt: 0
+          lastFetchedAt: 0,
         };
         let sharedDsSyncInFlight = false;
         let sharedDsState = {
           activeMs: 0,
           nextBreakTargetMs: 0,
           isActive: false,
-          contextKey: "",
+          contextKey: '',
           activeTabId: 0,
-          lastSyncedAt: 0
+          lastSyncedAt: 0,
         };
         function runtimeCallbackFailed() {
           return Boolean(chrome.runtime?.lastError);
         }
         function getHostname() {
-          return window.location.hostname.replace(/^(www|m)\./, "");
+          return window.location.hostname.replace(/^(www|m)\./, '');
         }
         function getStatsSiteLabel() {
           const hostname = getHostname();
           const contextKey = getDoomScrollContextKey();
-          if (contextKey === "youtube.com/shorts" || contextKey === "youtube.com/channel-shorts") {
-            return "YouTube Shorts";
+          if (contextKey === 'youtube.com/shorts' || contextKey === 'youtube.com/channel-shorts') {
+            return 'YouTube Shorts';
           }
           const siteLabels = {
-            "instagram.com": "Instagram",
-            "reddit.com": "Reddit",
-            "facebook.com": "Facebook",
-            "x.com": "X",
-            "twitter.com": "X",
-            "snapchat.com": "Snapchat",
-            "linkedin.com": "LinkedIn",
-            "twitch.tv": "Twitch",
-            "tiktok.com": "TikTok",
-            "youtube.com": "YouTube"
+            'instagram.com': 'Instagram',
+            'reddit.com': 'Reddit',
+            'facebook.com': 'Facebook',
+            'x.com': 'X',
+            'twitter.com': 'X',
+            'snapchat.com': 'Snapchat',
+            'linkedin.com': 'LinkedIn',
+            'twitch.tv': 'Twitch',
+            'tiktok.com': 'TikTok',
+            'youtube.com': 'YouTube',
           };
           return siteLabels[hostname] || hostname;
         }
         function getDoomScrollContextKey() {
           const hostname = getHostname();
           if (isAuthOrVerificationSurface()) {
-            return "";
+            return '';
           }
-          if (hostname === "instagram.com") {
+          if (hostname === 'instagram.com') {
             return getInstagramDoomSurfaceKey();
           }
-          if (hostname === "youtube.com") {
+          if (hostname === 'youtube.com') {
             return getYouTubeDoomSurfaceKey();
           }
-          if (hostname === "reddit.com") {
+          if (hostname === 'reddit.com') {
             return getRedditDoomSurfaceKey();
           }
-          if (hostname === "facebook.com") {
+          if (hostname === 'facebook.com') {
             return getFacebookDoomSurfaceKey();
           }
-          if (hostname === "x.com" || hostname === "twitter.com") {
+          if (hostname === 'x.com' || hostname === 'twitter.com') {
             return getXDoomSurfaceKey();
           }
-          if (hostname === "snapchat.com") {
+          if (hostname === 'snapchat.com') {
             return getSnapchatDoomSurfaceKey();
           }
-          if (hostname === "linkedin.com") {
+          if (hostname === 'linkedin.com') {
             return getLinkedInDoomSurfaceKey();
           }
-          if (hostname === "twitch.tv") {
+          if (hostname === 'twitch.tv') {
             return getTwitchDoomSurfaceKey();
           }
           if (DOOM_SCROLL_SITES.has(hostname)) {
             return hostname;
           }
-          return "";
+          return '';
         }
         function isDoomScrollContext() {
           const contextKey = getDoomScrollContextKey();
           if (!contextKey) {
             return false;
           }
-          if (isSinglePostGraceContextKey(contextKey) && isWithinSinglePostGraceWindow(contextKey)) {
+          if (
+            isSinglePostGraceContextKey(contextKey) &&
+            isWithinSinglePostGraceWindow(contextKey)
+          ) {
             return false;
           }
           return true;
         }
         function isSinglePostGraceContextKey(contextKey) {
-          return typeof contextKey === "string" && contextKey.endsWith("/detail");
+          return typeof contextKey === 'string' && contextKey.endsWith('/detail');
         }
         function isWithinSinglePostGraceWindow(contextKey = getDoomScrollContextKey()) {
           if (!isSinglePostGraceContextKey(contextKey)) {
@@ -852,7 +885,12 @@
         }
         function isPassiveViewerDoomContext() {
           const contextKey = getDoomScrollContextKey();
-          return contextKey === "tiktok.com" || contextKey === "youtube.com/shorts" || contextKey === "instagram.com/reels" || contextKey === "facebook.com/video";
+          return (
+            contextKey === 'tiktok.com' ||
+            contextKey === 'youtube.com/shorts' ||
+            contextKey === 'instagram.com/reels' ||
+            contextKey === 'facebook.com/video'
+          );
         }
         function isStrictBreakSite() {
           const contextKey = getDoomScrollContextKey();
@@ -863,7 +901,7 @@
           if (DOOM_SCROLL_SITES.has(hostname)) {
             return true;
           }
-          return contextKey === "youtube.com/shorts";
+          return contextKey === 'youtube.com/shorts';
         }
         function recordActivity() {
           const now = Date.now();
@@ -877,137 +915,155 @@
           return Date.now() - lastMeaningfulInputAt <= REGULAR_PAGE_INACTIVITY_WINDOW_MS;
         }
         function getInstagramDoomSurfaceKey() {
-          const path = window.location.pathname || "/";
-          if (path.startsWith("/reels")) {
-            return "instagram.com/reels";
+          const path = window.location.pathname || '/';
+          if (path.startsWith('/reels')) {
+            return 'instagram.com/reels';
           }
-          if (path.startsWith("/reel/")) {
-            return "instagram.com/reels";
+          if (path.startsWith('/reel/')) {
+            return 'instagram.com/reels';
           }
-          if (path.startsWith("/p/")) {
+          if (path.startsWith('/p/')) {
             const modalReelVisible = Boolean(
               document.querySelector(
                 '[role="dialog"] video, [role="dialog"] article video, main [role="presentation"] video'
               )
             );
             if (modalReelVisible) {
-              return "instagram.com/reels";
+              return 'instagram.com/reels';
             }
-            return "instagram.com/detail";
+            return 'instagram.com/detail';
           }
-          if (path.startsWith("/explore")) {
-            const gridVisible = Boolean(document.querySelector('main img, main video, main article, main [role="link"]'));
-            return gridVisible ? "instagram.com/explore" : "";
+          if (path.startsWith('/explore')) {
+            const gridVisible = Boolean(
+              document.querySelector('main img, main video, main article, main [role="link"]')
+            );
+            return gridVisible ? 'instagram.com/explore' : '';
           }
-          if (path === "/" || path === "") {
-            const feedVisible = Boolean(document.querySelector('main article, main [role="main"] article, main video'));
-            return feedVisible ? "instagram.com/home" : "";
+          if (path === '/' || path === '') {
+            const feedVisible = Boolean(
+              document.querySelector('main article, main [role="main"] article, main video')
+            );
+            return feedVisible ? 'instagram.com/home' : '';
           }
-          return "";
+          return '';
         }
         function getRedditDoomSurfaceKey() {
-          const path = (window.location.pathname || "/").toLowerCase();
-          if (path.startsWith("/explore")) {
-            return "";
+          const path = (window.location.pathname || '/').toLowerCase();
+          if (path.startsWith('/explore')) {
+            return '';
           }
-          if (path.includes("/comments/")) {
-            return "reddit.com/detail";
+          if (path.includes('/comments/')) {
+            return 'reddit.com/detail';
           }
-          if (path === "/" || path === "/best" || path === "/hot") {
-            return "reddit.com/home";
+          if (path === '/' || path === '/best' || path === '/hot') {
+            return 'reddit.com/home';
           }
-          if (path === "/popular" || path.startsWith("/r/popular")) {
-            return "reddit.com/popular";
+          if (path === '/popular' || path.startsWith('/r/popular')) {
+            return 'reddit.com/popular';
           }
-          if (path === "/news" || path.startsWith("/r/news")) {
-            return "";
+          if (path === '/news' || path.startsWith('/r/news')) {
+            return '';
           }
           if (/^\/r\/[^/]+\/?$/.test(path)) {
-            return "reddit.com/community";
+            return 'reddit.com/community';
           }
-          return "";
+          return '';
         }
         function getFacebookDoomSurfaceKey() {
-          const path = (window.location.pathname || "/").toLowerCase();
-          const search = (window.location.search || "").toLowerCase();
-          if (path.startsWith("/messages") || path.startsWith("/messenger")) {
-            return "";
+          const path = (window.location.pathname || '/').toLowerCase();
+          const search = (window.location.search || '').toLowerCase();
+          if (path.startsWith('/messages') || path.startsWith('/messenger')) {
+            return '';
           }
-          if (path.includes("/posts/") || path.includes("/permalink/")) {
-            return "facebook.com/detail";
+          if (path.includes('/posts/') || path.includes('/permalink/')) {
+            return 'facebook.com/detail';
           }
-          if (path.startsWith("/watch") || path.startsWith("/videos") || path.startsWith("/reel")) {
-            return "facebook.com/video";
+          if (path.startsWith('/watch') || path.startsWith('/videos') || path.startsWith('/reel')) {
+            return 'facebook.com/video';
           }
-          if (path.startsWith("/groups")) {
-            return "facebook.com/groups";
+          if (path.startsWith('/groups')) {
+            return 'facebook.com/groups';
           }
-          if (search.includes("filter=all")) {
-            return "facebook.com/feeds-all";
+          if (search.includes('filter=all')) {
+            return 'facebook.com/feeds-all';
           }
-          if (search.includes("filter=groups")) {
-            return "facebook.com/feeds-groups";
+          if (search.includes('filter=groups')) {
+            return 'facebook.com/feeds-groups';
           }
-          if (search.includes("filter=pages")) {
-            return "facebook.com/feeds-pages";
+          if (search.includes('filter=pages')) {
+            return 'facebook.com/feeds-pages';
           }
-          if (search.includes("filter=favourites") || search.includes("filter=favorites") || search.includes("filter=friends")) {
-            return "";
+          if (
+            search.includes('filter=favourites') ||
+            search.includes('filter=favorites') ||
+            search.includes('filter=friends')
+          ) {
+            return '';
           }
-          if (path === "/" || path === "") {
-            const feedVisible = Boolean(document.querySelector(
-              '[role="feed"], div[role="feed"], [role="main"] [role="article"], div[data-pagelet*="FeedUnit"], div[data-pagelet*="MainFeed"], div[aria-posinset][role="article"]'
-            ));
-            return feedVisible ? "facebook.com/home" : "";
+          if (path === '/' || path === '') {
+            const feedVisible = Boolean(
+              document.querySelector(
+                '[role="feed"], div[role="feed"], [role="main"] [role="article"], div[data-pagelet*="FeedUnit"], div[data-pagelet*="MainFeed"], div[aria-posinset][role="article"]'
+              )
+            );
+            return feedVisible ? 'facebook.com/home' : '';
           }
-          return "";
+          return '';
         }
         function getXDoomSurfaceKey() {
-          const path = (window.location.pathname || "/").toLowerCase();
+          const path = (window.location.pathname || '/').toLowerCase();
           const reservedOffPaths = [
-            "/messages",
-            "/notifications",
-            "/i/connect_people",
-            "/i/premium_sign_up",
-            "/premium",
-            "/i/premium",
-            "/settings",
-            "/compose",
-            "/i/grok",
-            "/grok",
-            "/i/verified-orgs-signup",
-            "/i/spaces/start",
-            "/i/spaces",
-            "/i/creators/studio",
-            "/i/business"
+            '/messages',
+            '/notifications',
+            '/i/connect_people',
+            '/i/premium_sign_up',
+            '/premium',
+            '/i/premium',
+            '/settings',
+            '/compose',
+            '/i/grok',
+            '/grok',
+            '/i/verified-orgs-signup',
+            '/i/spaces/start',
+            '/i/spaces',
+            '/i/creators/studio',
+            '/i/business',
           ];
           if (reservedOffPaths.some((prefix) => path.startsWith(prefix))) {
-            return "";
+            return '';
           }
-          if (path.startsWith("/home")) {
-            return "x.com/home";
+          if (path.startsWith('/home')) {
+            return 'x.com/home';
           }
-          if (path.startsWith("/explore")) {
-            return "x.com/explore";
+          if (path.startsWith('/explore')) {
+            return 'x.com/explore';
           }
-          if (path.startsWith("/i/communities") || /^\/[^/]+\/communities(\/|$)/.test(path) || path.startsWith("/communities")) {
-            return "x.com/communities";
+          if (
+            path.startsWith('/i/communities') ||
+            /^\/[^/]+\/communities(\/|$)/.test(path) ||
+            path.startsWith('/communities')
+          ) {
+            return 'x.com/communities';
           }
-          if (path.includes("/status/")) {
-            return "x.com/detail";
+          if (path.includes('/status/')) {
+            return 'x.com/detail';
           }
-          if (path === "/i/following" || path.startsWith("/i/connect_tab")) {
-            return "";
+          if (path === '/i/following' || path.startsWith('/i/connect_tab')) {
+            return '';
           }
-          if (/^\/[^/]+(?:\/(with_replies|media|likes|highlights|articles|followers|following))?\/?$/.test(path)) {
-            return "";
+          if (
+            /^\/[^/]+(?:\/(with_replies|media|likes|highlights|articles|followers|following))?\/?$/.test(
+              path
+            )
+          ) {
+            return '';
           }
-          return "";
+          return '';
         }
         function getYouTubeDoomSurfaceKey() {
-          const path = window.location.pathname || "/";
-          if (path.startsWith("/shorts")) {
-            return "youtube.com/shorts";
+          const path = window.location.pathname || '/';
+          if (path.startsWith('/shorts')) {
+            return 'youtube.com/shorts';
           }
           const shortsTabSelected = Boolean(
             document.querySelector(
@@ -1015,70 +1071,104 @@
             )
           );
           const shortsGridVisible = Boolean(
-            document.querySelector("ytd-rich-grid-renderer ytd-reel-item-renderer, ytd-reel-shelf-renderer, ytd-reel-video-renderer")
+            document.querySelector(
+              'ytd-rich-grid-renderer ytd-reel-item-renderer, ytd-reel-shelf-renderer, ytd-reel-video-renderer'
+            )
           );
           if (shortsTabSelected && shortsGridVisible) {
-            return "youtube.com/channel-shorts";
+            return 'youtube.com/channel-shorts';
           }
-          return "";
+          return '';
         }
         function getSnapchatDoomSurfaceKey() {
-          const path = (window.location.pathname || "/").toLowerCase();
-          if (path.startsWith("/chat") || path.startsWith("/accounts") || path.startsWith("/settings") || path.startsWith("/lenses") || path.startsWith("/plus") || path.startsWith("/snapchat-plus") || /^\/@[^/]+\/?$/.test(path)) {
-            return "";
+          const path = (window.location.pathname || '/').toLowerCase();
+          if (
+            path.startsWith('/chat') ||
+            path.startsWith('/accounts') ||
+            path.startsWith('/settings') ||
+            path.startsWith('/lenses') ||
+            path.startsWith('/plus') ||
+            path.startsWith('/snapchat-plus') ||
+            /^\/@[^/]+\/?$/.test(path)
+          ) {
+            return '';
           }
-          if (path.includes("/spotlight/")) {
-            return "snapchat.com/detail";
+          if (path.includes('/spotlight/')) {
+            return 'snapchat.com/detail';
           }
-          if (path.startsWith("/spotlight")) {
-            return "snapchat.com/spotlight";
+          if (path.startsWith('/spotlight')) {
+            return 'snapchat.com/spotlight';
           }
-          if (path.startsWith("/stories") || path.startsWith("/discover") || path === "/") {
-            return "snapchat.com/feed";
+          if (path.startsWith('/stories') || path.startsWith('/discover') || path === '/') {
+            return 'snapchat.com/feed';
           }
-          return "";
+          return '';
         }
         function getLinkedInDoomSurfaceKey() {
-          const path = (window.location.pathname || "/").toLowerCase();
-          if (path.startsWith("/messaging") || path.startsWith("/notifications") || path.startsWith("/jobs") || path.startsWith("/my-items") || path.startsWith("/mynetwork") || path.startsWith("/search") || path.startsWith("/learning") || path.startsWith("/sales") || path.startsWith("/in/") || path.startsWith("/company/") || path.startsWith("/school/")) {
-            return "";
+          const path = (window.location.pathname || '/').toLowerCase();
+          if (
+            path.startsWith('/messaging') ||
+            path.startsWith('/notifications') ||
+            path.startsWith('/jobs') ||
+            path.startsWith('/my-items') ||
+            path.startsWith('/mynetwork') ||
+            path.startsWith('/search') ||
+            path.startsWith('/learning') ||
+            path.startsWith('/sales') ||
+            path.startsWith('/in/') ||
+            path.startsWith('/company/') ||
+            path.startsWith('/school/')
+          ) {
+            return '';
           }
-          if (path.startsWith("/posts/") || path.startsWith("/feed/update/")) {
-            return "linkedin.com/detail";
+          if (path.startsWith('/posts/') || path.startsWith('/feed/update/')) {
+            return 'linkedin.com/detail';
           }
-          if (path === "/feed" || path.startsWith("/feed/") || path.startsWith("/video/")) {
-            return "linkedin.com/feed";
+          if (path === '/feed' || path.startsWith('/feed/') || path.startsWith('/video/')) {
+            return 'linkedin.com/feed';
           }
-          return "";
+          return '';
         }
         function getTwitchDoomSurfaceKey() {
-          const path = (window.location.pathname || "/").toLowerCase();
-          if (path.startsWith("/settings") || path.startsWith("/subscriptions") || path.startsWith("/wallet") || path.startsWith("/inventory") || path.startsWith("/messages") || path.startsWith("/friends")) {
-            return "";
+          const path = (window.location.pathname || '/').toLowerCase();
+          if (
+            path.startsWith('/settings') ||
+            path.startsWith('/subscriptions') ||
+            path.startsWith('/wallet') ||
+            path.startsWith('/inventory') ||
+            path.startsWith('/messages') ||
+            path.startsWith('/friends')
+          ) {
+            return '';
           }
-          if (path.startsWith("/clip/")) {
-            return "twitch.tv/detail";
+          if (path.startsWith('/clip/')) {
+            return 'twitch.tv/detail';
           }
-          if (path.startsWith("/clips") || path.startsWith("/directory/game/") && path.includes("/clips") || path.startsWith("/directory/all/tags/") && path.includes("/clips")) {
-            return "twitch.tv/feed";
+          if (
+            path.startsWith('/clips') ||
+            (path.startsWith('/directory/game/') && path.includes('/clips')) ||
+            (path.startsWith('/directory/all/tags/') && path.includes('/clips'))
+          ) {
+            return 'twitch.tv/feed';
           }
           if (/^\/[^/]+\/?$/.test(path)) {
-            return "";
+            return '';
           }
-          return "";
+          return '';
         }
         function isAuthOrVerificationSurface() {
-          const path = `${window.location.pathname || ""} ${window.location.search || ""}`.toLowerCase();
+          const path =
+            `${window.location.pathname || ''} ${window.location.search || ''}`.toLowerCase();
           const hasAuthPath = [
-            "login",
-            "signin",
-            "signup",
-            "auth",
-            "verify",
-            "verification",
-            "checkpoint",
-            "forgot",
-            "reset"
+            'login',
+            'signin',
+            'signup',
+            'auth',
+            'verify',
+            'verification',
+            'checkpoint',
+            'forgot',
+            'reset',
           ].some((token) => path.includes(token));
           const authFieldsVisible = Boolean(
             document.querySelector(
@@ -1089,25 +1179,25 @@
         }
         function handleInteraction(event) {
           if (!isActive) return;
-          if (event.type === "keydown") {
+          if (event.type === 'keydown') {
             const activeKeys = /* @__PURE__ */ new Set([
-              "ArrowDown",
-              "ArrowUp",
-              "ArrowLeft",
-              "ArrowRight",
-              "PageDown",
-              "PageUp",
-              " ",
-              "Enter",
-              "j",
-              "k"
+              'ArrowDown',
+              'ArrowUp',
+              'ArrowLeft',
+              'ArrowRight',
+              'PageDown',
+              'PageUp',
+              ' ',
+              'Enter',
+              'j',
+              'k',
             ]);
             if (activeKeys.has(event.key)) {
               recordActivity();
             }
             return;
           }
-          if (event.type === "click" || event.type === "pointerup") {
+          if (event.type === 'click' || event.type === 'pointerup') {
             recordActivity();
             return;
           }
@@ -1118,8 +1208,12 @@
         }
         function getLocalGentleDelayMs() {
           const minMinutes = Math.max(1, Number(currentSettings?.subtleReminderMin) || 25);
-          const maxMinutes = Math.max(minMinutes, Number(currentSettings?.subtleReminderMax) || minMinutes);
-          const randomMinutes = Math.floor(Math.random() * (maxMinutes - minMinutes + 1)) + minMinutes;
+          const maxMinutes = Math.max(
+            minMinutes,
+            Number(currentSettings?.subtleReminderMax) || minMinutes
+          );
+          const randomMinutes =
+            Math.floor(Math.random() * (maxMinutes - minMinutes + 1)) + minMinutes;
           return randomMinutes * 60 * 1e3;
         }
         function applySharedDsState(snapshot) {
@@ -1128,9 +1222,9 @@
             activeMs: snapshot.activeMs || 0,
             nextBreakTargetMs: snapshot.nextBreakTargetMs || 0,
             isActive: Boolean(snapshot.isActive),
-            contextKey: snapshot.contextKey || "",
+            contextKey: snapshot.contextKey || '',
             activeTabId: snapshot.activeTabId || 0,
-            lastSyncedAt: Date.now()
+            lastSyncedAt: Date.now(),
           };
         }
         function resetTrackedSession({ resetTotalTime = true } = {}) {
@@ -1149,32 +1243,33 @@
           activeSessionStartedAt = 0;
           hydrationMergedIntoNextBreak = false;
           hydrationGentleReminderAt = 0;
-          if (typeof EyeFlowIntelligence2 !== "undefined") {
-            EyeFlowIntelligence2.resetStages();
+          if (typeof EyeFlowIntelligence !== 'undefined') {
+            EyeFlowIntelligence.resetStages();
           }
         }
         function flushDsSiteTime() {
-          const activeMinutesDelta = Math.floor((getActiveSiteMs() - lastReportedActiveSiteMs) / 6e4);
+          const activeMinutesDelta = Math.floor(
+            (getActiveSiteMs() - lastReportedActiveSiteMs) / 6e4
+          );
           if (activeMinutesDelta <= 0) return;
           lastReportedActiveSiteMs += activeMinutesDelta * 6e4;
           try {
             const site = getStatsSiteLabel();
-            chrome.storage.local.get(["stats"], (result) => {
+            chrome.storage.local.get(['stats'], (result) => {
               const stats = result?.stats || {};
-              const siteTimeSpent = { ...stats.siteTimeSpent || {} };
-              const todayDsSiteTimeSpent = { ...stats.todayDsSiteTimeSpent || {} };
+              const siteTimeSpent = { ...(stats.siteTimeSpent || {}) };
+              const todayDsSiteTimeSpent = { ...(stats.todayDsSiteTimeSpent || {}) };
               siteTimeSpent[site] = (siteTimeSpent[site] || 0) + activeMinutesDelta;
               todayDsSiteTimeSpent[site] = (todayDsSiteTimeSpent[site] || 0) + activeMinutesDelta;
               chrome.storage.local.set({
                 stats: {
                   ...stats,
                   siteTimeSpent,
-                  todayDsSiteTimeSpent
-                }
+                  todayDsSiteTimeSpent,
+                },
               });
             });
-          } catch (e) {
-          }
+          } catch (e) {}
         }
         function resetSessionTimersFromBackground(snapshot) {
           resetTrackedSession();
@@ -1211,7 +1306,7 @@
               singlePostGraceStartedAt = Date.now();
             }
           } else {
-            singlePostGraceContextKey = "";
+            singlePostGraceContextKey = '';
             singlePostGraceStartedAt = 0;
           }
           lastContextKey = contextKey;
@@ -1221,24 +1316,36 @@
         }
         function isSensitiveReminderContext() {
           const hostname = getHostname();
-          const path = `${window.location.pathname || ""} ${window.location.search || ""}`.toLowerCase();
-          const overlayShowing = typeof EyeFlowOverlay !== "undefined" && EyeFlowOverlay.isShowing();
+          const path =
+            `${window.location.pathname || ''} ${window.location.search || ''}`.toLowerCase();
+          const overlayShowing =
+            typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing();
           const activeElement = document.activeElement;
           const focusedEditable = Boolean(
-            activeElement && (activeElement.isContentEditable || activeElement.tagName === "TEXTAREA" || activeElement.tagName === "INPUT" && !["checkbox", "radio", "range", "button", "submit"].includes((activeElement.type || "").toLowerCase()))
+            activeElement &&
+            (activeElement.isContentEditable ||
+              activeElement.tagName === 'TEXTAREA' ||
+              (activeElement.tagName === 'INPUT' &&
+                !['checkbox', 'radio', 'range', 'button', 'submit'].includes(
+                  (activeElement.type || '').toLowerCase()
+                )))
           );
           const passwordOrOtpField = Boolean(
-            document.querySelector('input[type="password"], input[autocomplete="one-time-code"], input[name*="otp" i], input[id*="otp" i]')
+            document.querySelector(
+              'input[type="password"], input[autocomplete="one-time-code"], input[name*="otp" i], input[id*="otp" i]'
+            )
           );
-          const largeForm = document.querySelectorAll("input, textarea, select").length >= 6;
+          const largeForm = document.querySelectorAll('input, textarea, select').length >= 6;
           const videoMeetingSignals = Boolean(
-            document.querySelector('[data-meeting-title], [aria-label*="meeting" i], [class*="meeting" i], [class*="conference" i]')
+            document.querySelector(
+              '[data-meeting-title], [aria-label*="meeting" i], [class*="meeting" i], [class*="conference" i]'
+            )
           );
           if (overlayShowing || document.fullscreenElement) return true;
           if (focusedEditable) return true;
-          if (EyeFlowIntelligence2.isUserTyping() && !isDoomScrollContext()) return true;
+          if (EyeFlowIntelligence.isUserTyping() && !isDoomScrollContext()) return true;
           if (passwordOrOtpField) return true;
-          if (largeForm && path.includes("form")) return true;
+          if (largeForm && path.includes('form')) return true;
           if (videoMeetingSignals) return true;
           if (SENSITIVE_HOST_KEYWORDS.some((keyword) => hostname.includes(keyword))) return true;
           if (SENSITIVE_PATH_KEYWORDS.some((keyword) => path.includes(keyword))) return true;
@@ -1246,18 +1353,25 @@
         }
         function isCommunicationContext() {
           const hostname = getHostname();
-          const path = `${window.location.pathname || ""} ${window.location.search || ""}`.toLowerCase();
-          if (hostname === "instagram.com" && getDoomScrollContextKey()) return false;
+          const path =
+            `${window.location.pathname || ''} ${window.location.search || ''}`.toLowerCase();
+          if (hostname === 'instagram.com' && getDoomScrollContextKey()) return false;
           const activeElement = document.activeElement;
           const chatFocused = Boolean(
-            activeElement && (activeElement.isContentEditable || activeElement.tagName === "TEXTAREA" || activeElement.tagName === "INPUT" && ["text", "search"].includes((activeElement.type || "").toLowerCase()))
+            activeElement &&
+            (activeElement.isContentEditable ||
+              activeElement.tagName === 'TEXTAREA' ||
+              (activeElement.tagName === 'INPUT' &&
+                ['text', 'search'].includes((activeElement.type || '').toLowerCase())))
           );
           const chatUiSignals = Boolean(
             document.querySelector(
               '[aria-label*="message" i], [aria-label*="chat" i], [data-testid*="message" i], [data-testid*="thread" i], [class*="message" i], [class*="thread" i], [class*="dm" i]'
             )
           );
-          const communicationHost = COMMUNICATION_HOST_KEYWORDS.some((value) => hostname.includes(value));
+          const communicationHost = COMMUNICATION_HOST_KEYWORDS.some((value) =>
+            hostname.includes(value)
+          );
           const callUiSignals = Boolean(
             document.querySelector(
               '[aria-label*="call" i], [aria-label*="mute" i], [aria-label*="camera" i], [aria-label*="hang up" i], [class*="call" i], [class*="voice" i], [class*="videocall" i], [class*="video-call" i], [data-testid*="call" i]'
@@ -1273,12 +1387,14 @@
             return true;
           }
           if (communicationHost && (callUiSignals || liveOrSharedWatchSignals)) return true;
-          if (path.includes("/direct/") || path.includes("/messages/") || path.includes("/inbox")) return true;
+          if (path.includes('/direct/') || path.includes('/messages/') || path.includes('/inbox'))
+            return true;
           return false;
         }
         function canShowGentleReminder() {
           if (isEffectivelySystemIdle() || !isActive || !isTabActivelyVisible()) return false;
-          if (isDoomScrollContext() || isWithinSinglePostGraceWindow() || warningElement) return false;
+          if (isDoomScrollContext() || isWithinSinglePostGraceWindow() || warningElement)
+            return false;
           if (isSensitiveReminderContext()) return false;
           if (isCommunicationContext()) return false;
           if (isWatchingLongVideoPassively() || isWatchingPassiveDsVideo()) return false;
@@ -1286,7 +1402,8 @@
         }
         function canShowGentleReminderWithPassiveVideoSupport() {
           if (!isActive) return false;
-          if (isDoomScrollContext() || isWithinSinglePostGraceWindow() || warningElement) return false;
+          if (isDoomScrollContext() || isWithinSinglePostGraceWindow() || warningElement)
+            return false;
           if (isSensitiveReminderContext()) return false;
           if (isCommunicationContext()) return false;
           return canShowGentleReminder();
@@ -1295,17 +1412,23 @@
           return isSystemIdle && !isWatchingLongVideoPassively() && !isWatchingPassiveDsVideo();
         }
         function isWatchingLongVideoPassively() {
-          if (getHostname() !== "youtube.com") return false;
-          if ((window.location.pathname || "") !== "/watch") return false;
+          if (getHostname() !== 'youtube.com') return false;
+          if ((window.location.pathname || '') !== '/watch') return false;
           if (isDoomScrollContext()) return false;
           return Boolean(findPassiveVideoCandidate({ requireLongDuration: true }));
         }
         function findPassiveVideoCandidate({ requireLongDuration = false } = {}) {
           const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
           const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-          const minimumVisibleArea = Math.max(160 * 160, Math.round(viewportWidth * viewportHeight * 0.06));
-          const minimumVideoArea = Math.max(220 * 160, Math.round(viewportWidth * viewportHeight * 0.08));
-          const videos = Array.from(document.querySelectorAll("video"));
+          const minimumVisibleArea = Math.max(
+            160 * 160,
+            Math.round(viewportWidth * viewportHeight * 0.06)
+          );
+          const minimumVideoArea = Math.max(
+            220 * 160,
+            Math.round(viewportWidth * viewportHeight * 0.08)
+          );
+          const videos = Array.from(document.querySelectorAll('video'));
           let bestVideo = null;
           let bestScore = 0;
           videos.forEach((video) => {
@@ -1313,8 +1436,14 @@
             if (video.readyState < 2) return;
             const rect = video.getBoundingClientRect();
             if (rect.width < 180 || rect.height < 120) return;
-            const visibleWidth = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0));
-            const visibleHeight = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
+            const visibleWidth = Math.max(
+              0,
+              Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0)
+            );
+            const visibleHeight = Math.max(
+              0,
+              Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0)
+            );
             const visibleArea = visibleWidth * visibleHeight;
             const videoArea = rect.width * rect.height;
             if (visibleArea < minimumVisibleArea) return;
@@ -1334,7 +1463,8 @@
           return Boolean(findPassiveVideoCandidate({ requireLongDuration: true }));
         }
         function shouldCountUsageTime() {
-          const overlayShowing = typeof EyeFlowOverlay !== "undefined" && EyeFlowOverlay.isShowing();
+          const overlayShowing =
+            typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing();
           if (!isActive || isEffectivelySystemIdle() || !isTabActivelyVisible() || overlayShowing) {
             return false;
           }
@@ -1353,8 +1483,18 @@
           return hasRecentMeaningfulInput();
         }
         function shouldCountActiveTime() {
-          const overlayShowing = typeof EyeFlowOverlay !== "undefined" && EyeFlowOverlay.isShowing();
-          return isActive && !isEffectivelySystemIdle() && isDoomScrollContext() && isTabActivelyVisible() && !overlayShowing && (hasRecentMeaningfulInput() || isPassiveViewerDoomContext() || isWatchingPassiveDsVideo());
+          const overlayShowing =
+            typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing();
+          return (
+            isActive &&
+            !isEffectivelySystemIdle() &&
+            isDoomScrollContext() &&
+            isTabActivelyVisible() &&
+            !overlayShowing &&
+            (hasRecentMeaningfulInput() ||
+              isPassiveViewerDoomContext() ||
+              isWatchingPassiveDsVideo())
+          );
         }
         function isUsageActiveNow() {
           return shouldCountUsageTime();
@@ -1377,8 +1517,8 @@
             const elapsed = now - activeSessionStartedAt;
             activeSiteMs += elapsed;
             activeSessionStartedAt = 0;
-            if (typeof EyeFlowIntelligence2 !== "undefined") {
-              EyeFlowIntelligence2.pauseForInactivity(elapsed);
+            if (typeof EyeFlowIntelligence !== 'undefined') {
+              EyeFlowIntelligence.pauseForInactivity(elapsed);
             }
           }
         }
@@ -1412,7 +1552,7 @@
         function resetBreakCycle() {
           scrollEvents = [];
           sharedDsState.activeMs = 0;
-          sharedDsState.nextBreakTargetMs = EyeFlowIntelligence2.getNextBreakTargetMs();
+          sharedDsState.nextBreakTargetMs = EyeFlowIntelligence.getNextBreakTargetMs();
           sharedDsState.isActive = false;
           sharedDsState.lastSyncedAt = Date.now();
           activeSessionStartedAt = 0;
@@ -1430,9 +1570,9 @@
           if (now - lastPresenceAt < SESSION_RESET_INACTIVITY_MS) return;
           resetTrackedSession();
           sharedDsState.activeMs = 0;
-          sharedDsState.nextBreakTargetMs = getLocalEyeBreakDelayMs();
+          sharedDsState.nextBreakTargetMs = EyeFlowIntelligence.getNextBreakTargetMs();
           sharedDsState.isActive = false;
-          sharedDsState.contextKey = "";
+          sharedDsState.contextKey = '';
           sharedDsState.activeTabId = 0;
           sharedDsState.lastSyncedAt = now;
           lastDoomScrollTime = now;
@@ -1442,9 +1582,8 @@
           hydrationGentleReminderAt = 0;
           pendingHydrationPopup = false;
           try {
-            chrome.runtime.sendMessage({ type: "HYDRATION_COMPLETED" });
-          } catch (e) {
-          }
+            chrome.runtime.sendMessage({ type: 'HYDRATION_COMPLETED' });
+          } catch (e) {}
         }
         function getMsUntilEyeBreak() {
           if (!sharedDsState.nextBreakTargetMs) {
@@ -1453,7 +1592,8 @@
           return Math.max(0, sharedDsState.nextBreakTargetMs - getBreakCycleMs());
         }
         function canShowBreakOverlay() {
-          const overlayShowing = typeof EyeFlowOverlay !== "undefined" && EyeFlowOverlay.isShowing();
+          const overlayShowing =
+            typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing();
           if (overlayShowing) return false;
           return Date.now() - lastBreakOverlayShownAt > BREAK_DUPLICATE_GUARD_MS;
         }
@@ -1465,17 +1605,20 @@
             const estimatedActiveMs = getEstimatedSharedDsActiveMs(now);
             sharedDsState.activeMs = estimatedActiveMs;
             sharedDsState.isActive = isActiveNow;
-            sharedDsState.contextKey = isActiveNow ? getDoomScrollContextKey() : "";
+            sharedDsState.contextKey = isActiveNow ? getDoomScrollContextKey() : '';
             sharedDsState.lastSyncedAt = now;
             sharedDsSyncInFlight = true;
-            chrome.runtime.sendMessage({
-              type: "SYNC_SHARED_DS_STATE",
-              isActive: isActiveNow,
-              contextKey: isActiveNow ? sharedDsState.contextKey : ""
-            }, (response) => {
-              sharedDsSyncInFlight = false;
-              applySharedDsState(response);
-            });
+            chrome.runtime.sendMessage(
+              {
+                type: 'SYNC_SHARED_DS_STATE',
+                isActive: isActiveNow,
+                contextKey: isActiveNow ? sharedDsState.contextKey : '',
+              },
+              (response) => {
+                sharedDsSyncInFlight = false;
+                applySharedDsState(response);
+              }
+            );
           } catch (e) {
             sharedDsSyncInFlight = false;
           }
@@ -1489,43 +1632,43 @@
           const totalSeconds = Math.max(0, Math.ceil(ms / 1e3));
           const minutes = Math.floor(totalSeconds / 60);
           const seconds = totalSeconds % 60;
-          return `${minutes}:${String(seconds).padStart(2, "0")}`;
+          return `${minutes}:${String(seconds).padStart(2, '0')}`;
         }
         function formatReadableTimer(ms) {
           const totalSeconds = Math.max(0, Math.ceil(ms / 1e3));
           const hours = Math.floor(totalSeconds / 3600);
-          const minutes = Math.floor(totalSeconds % 3600 / 60);
+          const minutes = Math.floor((totalSeconds % 3600) / 60);
           const seconds = totalSeconds % 60;
           if (hours > 0) {
             return `${hours}h ${minutes}m`;
           }
-          return `${minutes}:${String(seconds).padStart(2, "0")}`;
+          return `${minutes}:${String(seconds).padStart(2, '0')}`;
         }
         function syncDebugTimerMeta(force = false) {
           const now = Date.now();
           if (!force && now - debugTimerMeta.lastFetchedAt < 1e3) return;
           debugTimerMeta.lastFetchedAt = now;
           try {
-            chrome.runtime.sendMessage({ type: "GET_DEBUG_TIMERS" }, (response) => {
+            chrome.runtime.sendMessage({ type: 'GET_DEBUG_TIMERS' }, (response) => {
               if (runtimeCallbackFailed()) return;
               if (!response) return;
               debugTimerMeta.nextGentleReminderAt = response.nextGentleReminderAt || 0;
               debugTimerMeta.gentlePausedRemainingMs = response.gentlePausedRemainingMs || 0;
-              debugTimerMeta.gentleState = response.gentleState || "off";
-              debugTimerMeta.gentlePauseReason = response.gentlePauseReason || "none";
+              debugTimerMeta.gentleState = response.gentleState || 'off';
+              debugTimerMeta.gentlePauseReason = response.gentlePauseReason || 'none';
               debugTimerMeta.nextWaterReminderAt = response.nextWaterReminderAt || 0;
               debugTimerMeta.waterReminderPending = Boolean(response.waterReminderPending);
               debugTimerMeta.waterQueuedForNextBreak = Boolean(response.waterQueuedForNextBreak);
             });
-          } catch (e) {
-          }
+          } catch (e) {}
         }
         function updateDebugTimerChip() {
           if (!EYEFLOW_DEBUG_CONTENT) {
             removeDebugTimerChip();
             return;
           }
-          const overlayShowing = typeof EyeFlowOverlay !== "undefined" && EyeFlowOverlay.isShowing();
+          const overlayShowing =
+            typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing();
           const shouldShow = isActive && !overlayShowing;
           if (!shouldShow) {
             removeDebugTimerChip();
@@ -1533,8 +1676,8 @@
           }
           syncDebugTimerMeta();
           if (EYEFLOW_DEBUG_CONTENT && !debugTimerElement) {
-            debugTimerElement = document.createElement("div");
-            debugTimerElement.id = "eyeflow-debug-timer";
+            debugTimerElement = document.createElement('div');
+            debugTimerElement.id = 'eyeflow-debug-timer';
             debugTimerElement.innerHTML = `
         <div class="eyeflow-debug-timer-content">
           <div class="eyeflow-debug-timer-row">
@@ -1559,8 +1702,8 @@
         font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
         pointer-events: none;
       `;
-            const style = document.createElement("style");
-            style.id = "eyeflow-debug-timer-style";
+            const style = document.createElement('style');
+            style.id = 'eyeflow-debug-timer-style';
             style.textContent = `
         #eyeflow-debug-timer .eyeflow-debug-timer-content {
           min-width: 156px;
@@ -1603,33 +1746,43 @@
           const waterValueElement = debugTimerElement.querySelector('[data-debug-timer="water"]');
           if (!eyeValueElement || !gentleValueElement || !waterValueElement) return;
           if (isDoomScrollContext()) {
-            eyeValueElement.textContent = shouldCountActiveTime() ? formatCountdown(getMsUntilEyeBreak()) : "Paused";
+            eyeValueElement.textContent = shouldCountActiveTime()
+              ? formatCountdown(getMsUntilEyeBreak())
+              : 'Paused';
           } else if (isWithinSinglePostGraceWindow()) {
             eyeValueElement.textContent = `Read ${formatCountdown(getSinglePostGraceRemainingMs())}`;
           } else {
-            eyeValueElement.textContent = "Off";
+            eyeValueElement.textContent = 'Off';
           }
           if (isDoomScrollContext()) {
-            gentleValueElement.textContent = "Off";
-          } else if (debugTimerMeta.gentleState === "off") {
-            gentleValueElement.textContent = "Off";
-          } else if (debugTimerMeta.gentleState === "paused" || debugTimerMeta.gentleState === "hold") {
-            const holdMs = debugTimerMeta.gentlePausedRemainingMs > 0 ? debugTimerMeta.gentlePausedRemainingMs : Math.max(0, debugTimerMeta.nextGentleReminderAt - Date.now());
+            gentleValueElement.textContent = 'Off';
+          } else if (debugTimerMeta.gentleState === 'off') {
+            gentleValueElement.textContent = 'Off';
+          } else if (
+            debugTimerMeta.gentleState === 'paused' ||
+            debugTimerMeta.gentleState === 'hold'
+          ) {
+            const holdMs =
+              debugTimerMeta.gentlePausedRemainingMs > 0
+                ? debugTimerMeta.gentlePausedRemainingMs
+                : Math.max(0, debugTimerMeta.nextGentleReminderAt - Date.now());
             gentleValueElement.textContent = `Hold ${formatCountdown(holdMs)}`;
           } else if (debugTimerMeta.nextGentleReminderAt > 0) {
             const gentleRemainingMs = Math.max(0, debugTimerMeta.nextGentleReminderAt - Date.now());
             gentleValueElement.textContent = formatCountdown(gentleRemainingMs);
           } else {
-            gentleValueElement.textContent = "Off";
+            gentleValueElement.textContent = 'Off';
           }
           if (debugTimerMeta.waterQueuedForNextBreak) {
-            waterValueElement.textContent = "Queued";
+            waterValueElement.textContent = 'Queued';
           } else if (debugTimerMeta.waterReminderPending) {
-            waterValueElement.textContent = "Pending";
+            waterValueElement.textContent = 'Pending';
           } else if (debugTimerMeta.nextWaterReminderAt > 0) {
-            waterValueElement.textContent = formatReadableTimer(debugTimerMeta.nextWaterReminderAt - Date.now());
+            waterValueElement.textContent = formatReadableTimer(
+              debugTimerMeta.nextWaterReminderAt - Date.now()
+            );
           } else {
-            waterValueElement.textContent = "Waiting";
+            waterValueElement.textContent = 'Waiting';
           }
         }
         function removeDebugTimerChip() {
@@ -1637,7 +1790,7 @@
             debugTimerElement.remove();
             debugTimerElement = null;
           }
-          const style = document.getElementById("eyeflow-debug-timer-style");
+          const style = document.getElementById('eyeflow-debug-timer-style');
           if (style) style.remove();
         }
         function shouldMergeHydrationIntoBreak() {
@@ -1655,17 +1808,16 @@
           if (!reminderShown) return;
           acknowledgeLocalGentleReminder();
           try {
-            chrome.runtime.sendMessage({ type: "GENTLE_REMINDER_SHOWN" });
-          } catch (e) {
-          }
+            chrome.runtime.sendMessage({ type: 'GENTLE_REMINDER_SHOWN' });
+          } catch (e) {}
         }
         function acknowledgeLocalGentleReminder(now = Date.now()) {
           lastGentleReminderShownAt = now;
           lastGentleReminderFallbackAt = now;
           debugTimerMeta.nextGentleReminderAt = 0;
           debugTimerMeta.gentlePausedRemainingMs = 0;
-          debugTimerMeta.gentleState = "running";
-          debugTimerMeta.gentlePauseReason = "none";
+          debugTimerMeta.gentleState = 'running';
+          debugTimerMeta.gentlePauseReason = 'none';
           debugTimerMeta.lastFetchedAt = 0;
           syncDebugTimerMeta(true);
         }
@@ -1674,13 +1826,16 @@
           return getTotalActiveUsageMs() >= hydrationTargetMs;
         }
         function tryShowHydrationPopup() {
-          if (warningElement || typeof EyeFlowOverlay !== "undefined" && EyeFlowOverlay.isShowing()) {
+          if (
+            warningElement ||
+            (typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing())
+          ) {
             pendingHydrationPopup = true;
             return;
           }
           pendingHydrationPopup = false;
           removeGentleReminder();
-          if (typeof EyeFlowOverlay !== "undefined") {
+          if (typeof EyeFlowOverlay !== 'undefined') {
             const timeOnSite = Math.round(getActiveSiteMs() / 6e4);
             EyeFlowOverlay.showHydration(currentSettings, getHostname(), timeOnSite);
           }
@@ -1693,8 +1848,8 @@
           if (Date.now() >= hydrationGentleReminderAt) {
             if (canShowGentleReminder()) {
               showGentleReminder({
-                title: "Stay Hydrated",
-                text: "Just a gentle nudge to take a sip of water!"
+                title: 'Stay Hydrated',
+                text: 'Just a gentle nudge to take a sip of water!',
               });
               hydrationGentleReminderAt = 0;
               return true;
@@ -1705,41 +1860,44 @@
         function showStageInterruption(stage, hostname) {
           const duration = Math.round(getActiveSiteMs() / 1e3);
           let handled = false;
-          if (stage === "break" && !canShowBreakOverlay()) {
+          if (stage === 'break' && !canShowBreakOverlay()) {
             return;
           }
           try {
-            chrome.runtime.sendMessage({
-              type: "DOOM_SCROLL_DETECTED",
-              site: hostname,
-              stage,
-              duration,
-              scrollCount: scrollEvents.length
-            }, (response) => {
-              handled = true;
-              if (response && response.action === "INTERVENE") {
-                if (stage === "break" && !canShowBreakOverlay()) {
-                  return;
+            chrome.runtime.sendMessage(
+              {
+                type: 'DOOM_SCROLL_DETECTED',
+                site: hostname,
+                stage,
+                duration,
+                scrollCount: scrollEvents.length,
+              },
+              (response) => {
+                handled = true;
+                if (response && response.action === 'INTERVENE') {
+                  if (stage === 'break' && !canShowBreakOverlay()) {
+                    return;
+                  }
+                  if (typeof EyeFlowIntelligence !== 'undefined') {
+                    EyeFlowIntelligence.markReminderShown();
+                  }
+                  showInterruption(response.stage, response.settings);
                 }
-                if (typeof EyeFlowIntelligence2 !== "undefined") {
-                  EyeFlowIntelligence2.markReminderShown();
-                }
-                showInterruption(response.stage, response.settings);
               }
-            });
+            );
             setTimeout(() => {
               if (handled) return;
-              if (stage === "break" && !canShowBreakOverlay()) {
+              if (stage === 'break' && !canShowBreakOverlay()) {
                 return;
               }
-              if (typeof EyeFlowIntelligence2 !== "undefined") {
-                EyeFlowIntelligence2.markReminderShown();
+              if (typeof EyeFlowIntelligence !== 'undefined') {
+                EyeFlowIntelligence.markReminderShown();
               }
               showInterruption(stage, currentSettings || {});
             }, 800);
           } catch (e) {
-            if (typeof EyeFlowIntelligence2 !== "undefined") {
-              EyeFlowIntelligence2.markReminderShown();
+            if (typeof EyeFlowIntelligence !== 'undefined') {
+              EyeFlowIntelligence.markReminderShown();
             }
             showInterruption(stage, currentSettings || {});
           }
@@ -1752,18 +1910,21 @@
           if (!isMeaningfulScrollSignal(event)) return;
           scrollEvents.push(now);
           recordActivity();
-          const timeWindow = EyeFlowIntelligence2.getTimeWindow(getHostname());
+          const timeWindow = EyeFlowIntelligence.getTimeWindow(getHostname());
           scrollEvents = scrollEvents.filter((t) => now - t < timeWindow);
+          if (scrollEvents.length > 250) {
+            scrollEvents = scrollEvents.slice(-250);
+          }
         }
         function isMeaningfulScrollSignal(event) {
           if (!event) return true;
-          if (event.type === "wheel") {
+          if (event.type === 'wheel') {
             return Math.abs(event.deltaY || 0) > 6;
           }
-          if (event.type === "touchmove") {
+          if (event.type === 'touchmove') {
             return true;
           }
-          if (event.type === "scroll") {
+          if (event.type === 'scroll') {
             return true;
           }
           return false;
@@ -1775,26 +1936,36 @@
           if (!isTabActivelyVisible()) return;
           const hostname = getHostname();
           const now = Date.now();
-          if (EyeFlowIntelligence2.isSingleVideoPage()) return;
+          if (EyeFlowIntelligence.isSingleVideoPage()) return;
           if (isDoomScrollContext()) {
-            const isBreakDue = Boolean(sharedDsState.nextBreakTargetMs) && getBreakCycleMs() >= sharedDsState.nextBreakTargetMs;
+            const isBreakDue =
+              Boolean(sharedDsState.nextBreakTargetMs) &&
+              getBreakCycleMs() >= sharedDsState.nextBreakTargetMs;
             if (isBreakDue) {
-              if (pendingHydrationPopup && !warningElement && !(typeof EyeFlowOverlay !== "undefined" && EyeFlowOverlay.isShowing())) {
+              if (
+                pendingHydrationPopup &&
+                !warningElement &&
+                !(typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing())
+              ) {
                 tryShowHydrationPopup();
                 return;
               }
               if (now - lastDoomScrollTime < 5e3) return;
               lastDoomScrollTime = now;
-              showStageInterruption("break", hostname);
+              showStageInterruption('break', hostname);
               return;
             }
           }
-          if (EyeFlowIntelligence2.isUserTyping()) return;
+          if (EyeFlowIntelligence.isUserTyping()) return;
           if (isCommunicationContext()) return;
           if (maybeShowHydrationGentleReminder()) {
             return;
           }
-          if (pendingHydrationPopup && !warningElement && !(typeof EyeFlowOverlay !== "undefined" && EyeFlowOverlay.isShowing())) {
+          if (
+            pendingHydrationPopup &&
+            !warningElement &&
+            !(typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing())
+          ) {
             tryShowHydrationPopup();
             return;
           }
@@ -1808,26 +1979,30 @@
               }
             } else if (canShowGentleReminder()) {
               showGentleReminder({
-                title: "Water check-in",
-                text: "Take a few sips if you have not had water in a while."
+                title: 'Water check-in',
+                text: 'Take a few sips if you have not had water in a while.',
               });
               resetHydrationTimer();
               return;
             }
           }
           if (isDoomScrollContext()) {
-            const scrollThreshold = EyeFlowIntelligence2.getScrollThreshold(hostname);
-            const timeWindow = EyeFlowIntelligence2.getTimeWindow(hostname);
+            const scrollThreshold = EyeFlowIntelligence.getScrollThreshold(hostname);
+            const timeWindow = EyeFlowIntelligence.getTimeWindow(hostname);
             const recentScrollCount = scrollEvents.filter((t) => now - t < timeWindow).length;
             if (recentScrollCount >= scrollThreshold && now - lastDoomScrollTime > 5e3) {
               lastDoomScrollTime = now;
               scrollEvents = [];
               resetBreakCycle();
-              showStageInterruption("break", hostname);
+              showStageInterruption('break', hostname);
               return;
             }
-            if (!sharedDsState.nextBreakTargetMs || getBreakCycleMs() < sharedDsState.nextBreakTargetMs) return;
-            const stage = "break";
+            if (
+              !sharedDsState.nextBreakTargetMs ||
+              getBreakCycleMs() < sharedDsState.nextBreakTargetMs
+            )
+              return;
+            const stage = 'break';
             if (now - lastDoomScrollTime < 5e3) return;
             lastDoomScrollTime = now;
             showStageInterruption(stage, hostname);
@@ -1840,15 +2015,15 @@
           const timeOnSite = Math.round(getActiveSiteMs() / 6e4);
           const hydrationPrompt = hydrationMergedIntoNextBreak || shouldMergeHydrationIntoBreak();
           switch (stage) {
-            case "nudge":
+            case 'nudge':
               break;
-            case "warning":
+            case 'warning':
               removeDebugTimerChip();
               removeGentleReminder();
               removeNudge();
               showWarning(timeOnSite);
               break;
-            case "break":
+            case 'break':
               if (!canShowBreakOverlay()) {
                 return;
               }
@@ -1857,7 +2032,7 @@
               removeGentleReminder();
               removeNudge();
               removeWarning();
-              if (typeof EyeFlowOverlay !== "undefined") {
+              if (typeof EyeFlowOverlay !== 'undefined') {
                 EyeFlowOverlay.show(settings, hostname, timeOnSite, { hydrationPrompt });
               }
               break;
@@ -1865,8 +2040,8 @@
         }
         function showNudge(timeOnSite) {
           if (nudgeElement) return;
-          nudgeElement = document.createElement("div");
-          nudgeElement.id = "eyeflow-nudge";
+          nudgeElement = document.createElement('div');
+          nudgeElement.id = 'eyeflow-nudge';
           nudgeElement.innerHTML = `
       <div class="eyeflow-nudge-content">
         <span class="eyeflow-nudge-icon">\u25C9</span>
@@ -1883,8 +2058,8 @@
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       animation: eyeflow-slide-up 0.4s ease-out;
     `;
-          const style = document.createElement("style");
-          style.id = "eyeflow-nudge-style";
+          const style = document.createElement('style');
+          style.id = 'eyeflow-nudge-style';
           style.textContent = `
       @keyframes eyeflow-slide-up {
         from { transform: translateX(-50%) translateY(100px); opacity: 0; }
@@ -1932,9 +2107,11 @@
     `;
           document.head.appendChild(style);
           document.body.appendChild(nudgeElement);
-          nudgeElement.querySelector(".eyeflow-nudge-icon").textContent = "O";
-          nudgeElement.querySelector(".eyeflow-nudge-dismiss").textContent = "x";
-          nudgeElement.querySelector(".eyeflow-nudge-dismiss").addEventListener("click", removeNudge);
+          nudgeElement.querySelector('.eyeflow-nudge-icon').textContent = 'O';
+          nudgeElement.querySelector('.eyeflow-nudge-dismiss').textContent = 'x';
+          nudgeElement
+            .querySelector('.eyeflow-nudge-dismiss')
+            .addEventListener('click', removeNudge);
           setTimeout(removeNudge, 15e3);
         }
         function removeNudge() {
@@ -1942,15 +2119,15 @@
             nudgeElement.remove();
             nudgeElement = null;
           }
-          const style = document.getElementById("eyeflow-nudge-style");
+          const style = document.getElementById('eyeflow-nudge-style');
           if (style) style.remove();
         }
         function showWarning(timeOnSite) {
           if (warningElement) return;
-          warningElement = document.createElement("div");
-          warningElement.id = "eyeflow-warning";
+          warningElement = document.createElement('div');
+          warningElement.id = 'eyeflow-warning';
           if (isStrictBreakSite()) {
-            warningElement.classList.add("eyeflow-warning-strict");
+            warningElement.classList.add('eyeflow-warning-strict');
           }
           warningElement.innerHTML = `
       <div class="eyeflow-warning-content">
@@ -1980,8 +2157,8 @@
       backdrop-filter: blur(10px);
       animation: eyeflow-fade-in 0.25s ease-out;
     `;
-          const style = document.createElement("style");
-          style.id = "eyeflow-warning-style";
+          const style = document.createElement('style');
+          style.id = 'eyeflow-warning-style';
           style.textContent = `
       @keyframes eyeflow-fade-in {
         from { opacity: 0; }
@@ -2091,14 +2268,16 @@
     `;
           document.head.appendChild(style);
           document.body.appendChild(warningElement);
-          warningElement.querySelector(".eyeflow-warning-icon").textContent = "O";
-          warningElement.querySelector(".eyeflow-warning-break").addEventListener("click", () => {
+          warningElement.querySelector('.eyeflow-warning-icon').textContent = 'O';
+          warningElement.querySelector('.eyeflow-warning-break').addEventListener('click', () => {
             removeWarning();
-            if (typeof EyeFlowOverlay !== "undefined") {
+            if (typeof EyeFlowOverlay !== 'undefined') {
               EyeFlowOverlay.show(currentSettings, getHostname(), timeOnSite);
             }
           });
-          warningElement.querySelector(".eyeflow-warning-dismiss").addEventListener("click", removeWarning);
+          warningElement
+            .querySelector('.eyeflow-warning-dismiss')
+            .addEventListener('click', removeWarning);
           setTimeout(removeWarning, 3e4);
         }
         function removeWarning() {
@@ -2106,11 +2285,12 @@
             warningElement.remove();
             warningElement = null;
           }
-          const style = document.getElementById("eyeflow-warning-style");
+          const style = document.getElementById('eyeflow-warning-style');
           if (style) style.remove();
         }
         function showGentleReminder(options = {}) {
-          const overlayShowing = typeof EyeFlowOverlay !== "undefined" && EyeFlowOverlay.isShowing();
+          const overlayShowing =
+            typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing();
           if (!canShowGentleReminderWithPassiveVideoSupport() || overlayShowing) {
             return false;
           }
@@ -2119,12 +2299,12 @@
           }
           removeGentleReminder();
           lastGentleReminderShownAt = Date.now();
-          subtleReminderElement = document.createElement("div");
-          subtleReminderElement.id = "eyeflow-gentle-reminder";
+          subtleReminderElement = document.createElement('div');
+          subtleReminderElement.id = 'eyeflow-gentle-reminder';
           subtleReminderElement.innerHTML = `
       <div class="eyeflow-gentle-reminder-content">
-        <div class="eyeflow-gentle-reminder-title">${options.title || "Your eyes could use a moment"}</div>
-        <div class="eyeflow-gentle-reminder-text">${options.text || "Blink a little and relax your focus."}</div>
+        <div class="eyeflow-gentle-reminder-title">${options.title || 'Your eyes could use a moment'}</div>
+        <div class="eyeflow-gentle-reminder-text">${options.text || 'Blink a little and relax your focus.'}</div>
       </div>
     `;
           subtleReminderElement.style.cssText = `
@@ -2136,8 +2316,8 @@
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       animation: eyeflow-gentle-fade 0.28s ease-out;
     `;
-          const style = document.createElement("style");
-          style.id = "eyeflow-gentle-reminder-style";
+          const style = document.createElement('style');
+          style.id = 'eyeflow-gentle-reminder-style';
           style.textContent = `
       @keyframes eyeflow-gentle-fade {
         from { opacity: 0; transform: translateX(-50%) translateY(-14px); }
@@ -2174,13 +2354,14 @@
             subtleReminderElement.remove();
             subtleReminderElement = null;
           }
-          const style = document.getElementById("eyeflow-gentle-reminder-style");
+          const style = document.getElementById('eyeflow-gentle-reminder-style');
           if (style) style.remove();
         }
+        let proactiveElement = null;
         function showProactiveWarning(warning) {
           if (proactiveElement) return;
-          proactiveElement = document.createElement("div");
-          proactiveElement.id = "eyeflow-proactive";
+          proactiveElement = document.createElement('div');
+          proactiveElement.id = 'eyeflow-proactive';
           proactiveElement.innerHTML = `
       <div class="eyeflow-proactive-content">
         <span class="eyeflow-proactive-icon">\u25C9</span>
@@ -2196,8 +2377,8 @@
       font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
       animation: eyeflow-fade-in 0.5s ease-out;
     `;
-          const style = document.createElement("style");
-          style.id = "eyeflow-proactive-style";
+          const style = document.createElement('style');
+          style.id = 'eyeflow-proactive-style';
           style.textContent = `
       @keyframes eyeflow-fade-in {
         from { opacity: 0; transform: translateY(-20px); }
@@ -2246,17 +2427,19 @@
     `;
           document.head.appendChild(style);
           document.body.appendChild(proactiveElement);
-          proactiveElement.querySelector(".eyeflow-proactive-icon").textContent = "O";
-          proactiveElement.querySelector(".eyeflow-proactive-dismiss").addEventListener("click", () => {
-            if (proactiveElement) proactiveElement.remove();
-            proactiveElement = null;
-            const s = document.getElementById("eyeflow-proactive-style");
-            if (s) s.remove();
-          });
+          proactiveElement.querySelector('.eyeflow-proactive-icon').textContent = 'O';
+          proactiveElement
+            .querySelector('.eyeflow-proactive-dismiss')
+            .addEventListener('click', () => {
+              if (proactiveElement) proactiveElement.remove();
+              proactiveElement = null;
+              const s = document.getElementById('eyeflow-proactive-style');
+              if (s) s.remove();
+            });
           setTimeout(() => {
             if (proactiveElement) proactiveElement.remove();
             proactiveElement = null;
-            const s = document.getElementById("eyeflow-proactive-style");
+            const s = document.getElementById('eyeflow-proactive-style');
             if (s) s.remove();
           }, 2e4);
         }
@@ -2268,25 +2451,25 @@
         function setupMessageListener() {
           try {
             chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-              if (message.type === "SETTINGS_UPDATED") {
+              if (message.type === 'SETTINGS_UPDATED') {
                 currentSettings = message.settings;
-                EyeFlowIntelligence2.updateSettings(message.settings);
+                EyeFlowIntelligence.updateSettings(message.settings);
                 isActive = Boolean(message.settings.enabled);
                 hydrationTargetMs = getTotalActiveUsageMs() + getHydrationTargetMs();
               }
-              if (message.type === "SNOOZE_STARTED") {
+              if (message.type === 'SNOOZE_STARTED') {
                 syncActiveSession();
                 isActive = Boolean(currentSettings?.enabled);
                 removeGentleReminder();
                 removeNudge();
                 removeWarning();
               }
-              if (message.type === "SNOOZE_ENDED") {
+              if (message.type === 'SNOOZE_ENDED') {
                 isActive = Boolean(currentSettings?.enabled);
                 syncSessionAndSharedTimer();
               }
-              if (message.type === "SYSTEM_IDLE_STATE_CHANGED") {
-                isSystemIdle = message.state !== "active";
+              if (message.type === 'SYSTEM_IDLE_STATE_CHANGED') {
+                isSystemIdle = message.state !== 'active';
                 if (isSystemIdle) {
                   if (isEffectivelySystemIdle()) {
                     removeGentleReminder();
@@ -2296,108 +2479,131 @@
                   syncSessionAndSharedTimer();
                 }
               }
-              if (message.type === "RESET_SESSION_TIMERS") {
+              if (message.type === 'RESET_SESSION_TIMERS') {
                 resetSessionTimersFromBackground(message.snapshot);
               }
-              if (message.type === "SHOW_GENTLE_REMINDER") {
+              if (message.type === 'SHOW_GENTLE_REMINDER') {
                 if (showGentleReminder()) {
                   acknowledgeLocalGentleReminder();
                 }
               }
-              if (message.type === "SHOW_WATER_GENTLE_REMINDER") {
+              if (message.type === 'SHOW_WATER_GENTLE_REMINDER') {
                 showGentleReminder({
-                  title: "Water check-in",
-                  text: "Take a few sips of water when you get a moment."
+                  title: 'Water check-in',
+                  text: 'Take a few sips of water when you get a moment.',
                 });
               }
-              if (message.type === "SHOW_HYDRATION_POPUP") {
+              if (message.type === 'SHOW_HYDRATION_POPUP') {
                 tryShowHydrationPopup();
               }
-              if (message.type === "QUEUE_HYDRATION_FOR_NEXT_BREAK") {
+              if (message.type === 'QUEUE_HYDRATION_FOR_NEXT_BREAK') {
                 hydrationMergedIntoNextBreak = true;
                 pendingHydrationPopup = false;
               }
-              if (message.type === "CAN_SHOW_GENTLE_REMINDER") {
+              if (message.type === 'CAN_SHOW_GENTLE_REMINDER') {
                 sendResponse({ allow: canShowGentleReminderWithPassiveVideoSupport() });
                 return true;
               }
-              if (message.type === "GET_PAGE_REMINDER_CONTEXT") {
+              if (message.type === 'GET_PAGE_REMINDER_CONTEXT') {
                 sendResponse({
                   isDoomScrollContext: isDoomScrollContext(),
                   msUntilEyeBreak: getMsUntilEyeBreak(),
                   canShowGentleReminder: canShowGentleReminderWithPassiveVideoSupport(),
-                  hasPassiveVideoPresence: isWatchingLongVideoPassively() || isWatchingPassiveDsVideo(),
+                  hasPassiveVideoPresence:
+                    isWatchingLongVideoPassively() || isWatchingPassiveDsVideo(),
                   hasRecentRegularPageInput: hasRecentRegularPageInput(),
                   isUsageActive: isUsageActiveNow(),
-                  isDsActive: shouldCountActiveTime()
+                  isDsActive: shouldCountActiveTime(),
                 });
                 return true;
               }
+              if (!message.type.startsWith('GET_') && message.type !== 'CAN_SHOW_GENTLE_REMINDER') {
+                sendResponse({ success: true });
+              }
+              return true;
             });
-          } catch (e) {
-          }
+          } catch (e) {}
         }
         function init() {
           try {
-            chrome.runtime.sendMessage({ type: "GET_SETTINGS" }, (settings) => {
+            chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, (settings) => {
               if (runtimeCallbackFailed()) return;
               if (settings) {
                 currentSettings = settings;
                 isActive = Boolean(settings.enabled);
-                EyeFlowIntelligence2.updateSettings(settings);
+                EyeFlowIntelligence.updateSettings(settings);
                 hydrationTargetMs = getTotalActiveUsageMs() + getHydrationTargetMs();
               }
             });
-            chrome.runtime.sendMessage({ type: "GET_SHARED_DS_STATE" }, (response) => {
+            chrome.runtime.sendMessage({ type: 'GET_SHARED_DS_STATE' }, (response) => {
               if (runtimeCallbackFailed()) return;
               applySharedDsState(response);
             });
-            chrome.runtime.sendMessage({ type: "GET_SYSTEM_STATE" }, (response) => {
+            chrome.runtime.sendMessage({ type: 'GET_SYSTEM_STATE' }, (response) => {
               if (runtimeCallbackFailed()) return;
               if (response && response.state) {
-                isSystemIdle = response.state !== "active";
+                isSystemIdle = response.state !== 'active';
                 syncSessionAndSharedTimer();
               }
             });
-          } catch (e) {
-          }
-          window.addEventListener("scroll", handleScroll, { passive: true });
-          document.addEventListener("scroll", handleScroll, { passive: true, capture: true });
-          document.addEventListener("wheel", handleScroll, { passive: true, capture: true });
-          document.addEventListener("touchmove", handleScroll, { passive: true, capture: true });
-          document.addEventListener("click", handleInteraction, { passive: true, capture: true });
-          document.addEventListener("pointerup", handleInteraction, { passive: true, capture: true });
-          document.addEventListener("keydown", handleInteraction, { passive: true, capture: true });
-          document.addEventListener("visibilitychange", () => {
-            if (document.hidden) {
-              flushDsSiteTime();
-            } else {
+          } catch (e) {}
+          window.addEventListener('scroll', handleScroll, { passive: true });
+          document.addEventListener('scroll', handleScroll, { passive: true, capture: true });
+          document.addEventListener('wheel', handleScroll, { passive: true, capture: true });
+          document.addEventListener('touchmove', handleScroll, { passive: true, capture: true });
+          document.addEventListener('click', handleInteraction, { passive: true, capture: true });
+          document.addEventListener('pointerup', handleInteraction, {
+            passive: true,
+            capture: true,
+          });
+          document.addEventListener('keydown', handleInteraction, { passive: true, capture: true });
+          document.addEventListener(
+            'visibilitychange',
+            () => {
+              if (document.hidden) {
+                flushDsSiteTime();
+              } else {
+                recordActivity();
+              }
+              syncSessionAndSharedTimer();
+              syncDebugTimerMeta();
+            },
+            { passive: true }
+          );
+          window.addEventListener(
+            'focus',
+            () => {
               recordActivity();
-            }
-            syncSessionAndSharedTimer();
-            syncDebugTimerMeta();
-          }, { passive: true });
-          window.addEventListener("focus", () => {
-            recordActivity();
-            syncSessionAndSharedTimer();
-            syncDebugTimerMeta();
-          }, { passive: true });
-          window.addEventListener("blur", () => {
-            flushDsSiteTime();
-            syncSessionAndSharedTimer();
-          }, { passive: true });
-          window.addEventListener("pagehide", flushDsSiteTime, { passive: true });
-          window.addEventListener("beforeunload", flushDsSiteTime, { passive: true });
-          window.addEventListener("eyeflow-break-flow-closed", resetBreakCycle, { passive: true });
-          window.addEventListener("eyeflow-hydration-completed", resetHydrationTimer, { passive: true });
-          window.addEventListener("eyeflow-hydration-remind-soon", () => {
-            hydrationMergedIntoNextBreak = false;
-            pendingHydrationPopup = false;
-            try {
-              chrome.runtime.sendMessage({ type: "HYDRATION_REMIND_SOON" });
-            } catch (e) {
-            }
-          }, { passive: true });
+              syncSessionAndSharedTimer();
+              syncDebugTimerMeta();
+            },
+            { passive: true }
+          );
+          window.addEventListener(
+            'blur',
+            () => {
+              flushDsSiteTime();
+              syncSessionAndSharedTimer();
+            },
+            { passive: true }
+          );
+          window.addEventListener('pagehide', flushDsSiteTime, { passive: true });
+          window.addEventListener('beforeunload', flushDsSiteTime, { passive: true });
+          window.addEventListener('eyeflow-break-flow-closed', resetBreakCycle, { passive: true });
+          window.addEventListener('eyeflow-hydration-completed', resetHydrationTimer, {
+            passive: true,
+          });
+          window.addEventListener(
+            'eyeflow-hydration-remind-soon',
+            () => {
+              hydrationMergedIntoNextBreak = false;
+              pendingHydrationPopup = false;
+              try {
+                chrome.runtime.sendMessage({ type: 'HYDRATION_REMIND_SOON' });
+              } catch (e) {}
+            },
+            { passive: true }
+          );
           lastContextKey = getDoomScrollContextKey();
           if (isSinglePostGraceContextKey(lastContextKey)) {
             singlePostGraceContextKey = lastContextKey;
@@ -2417,10 +2623,10 @@
         return {
           getHostname,
           removeNudge,
-          removeWarning
+          removeWarning,
         };
       })();
-    }
+    },
   });
   require_content();
 })();

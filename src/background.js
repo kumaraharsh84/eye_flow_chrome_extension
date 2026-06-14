@@ -1,3 +1,5 @@
+import { clampNumber } from './utils.js';
+
 // ============================================================
 // BACKGROUND.JS — EyeFlow Chrome Extension
 // ============================================================
@@ -18,23 +20,23 @@ const EYEFLOW_DEBUG = false;
 // These are the initial settings when the extension is first installed.
 // The user can change them from the popup UI.
 const DEFAULT_SETTINGS = {
-  enabled: true,                    // Is the extension active?
-  snoozedUntil: 0,                  // Timestamp when snooze ends (0 = not snoozed)
-  sensitivity: 50,                  // Doom-scroll sensitivity (0-100). Higher = triggers faster
-  eyeBreakDurationSec: 20,          // How long the eye exercise lasts (seconds)
-  hydrationBreakDurationSec: 40,   // Hydration reset countdown duration
-  reminderIntervalMin: 5,           // Main eye reminder interval (in minutes)
-  reminderIntervalMax: 5,           // Main eye reminder interval (in minutes)
-  hydrationReminderMin: 60,         // Show a hydration reset after this much continuous time
-  subtleReminderEnabled: true,     // Show a soft corner reminder during normal work in Chrome
-  subtleReminderMin: 25,            // Soft reminder interval (in minutes)
-  subtleReminderMax: 25,            // Soft reminder interval (in minutes)
-  timingMode: 'fixed',              // fixed = exact intervals, surprise = random ranges
-  customTimingEnabled: false,      // Let advanced users override reminder timing from the popup
-  soundReminderEnabled: false,     // Keep background audio opt-in for a calmer first-run experience
-  soundReminderMin: 20,            // Minimum gap for the background sound reminder
-  soundReminderMax: 30,            // Maximum gap for the background sound reminder
-  popupTheme: 'dark',              // Popup theme preference: dark or light
+  enabled: true, // Is the extension active?
+  snoozedUntil: 0, // Timestamp when snooze ends (0 = not snoozed)
+  sensitivity: 50, // Doom-scroll sensitivity (0-100). Higher = triggers faster
+  eyeBreakDurationSec: 20, // How long the eye exercise lasts (seconds)
+  hydrationBreakDurationSec: 40, // Hydration reset countdown duration
+  reminderIntervalMin: 5, // Main eye reminder interval (in minutes)
+  reminderIntervalMax: 5, // Main eye reminder interval (in minutes)
+  hydrationReminderMin: 60, // Show a hydration reset after this much continuous time
+  subtleReminderEnabled: true, // Show a soft corner reminder during normal work in Chrome
+  subtleReminderMin: 25, // Soft reminder interval (in minutes)
+  subtleReminderMax: 25, // Soft reminder interval (in minutes)
+  timingMode: 'fixed', // fixed = exact intervals, surprise = random ranges
+  customTimingEnabled: false, // Let advanced users override reminder timing from the popup
+  soundReminderEnabled: false, // Keep background audio opt-in for a calmer first-run experience
+  soundReminderMin: 20, // Minimum gap for the background sound reminder
+  soundReminderMax: 30, // Maximum gap for the background sound reminder
+  popupTheme: 'dark', // Popup theme preference: dark or light
 
   // Site-specific sensitivity tiers
   // "strict" = triggers faster, "moderate" = normal, "relaxed" = triggers slower
@@ -51,7 +53,7 @@ const DEFAULT_SETTINGS = {
     'youtube.com/shorts': 'strict',
     'linkedin.com': 'moderate',
     'stackoverflow.com': 'relaxed',
-    'github.com': 'relaxed'
+    'github.com': 'relaxed',
   },
 
   // User's custom redirect suggestions (what to do instead of scrolling)
@@ -60,8 +62,8 @@ const DEFAULT_SETTINGS = {
     'Drink a glass of water',
     'Do a quick stretch',
     'Read a book for 5 min',
-    'Step outside for fresh air'
-  ]
+    'Step outside for fresh air',
+  ],
 };
 
 // Keep redirect suggestions ASCII-clean even if the source file contains legacy encoding artifacts.
@@ -70,7 +72,7 @@ DEFAULT_SETTINGS.redirectSuggestions = [
   'Drink a glass of water',
   'Do a quick stretch',
   'Read a book for 5 min',
-  'Step outside for fresh air'
+  'Step outside for fresh air',
 ];
 
 // -------------------------------------------------------
@@ -79,18 +81,18 @@ DEFAULT_SETTINGS.redirectSuggestions = [
 // These stats are saved in Chrome storage and updated as the user
 // interacts with the extension. Displayed in the popup dashboard.
 const DEFAULT_STATS = {
-  totalDoomScrollsBlocked: 0,       // Total interruptions ever
-  totalEyeBreaksCompleted: 0,       // Total eye exercises done
-  todayDoomScrollsBlocked: 0,       // Interruptions today
-  todayEyeBreaksCompleted: 0,       // Eye exercises today
-  weekDoomScrollsBlocked: 0,        // Interruptions this week
-  weekEyeBreaksCompleted: 0,        // Eye exercises this week
-  lastBreakTime: 0,                 // Timestamp of last eye break
-  lastResetDate: '',                // The date when daily counters were last reset
-  moodHistory: [],                  // Array of { mood, timestamp, site }
-  doomScrollSessions: [],           // Array of { site, day, hour, duration, scrollCount }
-  siteTimeSpent: {},                // Legacy aggregate site-time bucket
-  todayDsSiteTimeSpent: {}          // { 'Instagram': totalMinutes, ... } persisted across reload/restart, resets only on a new day
+  totalDoomScrollsBlocked: 0, // Total interruptions ever
+  totalEyeBreaksCompleted: 0, // Total eye exercises done
+  todayDoomScrollsBlocked: 0, // Interruptions today
+  todayEyeBreaksCompleted: 0, // Eye exercises today
+  weekDoomScrollsBlocked: 0, // Interruptions this week
+  weekEyeBreaksCompleted: 0, // Eye exercises this week
+  lastBreakTime: 0, // Timestamp of last eye break
+  lastResetDate: '', // The date when daily counters were last reset
+  moodHistory: [], // Array of { mood, timestamp, site }
+  doomScrollSessions: [], // Array of { site, day, hour, duration, scrollCount }
+  siteTimeSpent: {}, // Legacy aggregate site-time bucket
+  todayDsSiteTimeSpent: {}, // { 'Instagram': totalMinutes, ... } persisted across reload/restart, resets only on a new day
 };
 
 const DEFAULT_RUNTIME_STATE = {
@@ -113,14 +115,14 @@ const DEFAULT_RUNTIME_STATE = {
   sharedDsIsActive: false,
   sharedDsContextKey: '',
   sharedDsState: 'off',
-  sharedDsPauseReason: 'none'
+  sharedDsPauseReason: 'none',
 };
 
 const GENTLE_TIMER_STATES = Object.freeze({
   OFF: 'off',
   RUNNING: 'running',
   PAUSED: 'paused',
-  DUE: 'due'
+  DUE: 'due',
 });
 
 const GENTLE_PAUSE_REASONS = Object.freeze({
@@ -130,13 +132,13 @@ const GENTLE_PAUSE_REASONS = Object.freeze({
   INACTIVE: 'inactive',
   NO_WINDOW: 'no_window',
   DISABLED: 'disabled',
-  FEATURE_OFF: 'feature_off'
+  FEATURE_OFF: 'feature_off',
 });
 
 const SHARED_DS_TIMER_STATES = Object.freeze({
   OFF: 'off',
   RUNNING: 'running',
-  PAUSED: 'paused'
+  PAUSED: 'paused',
 });
 
 const SHARED_DS_PAUSE_REASONS = Object.freeze({
@@ -144,7 +146,7 @@ const SHARED_DS_PAUSE_REASONS = Object.freeze({
   INACTIVE: 'inactive',
   SESSION_TIMEOUT: 'session_timeout',
   DISABLED: 'disabled',
-  BREAK_FLOW: 'break_flow'
+  BREAK_FLOW: 'break_flow',
 });
 
 const GENTLE_REMINDER_DUPLICATE_GUARD_MS = 15 * 1000;
@@ -160,7 +162,7 @@ const DOOM_SCROLL_HOSTS = new Set([
   'reddit.com',
   'facebook.com',
   'twitter.com',
-  'x.com'
+  'x.com',
 ]);
 
 const TIMER_LIMITS = {
@@ -169,9 +171,8 @@ const TIMER_LIMITS = {
   eyeBreakDurationSec: { min: 15, max: 40, fallback: DEFAULT_SETTINGS.eyeBreakDurationSec },
   hydrationReminderMin: { min: 60, max: 240, fallback: DEFAULT_SETTINGS.hydrationReminderMin },
   subtleReminderMin: { min: 20, max: 60, fallback: DEFAULT_SETTINGS.subtleReminderMin },
-  subtleReminderMax: { min: 20, max: 60, fallback: DEFAULT_SETTINGS.subtleReminderMax }
+  subtleReminderMax: { min: 20, max: 60, fallback: DEFAULT_SETTINGS.subtleReminderMax },
 };
-
 
 // -------------------------------------------------------
 // ON INSTALL — Set up defaults
@@ -189,7 +190,7 @@ chrome.runtime.onInstalled.addListener((details) => {
       if (!result.onboardingComplete) {
         chrome.tabs.create({
           url: chrome.runtime.getURL('onboarding.html'),
-          active: true
+          active: true,
         });
       }
     });
@@ -217,10 +218,9 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
   broadcastToAllTabs({
     type: 'SETTINGS_UPDATED',
-    settings: changes.settings.newValue
+    settings: changes.settings.newValue,
   });
 });
-
 
 // -------------------------------------------------------
 // ALARM HANDLER — Periodic checks
@@ -228,45 +228,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
 // Every minute, this alarm fires. We use it to:
 //   1. Check if a snooze period has ended → re-enable the extension
 //   2. Reset daily stats at midnight
-chrome.alarms.onAlarm.addListener((alarm) => {
-  // Legacy maintenance path kept inert while the async tick handler below owns the alarm.
-  if (false && alarm.name === 'eyeflow-tick') {
-    chrome.storage.local.get(['settings', 'stats'], (result) => {
-      const settings = mergeSettings(result.settings);
-      const stats = mergeStats(result.stats);
-      const now = Date.now();
-
-      // --- Check snooze expiry ---
-      // If snooze time has passed, clear it so extension becomes active again
-      if (settings.snoozedUntil > 0 && now >= settings.snoozedUntil) {
-        settings.snoozedUntil = 0;
-        chrome.storage.local.set({ settings });
-
-        // Notify all tabs that snooze has ended
-        broadcastToAllTabs({ type: 'SNOOZE_ENDED' });
-      }
-
-      // --- Reset daily stats at midnight ---
-      const today = new Date().toDateString();
-      if (stats.lastResetDate !== today) {
-        // It's a new day — reset daily counters
-        stats.todayDoomScrollsBlocked = 0;
-        stats.todayEyeBreaksCompleted = 0;
-        stats.todayDsSiteTimeSpent = {};
-        stats.lastResetDate = today;
-
-        // Also reset weekly stats on Monday
-        if (new Date().getDay() === 1) {
-          stats.weekDoomScrollsBlocked = 0;
-          stats.weekEyeBreaksCompleted = 0;
-        }
-
-        chrome.storage.local.set({ stats });
-      }
-    });
-  }
-});
-
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name !== 'eyeflow-tick') return;
 
@@ -309,7 +270,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     await chrome.storage.local.set({
       ...(settingsChanged ? { settings } : {}),
       ...(statsChanged ? { stats } : {}),
-      ...(runtimeStateChanged ? { runtimeState } : {})
+      ...(runtimeStateChanged ? { runtimeState } : {}),
     });
   }
 
@@ -324,14 +285,12 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   await runAmbientReminderTick(settings, runtimeState, now);
 });
 
-
 // -------------------------------------------------------
 // MESSAGE HANDLER — Communication hub
 // -------------------------------------------------------
 // This handles all messages from content.js and popup.js.
 // Each message has a "type" field that tells us what to do.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-
   // --- GET_SETTINGS: popup or content script wants current settings ---
   if (message.type === 'GET_SETTINGS') {
     chrome.storage.local.get(['settings'], (result) => {
@@ -381,13 +340,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           gentlePauseReason: GENTLE_PAUSE_REASONS.DISABLED,
           nextWaterReminderAt: 0,
           waterReminderPending: false,
-          waterQueuedForNextBreak: false
+          waterQueuedForNextBreak: false,
         });
         return;
       }
 
       expireStaleWaterPending(runtimeState, settings);
-      if (!runtimeState.nextWaterReminderAt && !runtimeState.waterReminderPending && !runtimeState.waterQueuedForNextBreak) {
+      if (
+        !runtimeState.nextWaterReminderAt &&
+        !runtimeState.waterReminderPending &&
+        !runtimeState.waterQueuedForNextBreak
+      ) {
         runtimeState.nextWaterReminderAt = Date.now() + getWaterDelayMs(settings);
         chrome.storage.local.set({ runtimeState });
       }
@@ -400,7 +363,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         gentlePauseReason: runtimeState.gentlePauseReason || GENTLE_PAUSE_REASONS.NONE,
         nextWaterReminderAt: runtimeState.nextWaterReminderAt || 0,
         waterReminderPending: Boolean(runtimeState.waterReminderPending),
-        waterQueuedForNextBreak: Boolean(runtimeState.waterQueuedForNextBreak)
+        waterQueuedForNextBreak: Boolean(runtimeState.waterQueuedForNextBreak),
       });
     });
     return true;
@@ -443,7 +406,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // ambient tick to pause or resume it.
       if (runtimeState.sharedDsIsActive) {
         pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.DS_ACTIVE, now);
-      } else if (!isSnoozed && wasDsActive && !runtimeState.sharedDsIsActive && settings.subtleReminderEnabled) {
+      } else if (
+        !isSnoozed &&
+        wasDsActive &&
+        !runtimeState.sharedDsIsActive &&
+        settings.subtleReminderEnabled
+      ) {
         resumeGentleReminder(runtimeState, now);
         if (!runtimeState.nextGentleReminderAt) {
           runtimeState.nextGentleReminderAt = now + getGentleDelayMs(settings);
@@ -457,7 +425,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // --- SAVE_SETTINGS: popup changed a setting, save it ---  
+  // --- SAVE_SETTINGS: popup changed a setting, save it ---
   if (message.type === 'SAVE_SETTINGS') {
     chrome.storage.local.get(['settings', 'runtimeState'], (result) => {
       const previousSettings = mergeSettings(result.settings);
@@ -466,8 +434,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const now = Date.now();
       const isSnoozed = settings.snoozedUntil > 0 && now < settings.snoozedUntil;
 
-        if (settings.enabled) {
-          if (shouldRestartMainTimers(previousSettings, settings)) {
+      if (settings.enabled) {
+        if (shouldRestartMainTimers(previousSettings, settings)) {
           restartMainTimers(runtimeState, settings, now);
         }
 
@@ -517,11 +485,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // Save the session data for pattern learning
       const sessionData = {
         site: message.site || 'unknown',
-        day: new Date().getDay(),      // 0=Sunday, 1=Monday, etc.
-        hour: new Date().getHours(),    // 0-23
+        day: new Date().getDay(), // 0=Sunday, 1=Monday, etc.
+        hour: new Date().getHours(), // 0-23
         duration: message.duration || 0,
         scrollCount: message.scrollCount || 0,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
       stats.doomScrollSessions.push(sessionData);
 
@@ -540,8 +508,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // Tell the content script what stage of interruption to show
       sendResponse({
         action: 'INTERVENE',
-        stage: message.stage || 'nudge',  // nudge, warning, or break
-        settings: settings
+        stage: message.stage || 'nudge', // nudge, warning, or break
+        settings: settings,
       });
     });
     return true;
@@ -638,9 +606,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const stats = mergeStats(result.stats);
 
       stats.moodHistory.push({
-        mood: message.mood,           // 'good', 'okay', or 'bad'
+        mood: message.mood, // 'good', 'okay', or 'bad'
         timestamp: Date.now(),
-        site: message.site || 'unknown'
+        site: message.site || 'unknown',
       });
 
       // Keep only last 100 mood entries
@@ -661,7 +629,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const now = Date.now();
 
       // Set the snooze end time
-      settings.snoozedUntil = now + (message.hours * 60 * 60 * 1000);
+      settings.snoozedUntil = now + message.hours * 60 * 60 * 1000;
       chrome.storage.local.get(['runtimeState'], (runtimeResult) => {
         const runtimeState = mergeRuntimeState(runtimeResult.runtimeState);
         pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.SNOOZE, now);
@@ -715,6 +683,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
+
+  if (!message.type.startsWith('GET_')) {
+    sendResponse({ success: true, unhandled: true });
+  }
+  return true;
 });
 
 async function runAmbientReminderTick(settings, runtimeState, now) {
@@ -732,11 +705,20 @@ async function runAmbientReminderTick(settings, runtimeState, now) {
     await reconcilePendingWaterReminder(runtimeState, settings, now);
   }
 
-  if (!runtimeState.nextWaterReminderAt && !runtimeState.waterReminderPending && !runtimeState.waterQueuedForNextBreak) {
+  if (
+    !runtimeState.nextWaterReminderAt &&
+    !runtimeState.waterReminderPending &&
+    !runtimeState.waterQueuedForNextBreak
+  ) {
     runtimeState.nextWaterReminderAt = now + getWaterDelayMs(settings);
   }
 
-  if (runtimeState.nextWaterReminderAt && now >= runtimeState.nextWaterReminderAt && !runtimeState.waterReminderPending && !runtimeState.waterQueuedForNextBreak) {
+  if (
+    runtimeState.nextWaterReminderAt &&
+    now >= runtimeState.nextWaterReminderAt &&
+    !runtimeState.waterReminderPending &&
+    !runtimeState.waterQueuedForNextBreak
+  ) {
     const waterResult = await deliverWaterReminder(now);
 
     if (waterResult === 'queued') {
@@ -815,10 +797,12 @@ async function runAmbientReminderTick(settings, runtimeState, now) {
     }
 
     if (!runtimeState.nextSoundReminderAt) {
-      runtimeState.nextSoundReminderAt = now + getRandomDelayMs(settings.soundReminderMin, settings.soundReminderMax);
+      runtimeState.nextSoundReminderAt =
+        now + getRandomDelayMs(settings.soundReminderMin, settings.soundReminderMax);
     } else if (now >= runtimeState.nextSoundReminderAt) {
       const soundPlayed = await playReminderSound();
-      runtimeState.nextSoundReminderAt = now + getRandomDelayMs(settings.soundReminderMin, settings.soundReminderMax);
+      runtimeState.nextSoundReminderAt =
+        now + getRandomDelayMs(settings.soundReminderMin, settings.soundReminderMax);
       if (!soundPlayed) {
         runtimeState.nextSoundReminderAt = now + SOUND_REMINDER_FOLLOWUP_MS;
       } else {
@@ -844,7 +828,11 @@ function scheduleNextGentleReminder(runtimeState, settings, now = Date.now()) {
   runtimeState.gentlePauseReason = GENTLE_PAUSE_REASONS.NONE;
 }
 
-function pauseGentleReminder(runtimeState, reason = GENTLE_PAUSE_REASONS.NO_WINDOW, now = Date.now()) {
+function pauseGentleReminder(
+  runtimeState,
+  reason = GENTLE_PAUSE_REASONS.NO_WINDOW,
+  now = Date.now()
+) {
   if (runtimeState.nextGentleReminderAt > 0) {
     runtimeState.gentlePausedRemainingMs = Math.max(1000, runtimeState.nextGentleReminderAt - now);
     runtimeState.nextGentleReminderAt = 0;
@@ -868,7 +856,7 @@ async function getChromeWindowState() {
   const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
   return {
     hasChromeWindow: windows.length > 0,
-    chromeFocused: windows.some((windowInfo) => windowInfo.focused)
+    chromeFocused: windows.some((windowInfo) => windowInfo.focused),
   };
 }
 
@@ -884,7 +872,9 @@ async function sendGentleReminderToActiveTab() {
 
   try {
     // Ask the page if a soft reminder would be inappropriate right now.
-    const pageContext = await chrome.tabs.sendMessage(activeTab.id, { type: 'CAN_SHOW_GENTLE_REMINDER' });
+    const pageContext = await chrome.tabs.sendMessage(activeTab.id, {
+      type: 'CAN_SHOW_GENTLE_REMINDER',
+    });
     if (!pageContext || !pageContext.allow) {
       return false;
     }
@@ -905,7 +895,9 @@ async function getActiveTabReminderContext() {
   }
 
   try {
-    const pageContext = await chrome.tabs.sendMessage(activeTab.id, { type: 'GET_PAGE_REMINDER_CONTEXT' });
+    const pageContext = await chrome.tabs.sendMessage(activeTab.id, {
+      type: 'GET_PAGE_REMINDER_CONTEXT',
+    });
     return { activeTab, pageContext };
   } catch (e) {
     return { activeTab, pageContext: null };
@@ -926,10 +918,12 @@ async function deliverWaterReminder(now = Date.now()) {
   }
 
   try {
-    const pageContext = await chrome.tabs.sendMessage(activeTab.id, { type: 'GET_PAGE_REMINDER_CONTEXT' });
+    const pageContext = await chrome.tabs.sendMessage(activeTab.id, {
+      type: 'GET_PAGE_REMINDER_CONTEXT',
+    });
 
     if (pageContext?.isDoomScrollContext) {
-      if ((pageContext.msUntilEyeBreak || Infinity) <= (3 * 60 * 1000)) {
+      if ((pageContext.msUntilEyeBreak || Infinity) <= 3 * 60 * 1000) {
         await chrome.tabs.sendMessage(activeTab.id, { type: 'QUEUE_HYDRATION_FOR_NEXT_BREAK' });
         return 'queued';
       }
@@ -966,7 +960,9 @@ async function reconcilePendingWaterReminder(runtimeState, settings, now = Date.
   }
 
   try {
-    const pageContext = await chrome.tabs.sendMessage(activeTab.id, { type: 'GET_PAGE_REMINDER_CONTEXT' });
+    const pageContext = await chrome.tabs.sendMessage(activeTab.id, {
+      type: 'GET_PAGE_REMINDER_CONTEXT',
+    });
 
     if (pageContext?.isDoomScrollContext) {
       expireStaleWaterPending(runtimeState, settings, now);
@@ -994,7 +990,7 @@ async function showBasicNotification(id, title, message) {
     type: 'basic',
     iconUrl: 'icons/icon128.png',
     title,
-    message
+    message,
   });
 }
 
@@ -1014,7 +1010,7 @@ async function ensureOffscreenDocument() {
   const offscreenUrl = chrome.runtime.getURL('offscreen.html');
   const contexts = await chrome.runtime.getContexts({
     contextTypes: ['OFFSCREEN_DOCUMENT'],
-    documentUrls: [offscreenUrl]
+    documentUrls: [offscreenUrl],
   });
 
   if (contexts.length > 0) return;
@@ -1022,7 +1018,7 @@ async function ensureOffscreenDocument() {
   await chrome.offscreen.createDocument({
     url: 'offscreen.html',
     reasons: ['AUDIO_PLAYBACK'],
-    justification: 'Play a short eye-care reminder sound when Chrome is open in the background.'
+    justification: 'Play a short eye-care reminder sound when Chrome is open in the background.',
   });
 }
 
@@ -1049,7 +1045,7 @@ function expireStaleWaterPending(runtimeState, settings, now = Date.now()) {
     runtimeState.waterReminderPendingSince = now;
     return true;
   }
-  if ((now - runtimeState.waterReminderPendingSince) < WATER_PENDING_TIMEOUT_MS) {
+  if (now - runtimeState.waterReminderPendingSince < WATER_PENDING_TIMEOUT_MS) {
     return false;
   }
 
@@ -1066,7 +1062,7 @@ function advanceSharedDsState(runtimeState, now = Date.now()) {
     return;
   }
 
-  if ((now - runtimeState.sharedDsLastUpdateAt) > SESSION_RESET_INACTIVITY_MS) {
+  if (now - runtimeState.sharedDsLastUpdateAt > SESSION_RESET_INACTIVITY_MS) {
     runtimeState.sharedDsActiveMs = 0;
     runtimeState.sharedDsIsActive = false;
     runtimeState.sharedDsActiveTabId = 0;
@@ -1096,7 +1092,7 @@ function getSharedDsSnapshot(runtimeState) {
     nextBreakTargetMs: runtimeState.sharedDsNextBreakTargetMs || 0,
     isActive: Boolean(runtimeState.sharedDsIsActive),
     contextKey: runtimeState.sharedDsContextKey || '',
-    activeTabId: runtimeState.sharedDsActiveTabId || 0
+    activeTabId: runtimeState.sharedDsActiveTabId || 0,
   };
 }
 
@@ -1154,10 +1150,21 @@ function isLikelyDoomScrollUrl(url) {
 
     if (hostname === 'youtube.com' && pathname.startsWith('/shorts')) return true;
     if (hostname === 'snapchat.com') {
-      return pathname.startsWith('/spotlight') || pathname.includes('/spotlight/') || pathname.startsWith('/stories') || pathname.startsWith('/discover') || pathname === '/';
+      return (
+        pathname.startsWith('/spotlight') ||
+        pathname.includes('/spotlight/') ||
+        pathname.startsWith('/stories') ||
+        pathname.startsWith('/discover') ||
+        pathname === '/'
+      );
     }
     if (hostname === 'linkedin.com') {
-      return pathname.startsWith('/feed/') || pathname.startsWith('/video/') || pathname.startsWith('/posts/') || pathname.startsWith('/feed/update/');
+      return (
+        pathname.startsWith('/feed/') ||
+        pathname.startsWith('/video/') ||
+        pathname.startsWith('/posts/') ||
+        pathname.startsWith('/feed/update/')
+      );
     }
     if (hostname === 'twitch.tv') {
       return (
@@ -1169,7 +1176,12 @@ function isLikelyDoomScrollUrl(url) {
     }
     if (hostname === 'x.com' || hostname === 'twitter.com') {
       if (pathname.startsWith('/home') || pathname.startsWith('/explore')) return true;
-      if (pathname.startsWith('/i/communities') || /^\/[^/]+\/communities(\/|$)/.test(pathname) || pathname.startsWith('/communities')) return true;
+      if (
+        pathname.startsWith('/i/communities') ||
+        /^\/[^/]+\/communities(\/|$)/.test(pathname) ||
+        pathname.startsWith('/communities')
+      )
+        return true;
       if (pathname.includes('/status/')) return true;
       return false;
     }
@@ -1184,7 +1196,7 @@ function mergeSettings(...sources) {
   const merged = {
     ...DEFAULT_SETTINGS,
     siteTiers: { ...DEFAULT_SETTINGS.siteTiers },
-    redirectSuggestions: [...DEFAULT_SETTINGS.redirectSuggestions]
+    redirectSuggestions: [...DEFAULT_SETTINGS.redirectSuggestions],
   };
 
   sources.filter(Boolean).forEach((source) => {
@@ -1248,23 +1260,29 @@ function mergeSettings(...sources) {
   return merged;
 }
 
-
-
 function mergeStats(source) {
   return {
     ...DEFAULT_STATS,
     ...(source || {}),
-    moodHistory: Array.isArray(source?.moodHistory) ? source.moodHistory : [...DEFAULT_STATS.moodHistory],
-    doomScrollSessions: Array.isArray(source?.doomScrollSessions) ? source.doomScrollSessions : [...DEFAULT_STATS.doomScrollSessions],
-    siteTimeSpent: source?.siteTimeSpent ? { ...source.siteTimeSpent } : { ...DEFAULT_STATS.siteTimeSpent },
-    todayDsSiteTimeSpent: source?.todayDsSiteTimeSpent ? { ...source.todayDsSiteTimeSpent } : { ...DEFAULT_STATS.todayDsSiteTimeSpent }
+    moodHistory: Array.isArray(source?.moodHistory)
+      ? source.moodHistory
+      : [...DEFAULT_STATS.moodHistory],
+    doomScrollSessions: Array.isArray(source?.doomScrollSessions)
+      ? source.doomScrollSessions
+      : [...DEFAULT_STATS.doomScrollSessions],
+    siteTimeSpent: source?.siteTimeSpent
+      ? { ...source.siteTimeSpent }
+      : { ...DEFAULT_STATS.siteTimeSpent },
+    todayDsSiteTimeSpent: source?.todayDsSiteTimeSpent
+      ? { ...source.todayDsSiteTimeSpent }
+      : { ...DEFAULT_STATS.todayDsSiteTimeSpent },
   };
 }
 
 function mergeRuntimeState(source) {
   const merged = {
     ...DEFAULT_RUNTIME_STATE,
-    ...(source || {})
+    ...(source || {}),
   };
 
   if (merged.gentleState === 'hold') {
@@ -1278,8 +1296,14 @@ function resetRuntimeStateFields(runtimeState, settings, now = Date.now()) {
   Object.assign(runtimeState, DEFAULT_RUNTIME_STATE, {
     nextGentleReminderAt: settings.enabled ? now + getGentleDelayMs(settings) : 0,
     gentlePausedRemainingMs: 0,
-    gentleState: settings.enabled && settings.subtleReminderEnabled ? GENTLE_TIMER_STATES.RUNNING : GENTLE_TIMER_STATES.OFF,
-    gentlePauseReason: settings.enabled && settings.subtleReminderEnabled ? GENTLE_PAUSE_REASONS.NONE : GENTLE_PAUSE_REASONS.FEATURE_OFF,
+    gentleState:
+      settings.enabled && settings.subtleReminderEnabled
+        ? GENTLE_TIMER_STATES.RUNNING
+        : GENTLE_TIMER_STATES.OFF,
+    gentlePauseReason:
+      settings.enabled && settings.subtleReminderEnabled
+        ? GENTLE_PAUSE_REASONS.NONE
+        : GENTLE_PAUSE_REASONS.FEATURE_OFF,
     nextWaterReminderAt: settings.enabled ? now + getWaterDelayMs(settings) : 0,
     waterReminderPending: false,
     waterReminderPendingSince: 0,
@@ -1291,7 +1315,9 @@ function resetRuntimeStateFields(runtimeState, settings, now = Date.now()) {
     sharedDsIsActive: false,
     sharedDsContextKey: '',
     sharedDsState: settings.enabled ? SHARED_DS_TIMER_STATES.PAUSED : SHARED_DS_TIMER_STATES.OFF,
-    sharedDsPauseReason: settings.enabled ? SHARED_DS_PAUSE_REASONS.INACTIVE : SHARED_DS_PAUSE_REASONS.DISABLED
+    sharedDsPauseReason: settings.enabled
+      ? SHARED_DS_PAUSE_REASONS.INACTIVE
+      : SHARED_DS_PAUSE_REASONS.DISABLED,
   });
 }
 
@@ -1358,14 +1384,18 @@ function ensureDefaults({ freshSession = false } = {}) {
 
     if (freshSession) {
       resetRuntimeStateFields(runtimeState, settings);
-    } else if (!runtimeState.nextWaterReminderAt && !runtimeState.waterReminderPending && !runtimeState.waterQueuedForNextBreak) {
+    } else if (
+      !runtimeState.nextWaterReminderAt &&
+      !runtimeState.waterReminderPending &&
+      !runtimeState.waterQueuedForNextBreak
+    ) {
       runtimeState.nextWaterReminderAt = Date.now() + getWaterDelayMs(settings);
     }
 
     chrome.storage.local.set({
       settings,
       stats: mergeStats(result.stats),
-      runtimeState
+      runtimeState,
     });
   });
 }
@@ -1381,7 +1411,7 @@ function ensureIdleDetection() {
 function broadcastRuntimeReset(runtimeState) {
   broadcastToAllTabs({
     type: 'RESET_SESSION_TIMERS',
-    snapshot: getSharedDsSnapshot(runtimeState)
+    snapshot: getSharedDsSnapshot(runtimeState),
   });
 }
 
@@ -1396,7 +1426,6 @@ async function resetRuntimeStateForFreshSession(reason = 'manual') {
   broadcastRuntimeReset(runtimeState);
 }
 
-
 // -------------------------------------------------------
 // PATTERN ANALYSIS — Learn user's doom-scroll patterns
 // -------------------------------------------------------
@@ -1409,10 +1438,10 @@ function analyzePatterns(sessions) {
   }
 
   // Count doom scrolls by day + hour combination
-  const dayHourCounts = {};   // key: "day-hour", value: count
-  const siteCounts = {};       // key: site domain, value: count
+  const dayHourCounts = {}; // key: "day-hour", value: count
+  const siteCounts = {}; // key: site domain, value: count
 
-  sessions.forEach(session => {
+  sessions.forEach((session) => {
     // Track day + hour patterns
     const key = `${session.day}-${session.hour}`;
     dayHourCounts[key] = (dayHourCounts[key] || 0) + 1;
@@ -1423,16 +1452,18 @@ function analyzePatterns(sessions) {
 
   // Find the top 3 high-risk day+hour combos
   const riskTimes = Object.entries(dayHourCounts)
-    .sort((a, b) => b[1] - a[1])         // Sort by count, highest first
-    .slice(0, 3)                            // Take top 3
+    .sort((a, b) => b[1] - a[1]) // Sort by count, highest first
+    .slice(0, 3) // Take top 3
     .map(([key, count]) => {
       const [day, hour] = key.split('-').map(Number);
       return {
-        day,                                 // 0=Sun, 1=Mon, ...
-        hour,                                // 0-23
-        count,                               // How many times
-        dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][day],
-        timeLabel: formatHour(hour)          // "11 PM", "3 AM", etc.
+        day, // 0=Sun, 1=Mon, ...
+        hour, // 0-23
+        count, // How many times
+        dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][
+          day
+        ],
+        timeLabel: formatHour(hour), // "11 PM", "3 AM", etc.
       };
     });
 
@@ -1445,7 +1476,6 @@ function analyzePatterns(sessions) {
   return { hasEnoughData: true, riskTimes, topSites };
 }
 
-
 // -------------------------------------------------------
 // HELPER: Format hour number to readable string
 // -------------------------------------------------------
@@ -1457,7 +1487,6 @@ function formatHour(hour) {
   return `${hour - 12} PM`;
 }
 
-
 // -------------------------------------------------------
 // HELPER: Broadcast a message to ALL open tabs
 // -------------------------------------------------------
@@ -1465,7 +1494,7 @@ function formatHour(hour) {
 // snooze starts/ends, etc.
 function broadcastToAllTabs(message) {
   chrome.tabs.query({}, (tabs) => {
-    tabs.forEach(tab => {
+    tabs.forEach((tab) => {
       // Only send to tabs that can receive messages (have URLs)
       if (tab.id && tab.url && !tab.url.startsWith('chrome://')) {
         chrome.tabs.sendMessage(tab.id, message).catch(() => {
@@ -1502,4 +1531,3 @@ chrome.windows.onRemoved.addListener(async () => {
     await resetRuntimeStateForFreshSession('all-windows-closed');
   }
 });
-
