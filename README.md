@@ -36,9 +36,9 @@ The core workflow is strict and universal: it helps **you** stay focused and hea
 
 > Add your screenshots to `docs/screenshots/` folder and update the links below
 
-| Popup                                | Eye Break Overlay                        | Onboarding                                     |
-| ------------------------------------ | ---------------------------------------- | ---------------------------------------------- |
-| ![Popup](docs/screenshots/popup.png) | ![Overlay](docs/screenshots/overlay.png) | ![Onboarding](docs/screenshots/onboarding.png) |
+| Popup                                | Eye Break Overlay (GIF)                      | Nudge Pill                           | Post-Break Mood Tracking           |
+| ------------------------------------ | -------------------------------------------- | ------------------------------------ | ---------------------------------- |
+| ![Popup](docs/screenshots/popup.png) | ![Overlay GIF](docs/screenshots/overlay.gif) | ![Nudge](docs/screenshots/nudge.png) | ![Mood](docs/screenshots/mood.png) |
 
 ---
 

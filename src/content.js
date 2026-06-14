@@ -20,8 +20,6 @@ import { clampNumber } from './utils.js';
 // -------------------------------------------------------
 // EYEFLOW CONTENT — Main content script controller
 // -------------------------------------------------------
-// Set to true only when actively debugging timer behavior during development.
-const EYEFLOW_DEBUG_CONTENT = false;
 
 const EyeFlowContent = (() => {
   const DOOM_SCROLL_SITES = new Set([
@@ -100,7 +98,6 @@ const EyeFlowContent = (() => {
   const GENTLE_REMINDER_DUPLICATE_GUARD_MS = 15 * 1000;
   const SESSION_RESET_INACTIVITY_MS = 15 * 60 * 1000;
   const SCROLL_CHECK_INTERVAL_MS = 2000;
-  const DEBUG_CHIP_INTERVAL_MS = 1000;
 
   // --- Scroll tracking variables ---
   let scrollEvents = []; // Array of timestamps when scroll events happened
@@ -135,18 +132,7 @@ const EyeFlowContent = (() => {
   let nudgeElement = null; // The small floating nudge pill
   let warningElement = null; // The larger warning banner
   let subtleReminderElement = null; // The gentle side reminder during normal work
-  let debugTimerElement = null; // Temporary live DS countdown while timing behavior is being tuned
-  let debugTimerInterval = null;
-  let debugTimerMeta = {
-    nextGentleReminderAt: 0,
-    gentlePausedRemainingMs: 0,
-    gentleState: 'off',
-    gentlePauseReason: 'none',
-    nextWaterReminderAt: 0,
-    waterReminderPending: false,
-    waterQueuedForNextBreak: false,
-    lastFetchedAt: 0,
-  };
+
   let sharedDsSyncInFlight = false;
   let sharedDsState = {
     activeMs: 0,
@@ -1197,166 +1183,7 @@ const EyeFlowContent = (() => {
     return `${minutes}:${String(seconds).padStart(2, '0')}`;
   }
 
-  function syncDebugTimerMeta(force = false) {
-    const now = Date.now();
-    if (!force && now - debugTimerMeta.lastFetchedAt < 1000) return;
-
-    debugTimerMeta.lastFetchedAt = now;
-    try {
-      chrome.runtime.sendMessage({ type: 'GET_DEBUG_TIMERS' }, (response) => {
-        if (runtimeCallbackFailed()) return;
-        if (!response) return;
-        debugTimerMeta.nextGentleReminderAt = response.nextGentleReminderAt || 0;
-        debugTimerMeta.gentlePausedRemainingMs = response.gentlePausedRemainingMs || 0;
-        debugTimerMeta.gentleState = response.gentleState || 'off';
-        debugTimerMeta.gentlePauseReason = response.gentlePauseReason || 'none';
-        debugTimerMeta.nextWaterReminderAt = response.nextWaterReminderAt || 0;
-        debugTimerMeta.waterReminderPending = Boolean(response.waterReminderPending);
-        debugTimerMeta.waterQueuedForNextBreak = Boolean(response.waterQueuedForNextBreak);
-      });
-    } catch (e) {
-      // Ignore temporary debug-only fetch failures.
-    }
-  }
-
-  function updateDebugTimerChip() {
-    if (!EYEFLOW_DEBUG_CONTENT) {
-      removeDebugTimerChip();
-      return;
-    }
-
-    const overlayShowing = typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing();
-    const shouldShow = isActive && !overlayShowing;
-
-    if (!shouldShow) {
-      removeDebugTimerChip();
-      return;
-    }
-
-    syncDebugTimerMeta();
-
-    if (EYEFLOW_DEBUG_CONTENT && !debugTimerElement) {
-      debugTimerElement = document.createElement('div');
-      debugTimerElement.id = 'eyeflow-debug-timer';
-      debugTimerElement.innerHTML = `
-        <div class="eyeflow-debug-timer-content">
-          <div class="eyeflow-debug-timer-row">
-            <div class="eyeflow-debug-timer-label">Eye break (tab)</div>
-            <div class="eyeflow-debug-timer-value" data-debug-timer="eye">0:00</div>
-          </div>
-          <div class="eyeflow-debug-timer-row">
-            <div class="eyeflow-debug-timer-label">Gentle (global)</div>
-            <div class="eyeflow-debug-timer-value" data-debug-timer="gentle">0:00</div>
-          </div>
-          <div class="eyeflow-debug-timer-row">
-            <div class="eyeflow-debug-timer-label">Water (global)</div>
-            <div class="eyeflow-debug-timer-value" data-debug-timer="water">0:00</div>
-          </div>
-        </div>
-      `;
-      debugTimerElement.style.cssText = `
-        position: fixed;
-        left: 18px;
-        bottom: 18px;
-        z-index: 2147483642;
-        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-        pointer-events: none;
-      `;
-
-      const style = document.createElement('style');
-      style.id = 'eyeflow-debug-timer-style';
-      style.textContent = `
-        #eyeflow-debug-timer .eyeflow-debug-timer-content {
-          min-width: 156px;
-          padding: 10px 12px;
-          border-radius: 16px;
-          background: rgba(28, 20, 14, 0.28);
-          border: 1px solid rgba(216, 156, 96, 0.1);
-          box-shadow: 0 8px 18px rgba(22, 16, 11, 0.1);
-          color: #fff6ea;
-          backdrop-filter: blur(3px);
-        }
-        #eyeflow-debug-timer .eyeflow-debug-timer-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-        }
-        #eyeflow-debug-timer .eyeflow-debug-timer-row + .eyeflow-debug-timer-row {
-          margin-top: 6px;
-          padding-top: 6px;
-          border-top: 1px solid rgba(255, 246, 234, 0.08);
-        }
-        #eyeflow-debug-timer .eyeflow-debug-timer-label {
-          font-size: 11px;
-          line-height: 1.2;
-          opacity: 0.66;
-        }
-        #eyeflow-debug-timer .eyeflow-debug-timer-value {
-          font-size: 16px;
-          font-weight: 700;
-          letter-spacing: 0.02em;
-          white-space: nowrap;
-        }
-      `;
-
-      document.head.appendChild(style);
-      document.body.appendChild(debugTimerElement);
-    }
-
-    const eyeValueElement = debugTimerElement.querySelector('[data-debug-timer="eye"]');
-    const gentleValueElement = debugTimerElement.querySelector('[data-debug-timer="gentle"]');
-    const waterValueElement = debugTimerElement.querySelector('[data-debug-timer="water"]');
-    if (!eyeValueElement || !gentleValueElement || !waterValueElement) return;
-
-    if (isDoomScrollContext()) {
-      eyeValueElement.textContent = shouldCountActiveTime()
-        ? formatCountdown(getMsUntilEyeBreak())
-        : 'Paused';
-    } else if (isWithinSinglePostGraceWindow()) {
-      eyeValueElement.textContent = `Read ${formatCountdown(getSinglePostGraceRemainingMs())}`;
-    } else {
-      eyeValueElement.textContent = 'Off';
-    }
-
-    if (isDoomScrollContext()) {
-      gentleValueElement.textContent = 'Off';
-    } else if (debugTimerMeta.gentleState === 'off') {
-      gentleValueElement.textContent = 'Off';
-    } else if (debugTimerMeta.gentleState === 'paused' || debugTimerMeta.gentleState === 'hold') {
-      const holdMs =
-        debugTimerMeta.gentlePausedRemainingMs > 0
-          ? debugTimerMeta.gentlePausedRemainingMs
-          : Math.max(0, debugTimerMeta.nextGentleReminderAt - Date.now());
-      gentleValueElement.textContent = `Hold ${formatCountdown(holdMs)}`;
-    } else if (debugTimerMeta.nextGentleReminderAt > 0) {
-      const gentleRemainingMs = Math.max(0, debugTimerMeta.nextGentleReminderAt - Date.now());
-      gentleValueElement.textContent = formatCountdown(gentleRemainingMs);
-    } else {
-      gentleValueElement.textContent = 'Off';
-    }
-
-    if (debugTimerMeta.waterQueuedForNextBreak) {
-      waterValueElement.textContent = 'Queued';
-    } else if (debugTimerMeta.waterReminderPending) {
-      waterValueElement.textContent = 'Pending';
-    } else if (debugTimerMeta.nextWaterReminderAt > 0) {
-      waterValueElement.textContent = formatReadableTimer(
-        debugTimerMeta.nextWaterReminderAt - Date.now()
-      );
-    } else {
-      waterValueElement.textContent = 'Waiting';
-    }
-  }
-
-  function removeDebugTimerChip() {
-    if (debugTimerElement) {
-      debugTimerElement.remove();
-      debugTimerElement = null;
-    }
-    const style = document.getElementById('eyeflow-debug-timer-style');
-    if (style) style.remove();
-  }
+  const now = Date.now();
 
   function shouldMergeHydrationIntoBreak() {
     return isHydrationDue() && getMsUntilEyeBreak() <= HYDRATION_EYE_MERGE_WINDOW_MS;
@@ -1364,8 +1191,7 @@ const EyeFlowContent = (() => {
 
   function maybeTriggerGentleReminderFailsafe() {
     if (isDoomScrollContext()) return;
-    if (!debugTimerMeta.nextGentleReminderAt) return;
-    if (Date.now() - debugTimerMeta.nextGentleReminderAt < 0) return;
+
     if (Date.now() - lastGentleReminderFallbackAt < 15000) return;
     if (Date.now() - lastGentleReminderShownAt < GENTLE_REMINDER_DUPLICATE_GUARD_MS) return;
     if (!canShowGentleReminderWithPassiveVideoSupport()) return;
@@ -1385,12 +1211,6 @@ const EyeFlowContent = (() => {
   function acknowledgeLocalGentleReminder(now = Date.now()) {
     lastGentleReminderShownAt = now;
     lastGentleReminderFallbackAt = now;
-    debugTimerMeta.nextGentleReminderAt = 0;
-    debugTimerMeta.gentlePausedRemainingMs = 0;
-    debugTimerMeta.gentleState = 'running';
-    debugTimerMeta.gentlePauseReason = 'none';
-    debugTimerMeta.lastFetchedAt = 0;
-    syncDebugTimerMeta(true);
   }
 
   function isHydrationDue() {
@@ -1657,7 +1477,6 @@ const EyeFlowContent = (() => {
         break;
 
       case 'warning':
-        removeDebugTimerChip();
         removeGentleReminder();
         removeNudge();
         showWarning(timeOnSite);
@@ -1668,7 +1487,6 @@ const EyeFlowContent = (() => {
           return;
         }
         lastBreakOverlayShownAt = Date.now();
-        removeDebugTimerChip();
         removeGentleReminder();
         removeNudge();
         removeWarning();
@@ -2047,104 +1865,6 @@ const EyeFlowContent = (() => {
   }
 
   // -------------------------------------------------------
-  // SHOW PROACTIVE WARNING — Pattern-based early warning
-  // -------------------------------------------------------
-  // If the intelligence layer detects this is a high-risk time,
-  // show a gentle proactive nudge when the user enters the page.
-  let proactiveElement = null;
-  function showProactiveWarning(warning) {
-    if (proactiveElement) return;
-
-    proactiveElement = document.createElement('div');
-    proactiveElement.id = 'eyeflow-proactive';
-    proactiveElement.innerHTML = `
-      <div class="eyeflow-proactive-content">
-        <span class="eyeflow-proactive-icon">◉</span>
-        <span class="eyeflow-proactive-text">${warning.message}</span>
-        <button class="eyeflow-proactive-dismiss">Got it</button>
-      </div>
-    `;
-
-    proactiveElement.style.cssText = `
-      position: fixed;
-      top: 16px;
-      right: 16px;
-      z-index: 2147483644;
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      animation: eyeflow-fade-in 0.5s ease-out;
-    `;
-
-    const style = document.createElement('style');
-    style.id = 'eyeflow-proactive-style';
-    style.textContent = `
-      @keyframes eyeflow-fade-in {
-        from { opacity: 0; transform: translateY(-20px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      #eyeflow-proactive .eyeflow-proactive-content {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 14px 20px;
-        background: rgba(249, 245, 237, 0.96);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(109, 136, 126, 0.16);
-        border-radius: 18px;
-        box-shadow: 0 16px 32px rgba(42,29,18,0.14);
-        color: #3f2f24;
-        font-size: 14px;
-        max-width: 360px;
-      }
-      #eyeflow-proactive .eyeflow-proactive-icon {
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, #6f9a8b, #53776b);
-        color: #fff8ef;
-        font-size: 12px;
-        flex-shrink: 0;
-      }
-      #eyeflow-proactive .eyeflow-proactive-dismiss {
-        padding: 6px 14px;
-        background: rgba(109,136,126,0.08);
-        border: 1px solid rgba(109,136,126,0.14);
-        border-radius: 999px;
-        color: #45685d;
-        cursor: pointer;
-        font-size: 13px;
-        white-space: nowrap;
-        transition: all 0.2s;
-      }
-      #eyeflow-proactive .eyeflow-proactive-dismiss:hover {
-        background: rgba(109,136,126,0.14);
-      }
-    `;
-
-    document.head.appendChild(style);
-    document.body.appendChild(proactiveElement);
-    proactiveElement.querySelector('.eyeflow-proactive-icon').textContent = 'O';
-
-    // Dismiss handler
-    proactiveElement.querySelector('.eyeflow-proactive-dismiss').addEventListener('click', () => {
-      if (proactiveElement) proactiveElement.remove();
-      proactiveElement = null;
-      const s = document.getElementById('eyeflow-proactive-style');
-      if (s) s.remove();
-    });
-
-    // Auto-dismiss after 20 seconds
-    setTimeout(() => {
-      if (proactiveElement) proactiveElement.remove();
-      proactiveElement = null;
-      const s = document.getElementById('eyeflow-proactive-style');
-      if (s) s.remove();
-    }, 20000);
-  }
-
-  // -------------------------------------------------------
   // TRACK TIME ON SITE — Send time data to background.js
   // -------------------------------------------------------
   // Every 5 minutes, tell background.js how long the user
@@ -2298,7 +2018,6 @@ const EyeFlowContent = (() => {
           recordActivity();
         }
         syncSessionAndSharedTimer();
-        syncDebugTimerMeta();
       },
       { passive: true }
     );
@@ -2307,7 +2026,6 @@ const EyeFlowContent = (() => {
       () => {
         recordActivity();
         syncSessionAndSharedTimer();
-        syncDebugTimerMeta();
       },
       { passive: true }
     );
@@ -2348,10 +2066,6 @@ const EyeFlowContent = (() => {
 
     // Start the doom-scroll check interval (every 2 seconds)
     scrollCheckInterval = setInterval(checkForDoomScroll, SCROLL_CHECK_INTERVAL_MS);
-    if (EYEFLOW_DEBUG_CONTENT) {
-      debugTimerInterval = setInterval(updateDebugTimerChip, DEBUG_CHIP_INTERVAL_MS);
-      updateDebugTimerChip();
-    }
 
     // Start time tracking
     startTimeTracking();

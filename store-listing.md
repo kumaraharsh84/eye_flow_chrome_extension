@@ -48,7 +48,7 @@ Character count: 108 ✅
 EyeFlow stores everything locally on your device using Chrome's storage API.
 No servers. No accounts. No data collection. Nothing leaves your browser.
 
-Full privacy policy: [link to privacy-policy.html on GitHub Pages]
+Full privacy policy: https://kumaraharsh84.github.io/eye_flow_chrome_extension/privacy-policy.html
 
 ---
 
@@ -59,17 +59,20 @@ Full privacy policy: [link to privacy-policy.html on GitHub Pages]
 - **notifications** — show a notification if the browser window is not in focus
 - **tabs** — sync settings changes across all open tabs
 - **idle** — detect when you've walked away from your computer (to pause timers)
-- **host permissions (all URLs)** — detect scroll behavior on any site you visit
+- **host permissions** — explicitly limited to only the handful of sites we track to detect scroll behavior. No `<all_urls>` permission required!
 
 ---
 
 ## Category
+
 Health & Fitness (or Productivity)
 
 ## Language
+
 English
 
 ## Tags / Keywords
+
 eye care, eye break, doom scroll, screen time, hydration, wellness, focus, productivity, instagram blocker, youtube blocker, 20-20-20 rule
 
 ---
@@ -83,5 +86,6 @@ eye care, eye break, doom scroll, screen time, hydration, wellness, focus, produ
 5. Onboarding screen — mode selection
 
 ## Promo tile (440x280)
+
 - Dark background
 - EyeFlow logo + tagline: "Doom scroll less. See better."
