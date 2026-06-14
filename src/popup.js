@@ -50,6 +50,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const topSitesSection = document.getElementById('top-sites-section');
   const topSitesList = document.getElementById('top-sites-list');
   const insightsNote = document.getElementById('insights-note');
+  const webhookUrlInput = document.getElementById('webhook-url-input');
+  const btnTestReport = document.getElementById('btn-test-report');
+  const testReportStatus = document.getElementById('test-report-status');
 
   let themeLightButton = null;
   let themeDarkButton = null;
@@ -168,6 +171,30 @@ document.addEventListener('DOMContentLoaded', () => {
     doomReminderMaxInput.addEventListener('input', () => syncModeMirrorValues('surprise'));
     subtleReminderMinInput.addEventListener('input', () => syncModeMirrorValues('surprise'));
     subtleReminderMaxInput.addEventListener('input', () => syncModeMirrorValues('surprise'));
+    if (webhookUrlInput) {
+      webhookUrlInput.addEventListener('input', markAdvancedSettingsDirty);
+      webhookUrlInput.addEventListener('change', markAdvancedSettingsDirty);
+    }
+
+    if (btnTestReport) {
+      btnTestReport.addEventListener('click', () => {
+        btnTestReport.disabled = true;
+        testReportStatus.textContent = 'Sending...';
+        chrome.runtime.sendMessage({ type: 'TEST_REPORT' }, (response) => {
+          btnTestReport.disabled = false;
+          if (runtimeCallbackFailed()) {
+            testReportStatus.textContent = 'Extension error.';
+            return;
+          }
+          if (response?.success) {
+            testReportStatus.textContent = 'Sent!';
+            setTimeout(() => (testReportStatus.textContent = ''), 3000);
+          } else {
+            testReportStatus.textContent = 'Error: ' + (response?.error || 'Unknown');
+          }
+        });
+      });
+    }
 
     saveAdvancedSettingsButton.addEventListener('click', saveAdvancedSettings);
 
@@ -528,6 +555,9 @@ document.addEventListener('DOMContentLoaded', () => {
     hydrationReminderInput.value = minutesToHours(settings.hydrationReminderMin);
     subtleReminderMinInput.value = settings.subtleReminderMin;
     subtleReminderMaxInput.value = settings.subtleReminderMax;
+    if (webhookUrlInput) {
+      webhookUrlInput.value = settings.webhookUrl || '';
+    }
     setTimingMode(timingMode, { silent: true });
   }
 
@@ -674,6 +704,7 @@ document.addEventListener('DOMContentLoaded', () => {
       snoozedUntil: currentSnoozeUntil || 0,
       siteTiers: currentSettings?.siteTiers || {},
       redirectSuggestions: collectRedirectSuggestions(),
+      webhookUrl: webhookUrlInput ? webhookUrlInput.value.trim() : '',
     };
 
     if (currentTimingMode === 'fixed') {
@@ -712,6 +743,7 @@ document.addEventListener('DOMContentLoaded', () => {
       soundReminderEnabled: formState.soundReminderEnabled,
       soundReminderMin: formState.soundReminderMin,
       soundReminderMax: formState.soundReminderMax,
+      webhookUrl: formState.webhookUrl,
       snoozedUntil: formState.snoozedUntil,
       siteTiers: formState.siteTiers,
       redirectSuggestions: formState.redirectSuggestions,

@@ -61,9 +61,9 @@ const DEFAULT_SETTINGS = {
     'Take a short walk',
     'Drink a glass of water',
     'Do a quick stretch',
-    'Read a book for 5 min',
     'Step outside for fresh air',
   ],
+  webhookUrl: '', // URL for weekly email reports
 };
 
 // Keep redirect suggestions ASCII-clean even if the source file contains legacy encoding artifacts.
@@ -93,6 +93,7 @@ const DEFAULT_STATS = {
   doomScrollSessions: [], // Array of { site, day, hour, duration, scrollCount }
   siteTimeSpent: {}, // Legacy aggregate site-time bucket
   todayDsSiteTimeSpent: {}, // { 'Instagram': totalMinutes, ... } persisted across reload/restart, resets only on a new day
+  weekDsSiteTimeSpent: {}, // Persists across the week, resets on Monday
 };
 
 const DEFAULT_RUNTIME_STATE = {
@@ -258,8 +259,12 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     statsChanged = true;
 
     if (new Date(now).getDay() === 1) {
+      if (settings.webhookUrl) {
+        sendWeeklyReport(stats, settings.webhookUrl);
+      }
       stats.weekDoomScrollsBlocked = 0;
       stats.weekEyeBreaksCompleted = 0;
+      stats.weekDsSiteTimeSpent = {};
     }
 
     resetRuntimeStateFields(runtimeState, settings, now);
@@ -684,6 +689,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // --- TEST_REPORT: popup.js triggers a test weekly report ---
+  if (message.type === 'TEST_REPORT') {
+    chrome.storage.local.get(['stats', 'settings'], (result) => {
+      const stats = mergeStats(result.stats);
+      const settings = mergeSettings(result.settings);
+      if (settings.webhookUrl) {
+        sendWeeklyReport(stats, settings.webhookUrl);
+        sendResponse({ success: true });
+      } else {
+        sendResponse({ success: false, error: 'No Webhook URL configured' });
+      }
+    });
+    return true;
+  }
+
   if (!message.type.startsWith('GET_')) {
     sendResponse({ success: true, unhandled: true });
   }
@@ -850,6 +870,33 @@ function resumeGentleReminder(runtimeState, now = Date.now()) {
     runtimeState.gentleState = GENTLE_TIMER_STATES.RUNNING;
     runtimeState.gentlePauseReason = GENTLE_PAUSE_REASONS.NONE;
   }
+}
+
+function sendWeeklyReport(stats, webhookUrl) {
+  if (!webhookUrl) return;
+
+  const totalTimeEntries = Object.entries(stats.weekDsSiteTimeSpent || {})
+    .sort((a, b) => b[1] - a[1])
+    .map(([site, minutes]) => `${site}: ${Math.round(minutes)} minutes`)
+    .join('\n');
+
+  const reportPayload = {
+    subject: 'EyeFlow Weekly Report',
+    message: `Here is the weekly doom-scrolling report:\n\nDoom Scrolls Blocked: ${stats.weekDoomScrollsBlocked}\nEye Breaks Completed: ${stats.weekEyeBreaksCompleted}\n\nTime Spent on Doom Scrolling Sites:\n${totalTimeEntries || 'No doom scrolling time recorded this week!'}`,
+    stats: {
+      weekDoomScrollsBlocked: stats.weekDoomScrollsBlocked,
+      weekEyeBreaksCompleted: stats.weekEyeBreaksCompleted,
+      weekDsSiteTimeSpent: stats.weekDsSiteTimeSpent,
+    },
+  };
+
+  fetch(webhookUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(reportPayload),
+  }).catch((err) => console.error('Failed to send weekly report:', err));
 }
 
 async function getChromeWindowState() {
@@ -1276,6 +1323,9 @@ function mergeStats(source) {
     todayDsSiteTimeSpent: source?.todayDsSiteTimeSpent
       ? { ...source.todayDsSiteTimeSpent }
       : { ...DEFAULT_STATS.todayDsSiteTimeSpent },
+    weekDsSiteTimeSpent: source?.weekDsSiteTimeSpent
+      ? { ...source.weekDsSiteTimeSpent }
+      : { ...DEFAULT_STATS.weekDsSiteTimeSpent },
   };
 }
 

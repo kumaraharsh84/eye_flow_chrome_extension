@@ -263,6 +263,32 @@
               <span class="popup-field-error" data-error-for="hydration-reminder-hours"></span>
             </label>
           </div>
+
+          <div class="popup-control-block" style="margin-top: 16px">
+            <div class="popup-card-title popup-subsection-title">Weekly Email Report</div>
+            <div class="popup-card-desc">
+              Paste a webhook URL (e.g. Formspree) to receive Monday reports.
+            </div>
+            <input
+              type="text"
+              id="webhook-url-input"
+              class="popup-input"
+              placeholder="https://formspree.io/f/..."
+              style="width: 100%; margin-top: 8px"
+            />
+            <button
+              class="btn-secondary"
+              id="btn-test-report"
+              type="button"
+              style="margin-top: 8px; font-size: 12px; padding: 6px 12px; height: auto"
+            >
+              Send Test Report
+            </button>
+            <span
+              id="test-report-status"
+              style="font-size: 11px; margin-left: 8px; color: var(--text-muted)"
+            ></span>
+          </div>
           <div class="popup-save-row">
             <span class="popup-save-status" id="advanced-save-status"
               >Changes apply after you save.</span

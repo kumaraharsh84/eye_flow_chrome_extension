@@ -731,15 +731,18 @@ const EyeFlowContent = (() => {
         const stats = result?.stats || {};
         const siteTimeSpent = { ...(stats.siteTimeSpent || {}) };
         const todayDsSiteTimeSpent = { ...(stats.todayDsSiteTimeSpent || {}) };
+        const weekDsSiteTimeSpent = { ...(stats.weekDsSiteTimeSpent || {}) };
 
         siteTimeSpent[site] = (siteTimeSpent[site] || 0) + activeMinutesDelta;
         todayDsSiteTimeSpent[site] = (todayDsSiteTimeSpent[site] || 0) + activeMinutesDelta;
+        weekDsSiteTimeSpent[site] = (weekDsSiteTimeSpent[site] || 0) + activeMinutesDelta;
 
         chrome.storage.local.set({
           stats: {
             ...stats,
             siteTimeSpent,
             todayDsSiteTimeSpent,
+            weekDsSiteTimeSpent,
           },
         });
       });
