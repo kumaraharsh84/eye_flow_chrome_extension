@@ -1542,51 +1542,7 @@ const EyeFlowContent = (() => {
     // Keep a hard stop here so legacy generic warning logic cannot
     // accidentally fire on normal browsing surfaces like long YouTube videos.
     return;
-
-    // Check if scroll count exceeds threshold
-    if (scrollEvents.length >= threshold) {
-
-      // Prevent duplicate checks from firing too tightly; the recurring
-      // 2-minute cadence is handled by the intelligence layer.
-      if (now - lastDoomScrollTime < 5000) return;
-
-      lastDoomScrollTime = now;
-
-      // Ask the intelligence layer what stage we're at
-      let stage = EyeFlowIntelligence.determineStage(getBreakCycleMs());
-      if (stage === 'none') return;
-
-      if (isStrictBreakSite() && stage === 'nudge') {
-        stage = 'warning';
-      }
-
-      // Calculate how long the user has been scrolling on this page
-      const duration = Math.round(getActiveSiteMs() / 1000);
-
-      // Send doom scroll event to background.js
-      try {
-        chrome.runtime.sendMessage({
-          type: 'DOOM_SCROLL_DETECTED',
-          site: hostname,
-          stage: stage,
-          duration: duration,
-          scrollCount: scrollEvents.length
-        }, (response) => {
-          if (response && response.action === 'INTERVENE') {
-            if (typeof EyeFlowIntelligence !== 'undefined') {
-              EyeFlowIntelligence.markReminderShown();
-            }
-            // Show the appropriate UI based on the stage
-            showInterruption(response.stage, response.settings);
-          }
-        });
-      } catch (e) {
-        // Extension context may be invalidated — ignore
-      }
-    }
   }
-
-
   // -------------------------------------------------------
   // SHOW INTERRUPTION — Display nudge, warning, or full break
   // -------------------------------------------------------

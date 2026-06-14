@@ -154,7 +154,9 @@ const EyeFlowIntelligence = (() => {
       minMinutes,
       (cachedSettings && cachedSettings.reminderIntervalMax) || minMinutes
     );
-    return getRandomInt(minMinutes, maxMinutes) * 60 * 1000;
+    const sensitivity = (cachedSettings && cachedSettings.sensitivity !== undefined) ? cachedSettings.sensitivity : 50;
+    const multiplier = 1.5 - (sensitivity / 100);
+    return Math.round(getRandomInt(minMinutes, maxMinutes) * 60 * 1000 * multiplier);
   }
 
   function getRandomInt(min, max) {

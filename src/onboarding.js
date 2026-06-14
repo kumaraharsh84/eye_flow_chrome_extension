@@ -8,6 +8,20 @@ const MODE_SETTINGS = {
     reminderIntervalMax: 5,
     subtleReminderMin: 25,
     subtleReminderMax: 25
+  },
+  strict: {
+    sensitivity: 80,
+    reminderIntervalMin: 3,
+    reminderIntervalMax: 3,
+    subtleReminderMin: 15,
+    subtleReminderMax: 15
+  },
+  gentle: {
+    sensitivity: 25,
+    reminderIntervalMin: 10,
+    reminderIntervalMax: 10,
+    subtleReminderMin: 40,
+    subtleReminderMax: 40
   }
 };
 

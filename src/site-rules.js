@@ -1,3 +1,4 @@
+// RESERVED FOR V2 REFACTOR — not imported anywhere intentionally
 // ============================================================
 // SITE-RULES.JS — EyeFlow Site Detection Config
 // ============================================================
