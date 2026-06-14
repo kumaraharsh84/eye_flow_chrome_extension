@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     eyeBreakDurationSec: { min: 15, max: 40, fallback: 20 },
     hydrationReminderHours: { min: 1, max: 4, fallback: 1 },
     subtleReminderMin: { min: 20, max: 60, fallback: 20 },
-    subtleReminderMax: { min: 20, max: 60, fallback: 35 }
+    subtleReminderMax: { min: 20, max: 60, fallback: 35 },
   };
 
   const toggleEnabled = document.getElementById('toggle-enabled');
@@ -65,7 +65,9 @@ document.addEventListener('DOMContentLoaded', () => {
     'subtle-reminder-fixed': document.querySelector('[data-error-for="subtle-reminder-fixed"]'),
     'subtle-reminder-min': document.querySelector('[data-error-for="subtle-reminder-min"]'),
     'subtle-reminder-max': document.querySelector('[data-error-for="subtle-reminder-max"]'),
-    'hydration-reminder-hours': document.querySelector('[data-error-for="hydration-reminder-hours"]')
+    'hydration-reminder-hours': document.querySelector(
+      '[data-error-for="hydration-reminder-hours"]'
+    ),
   };
 
   function runtimeCallbackFailed() {
@@ -77,6 +79,34 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
   loadStats();
   loadInsights();
+  checkIncognitoStatus();
+
+  function checkIncognitoStatus() {
+    if (chrome.extension && chrome.extension.isAllowedIncognitoAccess) {
+      chrome.extension.isAllowedIncognitoAccess((isAllowedAccess) => {
+        const incognitoCard = document.getElementById('incognito-card');
+        const statusIcon = document.getElementById('incognito-status-icon');
+        const statusDesc = document.getElementById('incognito-status-desc');
+        const btnEnable = document.getElementById('btn-enable-incognito');
+
+        if (incognitoCard) {
+          incognitoCard.style.display = 'block';
+          if (isAllowedAccess) {
+            statusIcon.textContent = '✅';
+            statusDesc.textContent = 'Incognito tracking is currently enabled.';
+            btnEnable.style.display = 'none';
+          } else {
+            statusIcon.textContent = '❌';
+            statusDesc.textContent = 'Allow in incognito to track time and eye breaks.';
+            btnEnable.style.display = 'inline-block';
+            btnEnable.onclick = () => {
+              chrome.tabs.create({ url: 'chrome://extensions/?id=' + chrome.runtime.id });
+            };
+          }
+        }
+      });
+    }
+  }
 
   function injectThemeSwitcher() {
     const header = document.querySelector('.popup-header');
@@ -126,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
       gentleReminderFixedInput,
       hydrationReminderInput,
       subtleReminderMinInput,
-      subtleReminderMaxInput
+      subtleReminderMaxInput,
     ].forEach((input) => {
       input.addEventListener('input', markAdvancedSettingsDirty);
       input.addEventListener('change', markAdvancedSettingsDirty);
@@ -151,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
           showSnoozeState(response.until);
           updateStatusBar({
             enabled: toggleEnabled.checked,
-            snoozedUntil: response.until
+            snoozedUntil: response.until,
           });
         });
       });
@@ -165,14 +195,26 @@ document.addEventListener('DOMContentLoaded', () => {
         hideSnoozeState();
         updateStatusBar({
           enabled: toggleEnabled.checked,
-          snoozedUntil: 0
+          snoozedUntil: 0,
         });
       });
     });
 
-    document.getElementById('toggle-advanced').addEventListener('click', () => toggleSection('advanced-content', '#toggle-advanced .popup-collapse-icon'));
-    document.getElementById('toggle-work-mode').addEventListener('click', () => toggleSection('work-mode-content', '#toggle-work-mode .popup-collapse-icon'));
-    document.getElementById('toggle-stats').addEventListener('click', () => toggleSection('stats-content', '#toggle-stats .popup-collapse-icon'));
+    document
+      .getElementById('toggle-advanced')
+      .addEventListener('click', () =>
+        toggleSection('advanced-content', '#toggle-advanced .popup-collapse-icon')
+      );
+    document
+      .getElementById('toggle-work-mode')
+      .addEventListener('click', () =>
+        toggleSection('work-mode-content', '#toggle-work-mode .popup-collapse-icon')
+      );
+    document
+      .getElementById('toggle-stats')
+      .addEventListener('click', () =>
+        toggleSection('stats-content', '#toggle-stats .popup-collapse-icon')
+      );
 
     const addRedirectButton = document.getElementById('add-redirect-btn');
     if (addRedirectButton) {
@@ -181,7 +223,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const redirectsToggle = document.getElementById('toggle-redirects');
     if (redirectsToggle) {
-      redirectsToggle.addEventListener('click', () => toggleSection('redirects-content', '#toggle-redirects .popup-collapse-icon'));
+      redirectsToggle.addEventListener('click', () =>
+        toggleSection('redirects-content', '#toggle-redirects .popup-collapse-icon')
+      );
     }
   }
 
@@ -220,7 +264,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!stats) return;
 
       if (statsEmptyHelper) {
-        const hasMeaningfulStats = Object.values(stats.todayDsSiteTimeSpent || {}).some((minutes) => Number(minutes) > 0);
+        const hasMeaningfulStats = Object.values(stats.todayDsSiteTimeSpent || {}).some(
+          (minutes) => Number(minutes) > 0
+        );
         statsEmptyHelper.style.display = hasMeaningfulStats ? 'none' : 'block';
       }
 
@@ -257,35 +303,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const topThree = rankedSites.slice(0, 3);
     const remainingSites = rankedSites.slice(3);
-    const cards = topThree.map(([site, minutes], index) => buildTopSiteCard({
-      rank: index + 1,
-      site,
-      minutes,
-      isPrimary: index === 0
-    }));
+    const cards = topThree.map(([site, minutes], index) =>
+      buildTopSiteCard({
+        rank: index + 1,
+        site,
+        minutes,
+        isPrimary: index === 0,
+      })
+    );
 
     if (remainingSites.length) {
-      const otherMinutes = remainingSites.reduce((sum, [, minutes]) => sum + Number(minutes || 0), 0);
+      const otherMinutes = remainingSites.reduce(
+        (sum, [, minutes]) => sum + Number(minutes || 0),
+        0
+      );
       const otherNames = remainingSites.slice(0, 2).map(([site]) => site);
       const extraCount = Math.max(0, remainingSites.length - otherNames.length);
-      const label = extraCount > 0
-        ? `${otherNames.join(', ')} + ${extraCount} more`
-        : otherNames.join(', ');
+      const label =
+        extraCount > 0 ? `${otherNames.join(', ')} + ${extraCount} more` : otherNames.join(', ');
 
-      cards.push(buildTopSiteCard({
-        rank: '4',
-        site: 'Others',
-        minutes: otherMinutes,
-        isOthers: true,
-        subline: label
-      }));
+      cards.push(
+        buildTopSiteCard({
+          rank: '4',
+          site: 'Others',
+          minutes: otherMinutes,
+          isOthers: true,
+          subline: label,
+        })
+      );
     }
 
     topSitesList.innerHTML = cards.join('');
     topSitesSection.style.display = 'block';
   }
 
-  function buildTopSiteCard({ rank, site, minutes, isPrimary = false, isOthers = false, subline = '' }) {
+  function buildTopSiteCard({
+    rank,
+    site,
+    minutes,
+    isPrimary = false,
+    isOthers = false,
+    subline = '',
+  }) {
     return `
       <div class="popup-top-site${isPrimary ? ' is-primary' : ''}${isOthers ? ' is-others' : ''}">
         <div class="popup-top-site-row">
@@ -346,7 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Site Sensitivity is intentionally hidden from the current product UI.
       // Keep the saved tiers untouched so we can revive the feature later if needed.
       siteTiers: currentSettings?.siteTiers || {},
-      redirectSuggestions: collectRedirectSuggestions()
+      redirectSuggestions: collectRedirectSuggestions(),
     });
 
     currentSettings = nextSettings;
@@ -434,7 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
         TIMER_LIMITS.hydrationReminderHours.fallback * 60
       ),
       subtleReminderMin,
-      subtleReminderMax
+      subtleReminderMax,
     };
   }
 
@@ -456,10 +515,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function syncAdvancedInputsFromSettings(settings, timingMode = inferTimingMode(settings)) {
     eyeBreakDurationInput.value = settings.eyeBreakDurationSec;
-    eyeBreakFixedInput.value = getRepresentativeSingleValue(settings.reminderIntervalMin, settings.reminderIntervalMax);
+    eyeBreakFixedInput.value = getRepresentativeSingleValue(
+      settings.reminderIntervalMin,
+      settings.reminderIntervalMax
+    );
     doomReminderInput.value = settings.reminderIntervalMin;
     doomReminderMaxInput.value = settings.reminderIntervalMax;
-    gentleReminderFixedInput.value = getRepresentativeSingleValue(settings.subtleReminderMin, settings.subtleReminderMax);
+    gentleReminderFixedInput.value = getRepresentativeSingleValue(
+      settings.subtleReminderMin,
+      settings.subtleReminderMax
+    );
     hydrationReminderInput.value = minutesToHours(settings.hydrationReminderMin);
     subtleReminderMinInput.value = settings.subtleReminderMin;
     subtleReminderMaxInput.value = settings.subtleReminderMax;
@@ -476,7 +541,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (timingModeSurpriseButton) {
       timingModeSurpriseButton.classList.toggle('active', currentTimingMode === 'surprise');
-      timingModeSurpriseButton.setAttribute('aria-pressed', String(currentTimingMode === 'surprise'));
+      timingModeSurpriseButton.setAttribute(
+        'aria-pressed',
+        String(currentTimingMode === 'surprise')
+      );
     }
 
     customTimingContent.style.display = 'grid';
@@ -487,9 +555,10 @@ document.addEventListener('DOMContentLoaded', () => {
       field.style.display = currentTimingMode === 'surprise' ? 'grid' : 'none';
     });
 
-    timingSummary.textContent = currentTimingMode === 'fixed'
-      ? 'The same interval will repeat each cycle.'
-      : 'A random time within your range will be chosen each cycle.';
+    timingSummary.textContent =
+      currentTimingMode === 'fixed'
+        ? 'The same interval will repeat each cycle.'
+        : 'A random time within your range will be chosen each cycle.';
 
     if (!options.silent) {
       syncAdvancedUiState();
@@ -565,10 +634,28 @@ document.addEventListener('DOMContentLoaded', () => {
   function getRepresentativeSingleValue(minValue, maxValue) {
     const min = Number(minValue);
     const max = Number(maxValue);
-    if (!Number.isFinite(min) && !Number.isFinite(max)) return TIMER_LIMITS.doomReminderMin.fallback;
-    if (!Number.isFinite(min)) return clampNumber(max, TIMER_LIMITS.doomReminderMin.min, TIMER_LIMITS.doomReminderMin.max, TIMER_LIMITS.doomReminderMin.fallback);
-    if (!Number.isFinite(max)) return clampNumber(min, TIMER_LIMITS.doomReminderMin.min, TIMER_LIMITS.doomReminderMin.max, TIMER_LIMITS.doomReminderMin.fallback);
-    return clampNumber(Math.round((min + max) / 2), TIMER_LIMITS.doomReminderMin.min, TIMER_LIMITS.doomReminderMin.max, TIMER_LIMITS.doomReminderMin.fallback);
+    if (!Number.isFinite(min) && !Number.isFinite(max))
+      return TIMER_LIMITS.doomReminderMin.fallback;
+    if (!Number.isFinite(min))
+      return clampNumber(
+        max,
+        TIMER_LIMITS.doomReminderMin.min,
+        TIMER_LIMITS.doomReminderMin.max,
+        TIMER_LIMITS.doomReminderMin.fallback
+      );
+    if (!Number.isFinite(max))
+      return clampNumber(
+        min,
+        TIMER_LIMITS.doomReminderMin.min,
+        TIMER_LIMITS.doomReminderMin.max,
+        TIMER_LIMITS.doomReminderMin.fallback
+      );
+    return clampNumber(
+      Math.round((min + max) / 2),
+      TIMER_LIMITS.doomReminderMin.min,
+      TIMER_LIMITS.doomReminderMin.max,
+      TIMER_LIMITS.doomReminderMin.fallback
+    );
   }
 
   function collectAdvancedFormState() {
@@ -586,7 +673,7 @@ document.addEventListener('DOMContentLoaded', () => {
       soundReminderMax: currentSettings?.soundReminderMax ?? 30,
       snoozedUntil: currentSnoozeUntil || 0,
       siteTiers: currentSettings?.siteTiers || {},
-      redirectSuggestions: collectRedirectSuggestions()
+      redirectSuggestions: collectRedirectSuggestions(),
     };
 
     if (currentTimingMode === 'fixed') {
@@ -627,7 +714,7 @@ document.addEventListener('DOMContentLoaded', () => {
       soundReminderMax: formState.soundReminderMax,
       snoozedUntil: formState.snoozedUntil,
       siteTiers: formState.siteTiers,
-      redirectSuggestions: formState.redirectSuggestions
+      redirectSuggestions: formState.redirectSuggestions,
     });
 
     nextSettings.eyeBreakDurationSec = normalized.eyeBreakDurationSec;
@@ -694,8 +781,8 @@ document.addEventListener('DOMContentLoaded', () => {
           reminderIntervalMin: eyeBreakFixed,
           reminderIntervalMax: eyeBreakFixed,
           subtleReminderMin: gentleFixed,
-          subtleReminderMax: gentleFixed
-        }
+          subtleReminderMax: gentleFixed,
+        },
       };
     }
 
@@ -755,8 +842,8 @@ document.addEventListener('DOMContentLoaded', () => {
         reminderIntervalMin: eyeBreakMin,
         reminderIntervalMax: eyeBreakMax,
         subtleReminderMin: gentleMin,
-        subtleReminderMax: gentleMax
-      }
+        subtleReminderMax: gentleMax,
+      },
     };
   }
 
@@ -789,7 +876,7 @@ document.addEventListener('DOMContentLoaded', () => {
       reminderIntervalMax: currentSettings.reminderIntervalMax,
       hydrationReminderMin: currentSettings.hydrationReminderMin,
       subtleReminderMin: currentSettings.subtleReminderMin,
-      subtleReminderMax: currentSettings.subtleReminderMax
+      subtleReminderMax: currentSettings.subtleReminderMax,
     };
 
     const nextSnapshot = {
@@ -801,7 +888,7 @@ document.addEventListener('DOMContentLoaded', () => {
       reminderIntervalMax: Number(formState.reminderIntervalMax),
       hydrationReminderMin: formState.hydrationReminderMin,
       subtleReminderMin: Number(formState.subtleReminderMin),
-      subtleReminderMax: Number(formState.subtleReminderMax)
+      subtleReminderMax: Number(formState.subtleReminderMax),
     };
 
     return JSON.stringify(currentSnapshot) !== JSON.stringify(nextSnapshot);
@@ -875,9 +962,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const list = document.getElementById('redirect-list');
     if (!list) return;
     list.innerHTML = '';
-    const items = Array.isArray(suggestions) && suggestions.length > 0
-      ? suggestions
-      : getDefaultRedirectSuggestions();
+    const items =
+      Array.isArray(suggestions) && suggestions.length > 0
+        ? suggestions
+        : getDefaultRedirectSuggestions();
 
     items.forEach((suggestion, index) => {
       const item = document.createElement('div');
@@ -901,7 +989,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function collectRedirectSuggestions() {
-    const suggestions = Array.from(document.querySelectorAll('.popup-redirect-item span:first-child'))
+    const suggestions = Array.from(
+      document.querySelectorAll('.popup-redirect-item span:first-child')
+    )
       .map((element) => element.textContent)
       .filter(Boolean);
     return suggestions.length > 0 ? suggestions : getDefaultRedirectSuggestions();
@@ -963,17 +1053,19 @@ document.addEventListener('DOMContentLoaded', () => {
       'Drink a glass of water',
       'Do a quick stretch',
       'Read a book for 5 min',
-      'Step outside for fresh air'
+      'Step outside for fresh air',
     ];
   }
 
   function hoursToMinutes(value) {
-    return clampNumber(
-      value,
-      TIMER_LIMITS.hydrationReminderHours.min,
-      TIMER_LIMITS.hydrationReminderHours.max,
-      TIMER_LIMITS.hydrationReminderHours.fallback
-    ) * 60;
+    return (
+      clampNumber(
+        value,
+        TIMER_LIMITS.hydrationReminderHours.min,
+        TIMER_LIMITS.hydrationReminderHours.max,
+        TIMER_LIMITS.hydrationReminderHours.fallback
+      ) * 60
+    );
   }
 
   function minutesToHours(value) {

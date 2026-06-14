@@ -4,14 +4,7 @@
   "version": "1.0.0",
   "description": "Detects doom scrolling on Instagram, YouTube & Reddit. Triggers guided eye breaks, gentle reminders, and hydration nudges. Smart enough to stay silent while you work.",
 
-  "permissions": [
-    "storage",
-    "alarms",
-    "notifications",
-    "tabs",
-    "idle",
-    "offscreen"
-  ],
+  "permissions": ["storage", "alarms", "notifications", "tabs", "idle", "offscreen"],
 
   "host_permissions": [
     "*://instagram.com/*",
@@ -40,6 +33,8 @@
     "service_worker": "background.js"
   },
 
+  "incognito": "spanning",
+
   "content_scripts": [
     {
       "matches": [
@@ -64,9 +59,7 @@
         "*://snapchat.com/*",
         "*://*.snapchat.com/*"
       ],
-      "js": [
-        "content.js"
-      ],
+      "js": ["content.js"],
       "css": ["overlay.css"],
       "run_at": "document_idle"
     }
@@ -75,15 +68,15 @@
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16":  "icons/icon16.png",
-      "48":  "icons/icon48.png",
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
   },
 
   "icons": {
-    "16":  "icons/icon16.png",
-    "48":  "icons/icon48.png",
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
 
