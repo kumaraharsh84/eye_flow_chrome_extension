@@ -955,12 +955,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (icon) icon.classList.add('open');
   }
 
-  function clampNumber(value, min, max, fallback) {
-    const numericValue = Number(value);
-    if (!Number.isFinite(numericValue)) return fallback;
-    return Math.min(max, Math.max(min, Math.round(numericValue)));
-  }
-
   function getDefaultRedirectSuggestions() {
     return [
       'Take a short walk',
