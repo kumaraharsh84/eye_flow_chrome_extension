@@ -1,16 +1,13 @@
 // ============================================================
-// INTELLIGENCE.JS - EyeFlow Pattern Learning & Smart Detection
+// INTELLIGENCE.JS - EyeFlow Detection & Smart Timing
 // ============================================================
-// This file is the "smart brain" of the extension. It does 3 things:
+// This file is the "smart brain" of the extension. It does 2 things:
 //
-// 1. PATTERN LEARNING: Remembers when you doom scroll most
-//    (e.g., "Sundays at 11pm") and warns you proactively.
+// 1. SITE SENSITIVITY: Different sites get different strictness
+//    levels for scroll density detection (Instagram = strict, etc).
 //
-// 2. SITE SENSITIVITY: Different sites get different strictness
-//    levels (Instagram = strict, LinkedIn = relaxed).
-//
-// 3. GRADUAL INTERRUPTION: Instead of immediately going fullscreen,
-//    it starts with a small nudge, then a warning, then the full break.
+// 2. GRADUAL INTERRUPTION: Instead of immediately going fullscreen,
+//    it tracks interruption stages (nudge -> warning -> break).
 //
 // This file exposes the EyeFlowIntelligence object, which is used
 // by content.js to decide what to do.
@@ -72,9 +69,9 @@ const EyeFlowIntelligence = (() => {
     const sensitivity = cachedSettings ? cachedSettings.sensitivity : 50;
 
     const baseThresholds = {
-      strict: 8,
-      moderate: 15,
-      relaxed: 25
+      strict: cachedSettings?.scrollThresholdStrict ?? 20,
+      moderate: cachedSettings?.scrollThresholdModerate ?? 30,
+      relaxed: cachedSettings?.scrollThresholdRelaxed ?? 45
     };
 
     const base = baseThresholds[tier] || 15;
@@ -142,6 +139,11 @@ const EyeFlowIntelligence = (() => {
 
   function pauseForInactivity(inactiveMs) {
     if (!inactiveMs || inactiveMs <= 0) return;
+    if (!currentBreakTargetMs) return;
+    currentBreakTargetMs = Math.min(
+      currentBreakTargetMs + inactiveMs,
+      getNextBreakTargetMs() * 2
+    );
   }
 
   function markReminderShown() {
@@ -165,14 +167,6 @@ const EyeFlowIntelligence = (() => {
     return Math.floor(Math.random() * (high - low + 1)) + low;
   }
 
-  // -------------------------------------------------------
-  // CHECK PROACTIVE WARNING - Placeholder for future risk-based timing
-  // -------------------------------------------------------
-  // This is intentionally not implemented yet. It exists as a stub so
-  // the API is available for later proactive warning work.
-  async function checkProactiveWarning() {
-    return null;
-  }
 
   // -------------------------------------------------------
   // IS SINGLE VIDEO PAGE - Detect if user is watching ONE video
@@ -245,11 +239,12 @@ const EyeFlowIntelligence = (() => {
     getTimeWindow,
     determineStage,
     getMsUntilBreak,
+    getNextBreakTargetMs,
     resetStages,
     recordBreakCompleted,
     pauseForInactivity,
     markReminderShown,
-    checkProactiveWarning,
+
     isSingleVideoPage,
     isUserTyping,
     updateSettings

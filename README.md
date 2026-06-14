@@ -67,7 +67,7 @@ The goal is simple: interrupt unhealthy loops without becoming annoying during n
 |---|---|
 | ⚙️ Popup settings | Sensitivity, timing, snooze, theme, suggestions — all configurable |
 | 🎨 Dark / Light theme | Popup supports both themes |
-| 📊 Stats dashboard | Blocked sessions, breaks taken, weekly history, mood trends, pattern insights |
+| 📊 Stats dashboard | Blocked sessions, breaks taken, weekly history, mood trends |
 | 🧭 Onboarding | 3 preset modes on first install — Strict, Balanced, or Gentle |
 
 ---

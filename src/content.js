@@ -639,8 +639,7 @@ const EyeFlowContent = (() => {
 
   function getHydrationTargetMs() {
     const baseMinutes = currentSettings?.hydrationReminderMin ?? 80;
-    const extraMinutes = Math.floor(Math.random() * (HYDRATION_JITTER_MINUTES + 1));
-    return (baseMinutes + extraMinutes) * 60 * 1000;
+    return baseMinutes * 60 * 1000;
   }
 
   function getLocalGentleDelayMs() {
@@ -650,12 +649,6 @@ const EyeFlowContent = (() => {
     return randomMinutes * 60 * 1000;
   }
 
-  function getLocalEyeBreakDelayMs() {
-    const minMinutes = Math.max(1, Number(currentSettings?.reminderIntervalMin) || 5);
-    const maxMinutes = Math.max(minMinutes, Number(currentSettings?.reminderIntervalMax) || minMinutes);
-    const randomMinutes = Math.floor(Math.random() * (maxMinutes - minMinutes + 1)) + minMinutes;
-    return randomMinutes * 60 * 1000;
-  }
 
   function applySharedDsState(snapshot) {
     if (!snapshot) return;
@@ -676,7 +669,8 @@ const EyeFlowContent = (() => {
     lastActivityAt = Date.now();
     pendingHydrationPopup = false;
     lastReportedActiveSiteMs = 0;
-    hydrationTargetMs = getHydrationTargetMs();
+    const jitterMs = Math.floor(Math.random() * (HYDRATION_JITTER_MINUTES + 1)) * 60 * 1000;
+    hydrationTargetMs = ((currentSettings?.hydrationReminderMin ?? 80) * 60 * 1000) + jitterMs;
 
     if (resetTotalTime) {
       activeSiteMs = 0;
@@ -798,7 +792,8 @@ const EyeFlowContent = (() => {
     );
 
     if (overlayShowing || document.fullscreenElement) return true;
-    if (EyeFlowIntelligence.isUserTyping() || focusedEditable) return true;
+    if (focusedEditable) return true;
+    if (EyeFlowIntelligence.isUserTyping() && !isDoomScrollContext()) return true;
     if (passwordOrOtpField) return true;
     if (largeForm && path.includes('form')) return true;
     if (videoMeetingSignals) return true;
@@ -1033,8 +1028,9 @@ const EyeFlowContent = (() => {
   }
 
   function resetBreakCycle() {
+    scrollEvents = [];
     sharedDsState.activeMs = 0;
-    sharedDsState.nextBreakTargetMs = getLocalEyeBreakDelayMs();
+    sharedDsState.nextBreakTargetMs = EyeFlowIntelligence.getNextBreakTargetMs();
     sharedDsState.isActive = false;
     sharedDsState.lastSyncedAt = Date.now();
     activeSessionStartedAt = 0;
@@ -1334,7 +1330,8 @@ const EyeFlowContent = (() => {
   }
 
   function isHydrationDue() {
-    return false;
+    if (!hydrationTargetMs) return false;
+    return getTotalActiveUsageMs() >= hydrationTargetMs;
   }
 
   function tryShowHydrationPopup() {
@@ -1353,10 +1350,21 @@ const EyeFlowContent = (() => {
   }
 
   function scheduleHydrationGentleReminder(delayMs = HYDRATION_GENTLE_DELAY_MS) {
-    hydrationGentleReminderAt = 0;
+    hydrationGentleReminderAt = Date.now() + delayMs;
   }
 
   function maybeShowHydrationGentleReminder() {
+    if (!hydrationGentleReminderAt || hydrationGentleReminderAt === 0) return false;
+    if (Date.now() >= hydrationGentleReminderAt) {
+      if (canShowGentleReminder()) {
+        showGentleReminder({
+          title: 'Stay Hydrated',
+          text: 'Just a gentle nudge to take a sip of water!'
+        });
+        hydrationGentleReminderAt = 0;
+        return true;
+      }
+    }
     return false;
   }
 
@@ -1472,6 +1480,8 @@ const EyeFlowContent = (() => {
     const hostname = getHostname();
     const now = Date.now();
 
+    if (EyeFlowIntelligence.isSingleVideoPage()) return;
+
     // A shared DS break that is already due should not be blocked by older
     // page heuristics like "single video page", temporary chat detection, or
     // typing checks. Once the timer reaches zero on a real DS surface, fire the
@@ -1491,8 +1501,6 @@ const EyeFlowContent = (() => {
       }
     }
 
-    // Don't check if on a single video page (user is learning)
-    if (EyeFlowIntelligence.isSingleVideoPage()) return;
 
     // Don't check if user is typing (they're working)
     if (EyeFlowIntelligence.isUserTyping()) return;
@@ -1529,6 +1537,17 @@ const EyeFlowContent = (() => {
     }
 
     if (isDoomScrollContext()) {
+      const scrollThreshold = EyeFlowIntelligence.getScrollThreshold(hostname);
+      const timeWindow = EyeFlowIntelligence.getTimeWindow(hostname);
+      const recentScrollCount = scrollEvents.filter(t => (now - t) < timeWindow).length;
+      if (recentScrollCount >= scrollThreshold && (now - lastDoomScrollTime) > 5000) {
+        lastDoomScrollTime = now;
+        scrollEvents = [];
+        resetBreakCycle();
+        showStageInterruption('break', hostname);
+        return;
+      }
+
       if (!sharedDsState.nextBreakTargetMs || getBreakCycleMs() < sharedDsState.nextBreakTargetMs) return;
       const stage = 'break';
       if (now - lastDoomScrollTime < 5000) return;
