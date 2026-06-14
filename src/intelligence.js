@@ -18,7 +18,7 @@ const EYEFLOW_DEBUG_INTELLIGENCE = false;
 // -------------------------------------------------------
 // EYEFLOW INTELLIGENCE - Main intelligence object
 // -------------------------------------------------------
-const EyeFlowIntelligence = (() => {
+export const EyeFlowIntelligence = (() => {
   // --- Internal state ---
   let currentBreakTargetMs = 0; // Active watch time required before the next eye break
   let lastReminderAt = 0; // Timestamp of the latest recurring reminder

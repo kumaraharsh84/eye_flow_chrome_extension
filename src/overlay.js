@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 // OVERLAY.JS — EyeFlow Eye-Break Overlay + Post-Break Experience
 // ============================================================
 // This file creates and manages the fullscreen eye-break overlay.
@@ -16,7 +16,7 @@ const EYEFLOW_DEBUG_OVERLAY = false;
 // -------------------------------------------------------
 // EYEFLOW OVERLAY — Main overlay controller
 // -------------------------------------------------------
-const EyeFlowOverlay = (() => {
+export const EyeFlowOverlay = (() => {
   const ENFORCED_STRICT_SITES = new Set([
     'instagram.com',
     'tiktok.com',

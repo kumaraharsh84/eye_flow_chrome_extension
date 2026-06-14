@@ -12,13 +12,17 @@
   "homepage": "https://github.com/kumaraharsh84/eye_flow_chrome_extension#readme",
   "main": "background.js",
   "scripts": {
+    "pretest": "npm run build",
     "test": "node tests/intelligence.test.js && node tests/puppeteer-extension-smoke.js",
+    "pretest:extension": "npm run build",
     "test:extension": "node tests/puppeteer-extension-smoke.js",
     "test:e2e": "node tests/puppeteer-extension-e2e.js",
     "test:online": "node tests/puppeteer-extension-e2e.js --suite=sites",
     "test:onboarding": "node tests/puppeteer-extension-e2e.js --suite=onboarding",
     "test:popup": "node tests/puppeteer-extension-e2e.js --suite=popup",
     "test:sites": "node tests/puppeteer-extension-e2e.js --suite=sites",
+    "build": "node build.js",
+    "watch": "node build.js --watch",
     "lint": "eslint .",
     "format": "prettier --write .",
     "prepare": "husky"
@@ -43,10 +47,12 @@
   "license": "MIT",
   "type": "commonjs",
   "devDependencies": {
+    "esbuild": "^0.28.1",
     "eslint": "^10.4.1",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.7",
+    "npm-run-all": "^4.1.5",
     "prettier": "^3.8.4",
     "puppeteer": "^24.40.0"
   }

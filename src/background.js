@@ -1248,12 +1248,7 @@ function mergeSettings(...sources) {
   return merged;
 }
 
-// TODO: consolidate with utils.js when ESM modules are supported in service workers
-function clampNumber(value, min, max, fallback) {
-  const numericValue = Number(value);
-  if (!Number.isFinite(numericValue)) return fallback;
-  return Math.min(max, Math.max(min, Math.round(numericValue)));
-}
+
 
 function mergeStats(source) {
   return {

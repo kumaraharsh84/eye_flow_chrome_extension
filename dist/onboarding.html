@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<!--
+  ONBOARDING.HTML - EyeFlow First-Run Experience
+  ==============================================
+  Ye page sirf tab dikhega jab extension pehli baar install ho.
+  background.js mein chrome.runtime.onInstalled -> tab open hoga ye page.
+
+  3 screens:
+  1. Swagat - EyeFlow kya karta hai
+  2. Simple default setup
+  3. Ready! - sab set ho gaya
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to EyeFlow</title>
+  <link rel="stylesheet" href="onboarding.css">
+</head>
+<body>
+<div class="card">
+  <div class="steps">
+    <div class="step-dot active" id="dot-0"></div>
+    <div class="step-dot" id="dot-1"></div>
+    <div class="step-dot" id="dot-2"></div>
+  </div>
+
+  <div class="screen active" id="screen-0">
+    <div class="eyebrow">A calmer way to browse</div>
+    <span class="big-icon">👁️</span>
+    <h1>Welcome to EyeFlow</h1>
+    <p class="subtitle">
+      Screen time adds up fast.<br>
+      EyeFlow helps you catch the moment when “just a few more minutes” turns into tired eyes.
+    </p>
+    <div class="features">
+      <div class="feature">
+        <span class="feature-icon">🔍</span>
+        <div>
+          <div class="feature-title">Detects doom scrolling</div>
+          <div class="feature-desc">Notices when a short break would help before scrolling turns into eye strain.</div>
+        </div>
+      </div>
+      <div class="feature">
+        <span class="feature-icon">👁️</span>
+        <div>
+          <div class="feature-title">Guides eye exercises</div>
+          <div class="feature-desc">Gives you a short guided reset that feels simple enough to actually follow.</div>
+        </div>
+      </div>
+      <div class="feature">
+        <span class="feature-icon">💧</span>
+        <div>
+          <div class="feature-title">Hydration reminders</div>
+          <div class="feature-desc">Keeps water check-ins in the background so you do not have to remember everything yourself.</div>
+        </div>
+      </div>
+    </div>
+    <div class="micro-note">Takes less than a minute.</div>
+    <button class="btn-primary" id="btn-start-onboarding">Set up EyeFlow</button>
+  </div>
+
+  <div class="screen" id="screen-1">
+    <div class="eyebrow">Start simple</div>
+    <span class="big-icon">⚙️</span>
+    <h1>Start with the default setup</h1>
+    <p class="subtitle">We picked one solid starting point so EyeFlow feels helpful right away. You can tune the details later if you want.</p>
+
+    <div class="preset-card" id="mode-list">
+      <div class="preset-badge">Recommended default</div>
+      <div class="preset-top">
+        <span class="preset-icon">⚖️</span>
+        <div>
+          <div class="preset-title">Balanced protection</div>
+          <div class="preset-desc">A steady default setup that protects doom-scroll sessions without making normal browsing feel noisy.</div>
+        </div>
+      </div>
+      <div class="preset-points">
+        <div class="preset-point">
+          <span class="preset-point-icon">◦</span>
+          <span>Strong eye-break protection on doom-scroll surfaces</span>
+        </div>
+        <div class="preset-point">
+          <span class="preset-point-icon">◦</span>
+          <span>Gentle reminders on normal tabs</span>
+        </div>
+        <div class="preset-point">
+          <span class="preset-point-icon">◦</span>
+          <span>Water reminders continue quietly in the background</span>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="btn-save-mode">Use this setup</button>
+    <button class="btn-skip" id="btn-skip-onboarding">Skip for now</button>
+  </div>
+
+  <div class="screen" id="screen-2">
+    <div class="eyebrow">Ready when you are</div>
+    <span class="big-icon">🎉</span>
+    <h1>EyeFlow is ready</h1>
+    <p class="applied-preset">
+      Default setup active
+    </p>
+    <p class="subtitle">You can browse normally now. EyeFlow will stay out of the way most of the time, then step in when your eyes need a reset.</p>
+
+    <div class="ready-panel">
+      <div class="ready-panel-head">
+        <div class="ready-panel-title">What is turned on</div>
+        <div class="ready-panel-note">Simple now, adjustable anytime</div>
+      </div>
+
+      <div class="ready-list">
+        <div class="ready-item">
+          <span class="ready-check">✓</span>
+          <div class="ready-copy">
+            <div class="ready-item-title">Doom-scroll protection</div>
+            <div class="ready-item-desc">Eye breaks begin after about <span id="summary-eye-break">5</span> minutes on scroll-heavy surfaces.</div>
+          </div>
+        </div>
+        <div class="ready-item">
+          <span class="ready-check">✓</span>
+          <div class="ready-copy">
+            <div class="ready-item-title">Gentle reminders</div>
+            <div class="ready-item-desc">Normal tabs get a softer reminder every <span id="summary-gentle">25</span> minutes.</div>
+          </div>
+        </div>
+        <div class="ready-item">
+          <span class="ready-check">✓</span>
+          <div class="ready-copy">
+            <div class="ready-item-title">Hydration support</div>
+            <div class="ready-item-desc">Water reminders continue quietly in the background.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <p class="subtitle onboarding-footer-note">Want to fine-tune timings later? Everything stays available in the EyeFlow popup.</p>
+
+    <button class="btn-primary" id="btn-finish-onboarding">Start using EyeFlow</button>
+  </div>
+</div>
+
+<script src="onboarding.js"></script>
+</body>
+</html>

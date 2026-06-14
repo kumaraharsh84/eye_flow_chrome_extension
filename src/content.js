@@ -1,3 +1,6 @@
+import { EyeFlowIntelligence } from './intelligence.js';
+import { EyeFlowOverlay } from './overlay.js';
+
 // ============================================================
 // CONTENT.JS — EyeFlow Doom-Scroll Detection
 // ============================================================

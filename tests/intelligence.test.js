@@ -23,10 +23,14 @@ global.document = {
 const fs = require('fs');
 const path = require('path');
 
-const utilsCode = fs.readFileSync(path.join(__dirname, '../src/utils.js'), 'utf8');
+const utilsCode = fs.readFileSync(path.join(__dirname, '../src/utils.js'), 'utf8')
+  .replace(/export\s+function/g, 'function')
+  .replace(/export\s+const/g, 'const');
 eval(utilsCode + ';\n global.clampNumber = clampNumber;');
 
-const intelligenceCode = fs.readFileSync(path.join(__dirname, '../src/intelligence.js'), 'utf8');
+const intelligenceCode = fs.readFileSync(path.join(__dirname, '../src/intelligence.js'), 'utf8')
+  .replace(/export\s+function/g, 'function')
+  .replace(/export\s+const/g, 'const');
 eval(intelligenceCode + ';\n global.EyeFlowIntelligence = EyeFlowIntelligence;');
 
 // --- TESTS ---
