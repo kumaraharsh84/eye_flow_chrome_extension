@@ -164,13 +164,25 @@ const EyeFlowContent = (() => {
       return 'YouTube Shorts';
     }
 
+    if (hostname === 'instagram.com') {
+      if (contextKey === 'instagram.com/direct') {
+        return 'Instagram Chat';
+      }
+      return 'Instagram Reels';
+    }
+
+    if (hostname === 'snapchat.com') {
+      if (contextKey === 'snapchat.com/chat') {
+        return 'Snapchat Chat';
+      }
+      return 'Snapchat Stories';
+    }
+
     const siteLabels = {
-      'instagram.com': 'Instagram',
       'reddit.com': 'Reddit',
       'facebook.com': 'Facebook',
       'x.com': 'X',
       'twitter.com': 'X',
-      'snapchat.com': 'Snapchat',
       'linkedin.com': 'LinkedIn',
       'twitch.tv': 'Twitch',
       'tiktok.com': 'TikTok',
