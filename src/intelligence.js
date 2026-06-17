@@ -71,11 +71,11 @@ export const EyeFlowIntelligence = (() => {
     const baseThresholds = {
       strict: cachedSettings?.scrollThresholdStrict ?? 20,
       moderate: cachedSettings?.scrollThresholdModerate ?? 30,
-      relaxed: cachedSettings?.scrollThresholdRelaxed ?? 45
+      relaxed: cachedSettings?.scrollThresholdRelaxed ?? 45,
     };
 
     const base = baseThresholds[tier] || 15;
-    const multiplier = 1.5 - (sensitivity / 100);
+    const multiplier = 1.5 - sensitivity / 100;
 
     return Math.round(base * multiplier);
   }
@@ -89,7 +89,7 @@ export const EyeFlowIntelligence = (() => {
     const windows = {
       strict: 10000,
       moderate: 15000,
-      relaxed: 20000
+      relaxed: 20000,
     };
 
     return windows[tier] || 15000;
@@ -109,7 +109,7 @@ export const EyeFlowIntelligence = (() => {
       return 'none';
     }
 
-    if (!lastReminderAt || (now - lastReminderAt) >= 60 * 1000) {
+    if (!lastReminderAt || now - lastReminderAt >= 60 * 1000) {
       return 'warning';
     }
 
@@ -140,10 +140,7 @@ export const EyeFlowIntelligence = (() => {
   function pauseForInactivity(inactiveMs) {
     if (!inactiveMs || inactiveMs <= 0) return;
     if (!currentBreakTargetMs) return;
-    currentBreakTargetMs = Math.min(
-      currentBreakTargetMs + inactiveMs,
-      getNextBreakTargetMs() * 2
-    );
+    currentBreakTargetMs = Math.min(currentBreakTargetMs + inactiveMs, getNextBreakTargetMs() * 2);
   }
 
   function markReminderShown() {
@@ -156,8 +153,9 @@ export const EyeFlowIntelligence = (() => {
       minMinutes,
       (cachedSettings && cachedSettings.reminderIntervalMax) || minMinutes
     );
-    const sensitivity = (cachedSettings && cachedSettings.sensitivity !== undefined) ? cachedSettings.sensitivity : 50;
-    const multiplier = 1.5 - (sensitivity / 100);
+    const sensitivity =
+      cachedSettings && cachedSettings.sensitivity !== undefined ? cachedSettings.sensitivity : 50;
+    const multiplier = 1.5 - sensitivity / 100;
     return Math.round(getRandomInt(minMinutes, maxMinutes) * 60 * 1000 * multiplier);
   }
 
@@ -166,7 +164,6 @@ export const EyeFlowIntelligence = (() => {
     const high = Math.floor(max);
     return Math.floor(Math.random() * (high - low + 1)) + low;
   }
-
 
   // -------------------------------------------------------
   // IS SINGLE VIDEO PAGE - Detect if user is watching ONE video
@@ -194,13 +191,17 @@ export const EyeFlowIntelligence = (() => {
   // IS USER WORKING - Detect if user is typing/interacting
   // -------------------------------------------------------
   function trackTyping() {
-    document.addEventListener('keydown', () => {
-      lastTypingTime = Date.now();
-    }, { passive: true });
+    document.addEventListener(
+      'keydown',
+      () => {
+        lastTypingTime = Date.now();
+      },
+      { passive: true }
+    );
   }
 
   function isUserTyping() {
-    return (Date.now() - lastTypingTime) < 30000;
+    return Date.now() - lastTypingTime < 30000;
   }
 
   // -------------------------------------------------------
@@ -247,6 +248,6 @@ export const EyeFlowIntelligence = (() => {
 
     isSingleVideoPage,
     isUserTyping,
-    updateSettings
+    updateSettings,
   };
 })();

@@ -1,20 +1,20 @@
-const fs = require("fs");
-const os = require("os");
-const path = require("path");
-const puppeteer = require("puppeteer");
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const puppeteer = require('puppeteer');
 
-const extensionPath = path.resolve(__dirname, "..", "dist");
+const extensionPath = path.resolve(__dirname, '..', 'dist');
 const args = process.argv.slice(2);
-const holdOpen = args.includes("--hold-open");
-const targetUrl = args.find((arg) => !arg.startsWith("--")) || "https://www.youtube.com/";
+const holdOpen = args.includes('--hold-open');
+const targetUrl = args.find((arg) => !arg.startsWith('--')) || 'https://www.youtube.com/';
 
 function resolveBrowserPath() {
   const candidates = [
     process.env.CHROME_PATH,
-    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-    "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
-    "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
-    "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
   ].filter(Boolean);
 
   for (const candidate of candidates) {
@@ -31,7 +31,10 @@ function resolveBrowserPath() {
 async function waitForExtensionId(browser) {
   const existingTarget = browser
     .targets()
-    .find((target) => target.type() === "service_worker" && target.url().startsWith("chrome-extension://"));
+    .find(
+      (target) =>
+        target.type() === 'service_worker' && target.url().startsWith('chrome-extension://')
+    );
 
   if (existingTarget) {
     return new URL(existingTarget.url()).host;
@@ -39,7 +42,7 @@ async function waitForExtensionId(browser) {
 
   const target = await browser.waitForTarget(
     (candidate) =>
-      candidate.type() === "service_worker" && candidate.url().startsWith("chrome-extension://"),
+      candidate.type() === 'service_worker' && candidate.url().startsWith('chrome-extension://'),
     { timeout: 15000 }
   );
 
@@ -48,7 +51,7 @@ async function waitForExtensionId(browser) {
 
 async function run() {
   const browserPath = resolveBrowserPath();
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "eyeflow-puppeteer-"));
+  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'eyeflow-puppeteer-'));
   let browser;
 
   try {
@@ -59,26 +62,23 @@ async function run() {
       enableExtensions: [extensionPath],
       executablePath: browserPath,
       userDataDir,
-      args: [
-        "--no-first-run",
-        "--no-default-browser-check",
-      ],
+      args: ['--no-first-run', '--no-default-browser-check'],
       defaultViewport: { width: 1440, height: 960 },
     });
 
-    console.log("Waiting for extension service worker...");
+    console.log('Waiting for extension service worker...');
     const extensionId = await waitForExtensionId(browser);
     console.log(`Loaded EyeFlow extension: ${extensionId}`);
 
     const popupPage = await browser.newPage();
     popupPage.setDefaultTimeout(10000);
     await popupPage.goto(`chrome-extension://${extensionId}/popup.html`, {
-      waitUntil: "domcontentloaded",
+      waitUntil: 'domcontentloaded',
     });
 
-    await popupPage.waitForSelector("#status-text", { timeout: 10000 });
+    await popupPage.waitForSelector('#status-text', { timeout: 10000 });
     const popupTitle = await popupPage.title();
-    const statusText = await popupPage.$eval("#status-text", (node) => node.textContent.trim());
+    const statusText = await popupPage.$eval('#status-text', (node) => node.textContent.trim());
 
     console.log(`Popup title: ${popupTitle}`);
     console.log(`Popup status: ${statusText}`);
@@ -86,20 +86,22 @@ async function run() {
     const sitePage = await browser.newPage();
     sitePage.setDefaultTimeout(30000);
     await sitePage.goto(targetUrl, {
-      waitUntil: "domcontentloaded",
+      waitUntil: 'domcontentloaded',
       timeout: 30000,
     });
 
     console.log(`Opened online test page: ${targetUrl}`);
 
     if (holdOpen) {
-      console.log("Browser left open for manual verification. Press Ctrl+C in the terminal when finished.");
+      console.log(
+        'Browser left open for manual verification. Press Ctrl+C in the terminal when finished.'
+      );
       await new Promise(() => {});
     } else {
-      console.log("Smoke test passed.");
+      console.log('Smoke test passed.');
     }
   } catch (error) {
-    console.error("Puppeteer smoke test failed.");
+    console.error('Puppeteer smoke test failed.');
     console.error(error);
     process.exitCode = 1;
   } finally {

@@ -15,7 +15,7 @@ if (!fs.existsSync(DIST_DIR)) {
 // Copy static assets
 function copyAssets() {
   console.log('Copying static assets...');
-  
+
   // Files to copy directly
   const staticFiles = [
     'manifest.json',
@@ -24,10 +24,10 @@ function copyAssets() {
     'onboarding.html',
     'onboarding.css',
     'overlay.css',
-    'offscreen.html'
+    'offscreen.html',
   ];
 
-  staticFiles.forEach(file => {
+  staticFiles.forEach((file) => {
     const src = path.join(SRC_DIR, file);
     const dest = path.join(DIST_DIR, file);
     if (fs.existsSync(src)) {
@@ -42,7 +42,7 @@ function copyAssets() {
     if (!fs.existsSync(iconsDest)) {
       fs.mkdirSync(iconsDest, { recursive: true });
     }
-    fs.readdirSync(iconsSrc).forEach(file => {
+    fs.readdirSync(iconsSrc).forEach((file) => {
       fs.copyFileSync(path.join(iconsSrc, file), path.join(iconsDest, file));
     });
   }
@@ -57,7 +57,7 @@ async function build() {
       path.join(SRC_DIR, 'content.js'),
       path.join(SRC_DIR, 'popup.js'),
       path.join(SRC_DIR, 'onboarding.js'),
-      path.join(SRC_DIR, 'offscreen.js')
+      path.join(SRC_DIR, 'offscreen.js'),
     ],
     bundle: true,
     outdir: DIST_DIR,

@@ -312,6 +312,10 @@ const EyeFlowContent = (() => {
       return 'instagram.com/reels';
     }
 
+    if (path.startsWith('/direct')) {
+      return 'instagram.com/direct';
+    }
+
     if (path.startsWith('/p/')) {
       const modalReelVisible = Boolean(
         document.querySelector(
@@ -512,8 +516,11 @@ const EyeFlowContent = (() => {
   function getSnapchatDoomSurfaceKey() {
     const path = (window.location.pathname || '/').toLowerCase();
 
+    if (path.startsWith('/chat')) {
+      return 'snapchat.com/chat';
+    }
+
     if (
-      path.startsWith('/chat') ||
       path.startsWith('/accounts') ||
       path.startsWith('/settings') ||
       path.startsWith('/lenses') ||

@@ -662,7 +662,6 @@
       init_intelligence();
       init_overlay();
       init_utils();
-      var EYEFLOW_DEBUG_CONTENT = false;
       var EyeFlowContent = (() => {
         const DOOM_SCROLL_SITES = /* @__PURE__ */ new Set([
           'instagram.com',
@@ -740,7 +739,6 @@
         const GENTLE_REMINDER_DUPLICATE_GUARD_MS = 15 * 1e3;
         const SESSION_RESET_INACTIVITY_MS = 15 * 60 * 1e3;
         const SCROLL_CHECK_INTERVAL_MS = 2e3;
-        const DEBUG_CHIP_INTERVAL_MS = 1e3;
         let scrollEvents = [];
         let lastDoomScrollTime = 0;
         let scrollCheckInterval = null;
@@ -771,18 +769,6 @@
         let nudgeElement = null;
         let warningElement = null;
         let subtleReminderElement = null;
-        let debugTimerElement = null;
-        let debugTimerInterval = null;
-        let debugTimerMeta = {
-          nextGentleReminderAt: 0,
-          gentlePausedRemainingMs: 0,
-          gentleState: 'off',
-          gentlePauseReason: 'none',
-          nextWaterReminderAt: 0,
-          waterReminderPending: false,
-          waterQueuedForNextBreak: false,
-          lastFetchedAt: 0,
-        };
         let sharedDsSyncInFlight = false;
         let sharedDsState = {
           activeMs: 0,
@@ -904,9 +890,9 @@
           return contextKey === 'youtube.com/shorts';
         }
         function recordActivity() {
-          const now = Date.now();
-          lastActivityAt = now;
-          lastMeaningfulInputAt = now;
+          const now2 = Date.now();
+          lastActivityAt = now2;
+          lastMeaningfulInputAt = now2;
         }
         function hasRecentMeaningfulInput() {
           return Date.now() - lastMeaningfulInputAt <= PRESENCE_WINDOW_MS;
@@ -921,6 +907,9 @@
           }
           if (path.startsWith('/reel/')) {
             return 'instagram.com/reels';
+          }
+          if (path.startsWith('/direct')) {
+            return 'instagram.com/direct';
           }
           if (path.startsWith('/p/')) {
             const modalReelVisible = Boolean(
@@ -1082,8 +1071,10 @@
         }
         function getSnapchatDoomSurfaceKey() {
           const path = (window.location.pathname || '/').toLowerCase();
+          if (path.startsWith('/chat')) {
+            return 'snapchat.com/chat';
+          }
           if (
-            path.startsWith('/chat') ||
             path.startsWith('/accounts') ||
             path.startsWith('/settings') ||
             path.startsWith('/lenses') ||
@@ -1503,21 +1494,21 @@
           return shouldCountUsageTime();
         }
         function syncActiveSession() {
-          const now = Date.now();
+          const now2 = Date.now();
           const isUsageActiveNow2 = shouldCountUsageTime();
           const isDsActiveNow = shouldCountActiveTime();
           if (isUsageActiveNow2 && !totalUsageStartedAt) {
-            totalUsageStartedAt = now;
+            totalUsageStartedAt = now2;
           } else if (!isUsageActiveNow2 && totalUsageStartedAt) {
-            totalActiveUsageMs += now - totalUsageStartedAt;
+            totalActiveUsageMs += now2 - totalUsageStartedAt;
             totalUsageStartedAt = 0;
           }
           if (isDsActiveNow && !activeSessionStartedAt) {
-            activeSessionStartedAt = now;
+            activeSessionStartedAt = now2;
             return;
           }
           if (!isDsActiveNow && activeSessionStartedAt) {
-            const elapsed = now - activeSessionStartedAt;
+            const elapsed = now2 - activeSessionStartedAt;
             activeSiteMs += elapsed;
             activeSessionStartedAt = 0;
             if (typeof EyeFlowIntelligence !== 'undefined') {
@@ -1532,7 +1523,7 @@
           }
           return activeSiteMs + (Date.now() - activeSessionStartedAt);
         }
-        function getEstimatedSharedDsActiveMs(now = Date.now()) {
+        function getEstimatedSharedDsActiveMs(now2 = Date.now()) {
           const baseActiveMs = sharedDsState.activeMs || 0;
           if (!shouldCountActiveTime()) {
             return baseActiveMs;
@@ -1540,7 +1531,7 @@
           if (!sharedDsState.lastSyncedAt) {
             return baseActiveMs;
           }
-          return baseActiveMs + Math.max(0, now - sharedDsState.lastSyncedAt);
+          return baseActiveMs + Math.max(0, now2 - sharedDsState.lastSyncedAt);
         }
         function getBreakCycleMs() {
           return getEstimatedSharedDsActiveMs();
@@ -1562,7 +1553,7 @@
           lastDoomScrollTime = Date.now();
         }
         function maybeResetSessionAfterLongGap() {
-          const now = Date.now();
+          const now2 = Date.now();
           const lastPresenceAt = Math.max(
             lastActivityAt || 0,
             lastMeaningfulInputAt || 0,
@@ -1570,15 +1561,15 @@
             totalUsageStartedAt || 0
           );
           if (!lastPresenceAt) return;
-          if (now - lastPresenceAt < SESSION_RESET_INACTIVITY_MS) return;
+          if (now2 - lastPresenceAt < SESSION_RESET_INACTIVITY_MS) return;
           resetTrackedSession();
           sharedDsState.activeMs = 0;
           sharedDsState.nextBreakTargetMs = EyeFlowIntelligence.getNextBreakTargetMs();
           sharedDsState.isActive = false;
           sharedDsState.contextKey = '';
           sharedDsState.activeTabId = 0;
-          sharedDsState.lastSyncedAt = now;
-          lastDoomScrollTime = now;
+          sharedDsState.lastSyncedAt = now2;
+          lastDoomScrollTime = now2;
         }
         function resetHydrationTimer() {
           hydrationMergedIntoNextBreak = false;
@@ -1603,13 +1594,13 @@
         function syncSharedDsTimer() {
           if (sharedDsSyncInFlight) return;
           try {
-            const now = Date.now();
+            const now2 = Date.now();
             const isActiveNow = shouldCountActiveTime();
-            const estimatedActiveMs = getEstimatedSharedDsActiveMs(now);
+            const estimatedActiveMs = getEstimatedSharedDsActiveMs(now2);
             sharedDsState.activeMs = estimatedActiveMs;
             sharedDsState.isActive = isActiveNow;
             sharedDsState.contextKey = isActiveNow ? getDoomScrollContextKey() : '';
-            sharedDsState.lastSyncedAt = now;
+            sharedDsState.lastSyncedAt = now2;
             sharedDsSyncInFlight = true;
             chrome.runtime.sendMessage(
               {
@@ -1647,162 +1638,12 @@
           }
           return `${minutes}:${String(seconds).padStart(2, '0')}`;
         }
-        function syncDebugTimerMeta(force = false) {
-          const now = Date.now();
-          if (!force && now - debugTimerMeta.lastFetchedAt < 1e3) return;
-          debugTimerMeta.lastFetchedAt = now;
-          try {
-            chrome.runtime.sendMessage({ type: 'GET_DEBUG_TIMERS' }, (response) => {
-              if (runtimeCallbackFailed()) return;
-              if (!response) return;
-              debugTimerMeta.nextGentleReminderAt = response.nextGentleReminderAt || 0;
-              debugTimerMeta.gentlePausedRemainingMs = response.gentlePausedRemainingMs || 0;
-              debugTimerMeta.gentleState = response.gentleState || 'off';
-              debugTimerMeta.gentlePauseReason = response.gentlePauseReason || 'none';
-              debugTimerMeta.nextWaterReminderAt = response.nextWaterReminderAt || 0;
-              debugTimerMeta.waterReminderPending = Boolean(response.waterReminderPending);
-              debugTimerMeta.waterQueuedForNextBreak = Boolean(response.waterQueuedForNextBreak);
-            });
-          } catch (e) {}
-        }
-        function updateDebugTimerChip() {
-          if (!EYEFLOW_DEBUG_CONTENT) {
-            removeDebugTimerChip();
-            return;
-          }
-          const overlayShowing =
-            typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing();
-          const shouldShow = isActive && !overlayShowing;
-          if (!shouldShow) {
-            removeDebugTimerChip();
-            return;
-          }
-          syncDebugTimerMeta();
-          if (EYEFLOW_DEBUG_CONTENT && !debugTimerElement) {
-            debugTimerElement = document.createElement('div');
-            debugTimerElement.id = 'eyeflow-debug-timer';
-            debugTimerElement.innerHTML = `
-        <div class="eyeflow-debug-timer-content">
-          <div class="eyeflow-debug-timer-row">
-            <div class="eyeflow-debug-timer-label">Eye break (tab)</div>
-            <div class="eyeflow-debug-timer-value" data-debug-timer="eye">0:00</div>
-          </div>
-          <div class="eyeflow-debug-timer-row">
-            <div class="eyeflow-debug-timer-label">Gentle (global)</div>
-            <div class="eyeflow-debug-timer-value" data-debug-timer="gentle">0:00</div>
-          </div>
-          <div class="eyeflow-debug-timer-row">
-            <div class="eyeflow-debug-timer-label">Water (global)</div>
-            <div class="eyeflow-debug-timer-value" data-debug-timer="water">0:00</div>
-          </div>
-        </div>
-      `;
-            debugTimerElement.style.cssText = `
-        position: fixed;
-        left: 18px;
-        bottom: 18px;
-        z-index: 2147483642;
-        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-        pointer-events: none;
-      `;
-            const style = document.createElement('style');
-            style.id = 'eyeflow-debug-timer-style';
-            style.textContent = `
-        #eyeflow-debug-timer .eyeflow-debug-timer-content {
-          min-width: 156px;
-          padding: 10px 12px;
-          border-radius: 16px;
-          background: rgba(28, 20, 14, 0.28);
-          border: 1px solid rgba(216, 156, 96, 0.1);
-          box-shadow: 0 8px 18px rgba(22, 16, 11, 0.1);
-          color: #fff6ea;
-          backdrop-filter: blur(3px);
-        }
-        #eyeflow-debug-timer .eyeflow-debug-timer-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-        }
-        #eyeflow-debug-timer .eyeflow-debug-timer-row + .eyeflow-debug-timer-row {
-          margin-top: 6px;
-          padding-top: 6px;
-          border-top: 1px solid rgba(255, 246, 234, 0.08);
-        }
-        #eyeflow-debug-timer .eyeflow-debug-timer-label {
-          font-size: 11px;
-          line-height: 1.2;
-          opacity: 0.66;
-        }
-        #eyeflow-debug-timer .eyeflow-debug-timer-value {
-          font-size: 16px;
-          font-weight: 700;
-          letter-spacing: 0.02em;
-          white-space: nowrap;
-        }
-      `;
-            document.head.appendChild(style);
-            document.body.appendChild(debugTimerElement);
-          }
-          const eyeValueElement = debugTimerElement.querySelector('[data-debug-timer="eye"]');
-          const gentleValueElement = debugTimerElement.querySelector('[data-debug-timer="gentle"]');
-          const waterValueElement = debugTimerElement.querySelector('[data-debug-timer="water"]');
-          if (!eyeValueElement || !gentleValueElement || !waterValueElement) return;
-          if (isDoomScrollContext()) {
-            eyeValueElement.textContent = shouldCountActiveTime()
-              ? formatCountdown(getMsUntilEyeBreak())
-              : 'Paused';
-          } else if (isWithinSinglePostGraceWindow()) {
-            eyeValueElement.textContent = `Read ${formatCountdown(getSinglePostGraceRemainingMs())}`;
-          } else {
-            eyeValueElement.textContent = 'Off';
-          }
-          if (isDoomScrollContext()) {
-            gentleValueElement.textContent = 'Off';
-          } else if (debugTimerMeta.gentleState === 'off') {
-            gentleValueElement.textContent = 'Off';
-          } else if (
-            debugTimerMeta.gentleState === 'paused' ||
-            debugTimerMeta.gentleState === 'hold'
-          ) {
-            const holdMs =
-              debugTimerMeta.gentlePausedRemainingMs > 0
-                ? debugTimerMeta.gentlePausedRemainingMs
-                : Math.max(0, debugTimerMeta.nextGentleReminderAt - Date.now());
-            gentleValueElement.textContent = `Hold ${formatCountdown(holdMs)}`;
-          } else if (debugTimerMeta.nextGentleReminderAt > 0) {
-            const gentleRemainingMs = Math.max(0, debugTimerMeta.nextGentleReminderAt - Date.now());
-            gentleValueElement.textContent = formatCountdown(gentleRemainingMs);
-          } else {
-            gentleValueElement.textContent = 'Off';
-          }
-          if (debugTimerMeta.waterQueuedForNextBreak) {
-            waterValueElement.textContent = 'Queued';
-          } else if (debugTimerMeta.waterReminderPending) {
-            waterValueElement.textContent = 'Pending';
-          } else if (debugTimerMeta.nextWaterReminderAt > 0) {
-            waterValueElement.textContent = formatReadableTimer(
-              debugTimerMeta.nextWaterReminderAt - Date.now()
-            );
-          } else {
-            waterValueElement.textContent = 'Waiting';
-          }
-        }
-        function removeDebugTimerChip() {
-          if (debugTimerElement) {
-            debugTimerElement.remove();
-            debugTimerElement = null;
-          }
-          const style = document.getElementById('eyeflow-debug-timer-style');
-          if (style) style.remove();
-        }
+        const now = Date.now();
         function shouldMergeHydrationIntoBreak() {
           return isHydrationDue() && getMsUntilEyeBreak() <= HYDRATION_EYE_MERGE_WINDOW_MS;
         }
         function maybeTriggerGentleReminderFailsafe() {
           if (isDoomScrollContext()) return;
-          if (!debugTimerMeta.nextGentleReminderAt) return;
-          if (Date.now() - debugTimerMeta.nextGentleReminderAt < 0) return;
           if (Date.now() - lastGentleReminderFallbackAt < 15e3) return;
           if (Date.now() - lastGentleReminderShownAt < GENTLE_REMINDER_DUPLICATE_GUARD_MS) return;
           if (!canShowGentleReminderWithPassiveVideoSupport()) return;
@@ -1814,15 +1655,9 @@
             chrome.runtime.sendMessage({ type: 'GENTLE_REMINDER_SHOWN' });
           } catch (e) {}
         }
-        function acknowledgeLocalGentleReminder(now = Date.now()) {
-          lastGentleReminderShownAt = now;
-          lastGentleReminderFallbackAt = now;
-          debugTimerMeta.nextGentleReminderAt = 0;
-          debugTimerMeta.gentlePausedRemainingMs = 0;
-          debugTimerMeta.gentleState = 'running';
-          debugTimerMeta.gentlePauseReason = 'none';
-          debugTimerMeta.lastFetchedAt = 0;
-          syncDebugTimerMeta(true);
+        function acknowledgeLocalGentleReminder(now2 = Date.now()) {
+          lastGentleReminderShownAt = now2;
+          lastGentleReminderFallbackAt = now2;
         }
         function isHydrationDue() {
           if (!hydrationTargetMs) return false;
@@ -1907,14 +1742,14 @@
         }
         function handleScroll(event) {
           if (!isActive) return;
-          const now = Date.now();
-          if (now - lastScrollSignalAt < 120) return;
-          lastScrollSignalAt = now;
+          const now2 = Date.now();
+          if (now2 - lastScrollSignalAt < 120) return;
+          lastScrollSignalAt = now2;
           if (!isMeaningfulScrollSignal(event)) return;
-          scrollEvents.push(now);
+          scrollEvents.push(now2);
           recordActivity();
           const timeWindow = EyeFlowIntelligence.getTimeWindow(getHostname());
-          scrollEvents = scrollEvents.filter((t) => now - t < timeWindow);
+          scrollEvents = scrollEvents.filter((t) => now2 - t < timeWindow);
           if (scrollEvents.length > 250) {
             scrollEvents = scrollEvents.slice(-250);
           }
@@ -1938,7 +1773,7 @@
           if (!isActive) return;
           if (!isTabActivelyVisible()) return;
           const hostname = getHostname();
-          const now = Date.now();
+          const now2 = Date.now();
           if (EyeFlowIntelligence.isSingleVideoPage()) return;
           if (isDoomScrollContext()) {
             const isBreakDue =
@@ -1953,8 +1788,8 @@
                 tryShowHydrationPopup();
                 return;
               }
-              if (now - lastDoomScrollTime < 5e3) return;
-              lastDoomScrollTime = now;
+              if (now2 - lastDoomScrollTime < 5e3) return;
+              lastDoomScrollTime = now2;
               showStageInterruption('break', hostname);
               return;
             }
@@ -1992,9 +1827,9 @@
           if (isDoomScrollContext()) {
             const scrollThreshold = EyeFlowIntelligence.getScrollThreshold(hostname);
             const timeWindow = EyeFlowIntelligence.getTimeWindow(hostname);
-            const recentScrollCount = scrollEvents.filter((t) => now - t < timeWindow).length;
-            if (recentScrollCount >= scrollThreshold && now - lastDoomScrollTime > 5e3) {
-              lastDoomScrollTime = now;
+            const recentScrollCount = scrollEvents.filter((t) => now2 - t < timeWindow).length;
+            if (recentScrollCount >= scrollThreshold && now2 - lastDoomScrollTime > 5e3) {
+              lastDoomScrollTime = now2;
               scrollEvents = [];
               resetBreakCycle();
               showStageInterruption('break', hostname);
@@ -2006,8 +1841,8 @@
             )
               return;
             const stage = 'break';
-            if (now - lastDoomScrollTime < 5e3) return;
-            lastDoomScrollTime = now;
+            if (now2 - lastDoomScrollTime < 5e3) return;
+            lastDoomScrollTime = now2;
             showStageInterruption(stage, hostname);
             return;
           }
@@ -2021,7 +1856,6 @@
             case 'nudge':
               break;
             case 'warning':
-              removeDebugTimerChip();
               removeGentleReminder();
               removeNudge();
               showWarning(timeOnSite);
@@ -2031,7 +1865,6 @@
                 return;
               }
               lastBreakOverlayShownAt = Date.now();
-              removeDebugTimerChip();
               removeGentleReminder();
               removeNudge();
               removeWarning();
@@ -2360,92 +2193,6 @@
           const style = document.getElementById('eyeflow-gentle-reminder-style');
           if (style) style.remove();
         }
-        let proactiveElement = null;
-        function showProactiveWarning(warning) {
-          if (proactiveElement) return;
-          proactiveElement = document.createElement('div');
-          proactiveElement.id = 'eyeflow-proactive';
-          proactiveElement.innerHTML = `
-      <div class="eyeflow-proactive-content">
-        <span class="eyeflow-proactive-icon">\u25C9</span>
-        <span class="eyeflow-proactive-text">${warning.message}</span>
-        <button class="eyeflow-proactive-dismiss">Got it</button>
-      </div>
-    `;
-          proactiveElement.style.cssText = `
-      position: fixed;
-      top: 16px;
-      right: 16px;
-      z-index: 2147483644;
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      animation: eyeflow-fade-in 0.5s ease-out;
-    `;
-          const style = document.createElement('style');
-          style.id = 'eyeflow-proactive-style';
-          style.textContent = `
-      @keyframes eyeflow-fade-in {
-        from { opacity: 0; transform: translateY(-20px); }
-        to { opacity: 1; transform: translateY(0); }
-      }
-      #eyeflow-proactive .eyeflow-proactive-content {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 14px 20px;
-        background: rgba(249, 245, 237, 0.96);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(109, 136, 126, 0.16);
-        border-radius: 18px;
-        box-shadow: 0 16px 32px rgba(42,29,18,0.14);
-        color: #3f2f24;
-        font-size: 14px;
-        max-width: 360px;
-      }
-      #eyeflow-proactive .eyeflow-proactive-icon {
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, #6f9a8b, #53776b);
-        color: #fff8ef;
-        font-size: 12px;
-        flex-shrink: 0;
-      }
-      #eyeflow-proactive .eyeflow-proactive-dismiss {
-        padding: 6px 14px;
-        background: rgba(109,136,126,0.08);
-        border: 1px solid rgba(109,136,126,0.14);
-        border-radius: 999px;
-        color: #45685d;
-        cursor: pointer;
-        font-size: 13px;
-        white-space: nowrap;
-        transition: all 0.2s;
-      }
-      #eyeflow-proactive .eyeflow-proactive-dismiss:hover {
-        background: rgba(109,136,126,0.14);
-      }
-    `;
-          document.head.appendChild(style);
-          document.body.appendChild(proactiveElement);
-          proactiveElement.querySelector('.eyeflow-proactive-icon').textContent = 'O';
-          proactiveElement
-            .querySelector('.eyeflow-proactive-dismiss')
-            .addEventListener('click', () => {
-              if (proactiveElement) proactiveElement.remove();
-              proactiveElement = null;
-              const s = document.getElementById('eyeflow-proactive-style');
-              if (s) s.remove();
-            });
-          setTimeout(() => {
-            if (proactiveElement) proactiveElement.remove();
-            proactiveElement = null;
-            const s = document.getElementById('eyeflow-proactive-style');
-            if (s) s.remove();
-          }, 2e4);
-        }
         function startTimeTracking() {
           timeTrackingInterval = setInterval(() => {
             flushDsSiteTime();
@@ -2569,7 +2316,6 @@
                 recordActivity();
               }
               syncSessionAndSharedTimer();
-              syncDebugTimerMeta();
             },
             { passive: true }
           );
@@ -2578,7 +2324,6 @@
             () => {
               recordActivity();
               syncSessionAndSharedTimer();
-              syncDebugTimerMeta();
             },
             { passive: true }
           );
@@ -2615,10 +2360,6 @@
           resetTrackedSession();
           syncSessionAndSharedTimer();
           scrollCheckInterval = setInterval(checkForDoomScroll, SCROLL_CHECK_INTERVAL_MS);
-          if (EYEFLOW_DEBUG_CONTENT) {
-            debugTimerInterval = setInterval(updateDebugTimerChip, DEBUG_CHIP_INTERVAL_MS);
-            updateDebugTimerChip();
-          }
           startTimeTracking();
           setupMessageListener();
         }

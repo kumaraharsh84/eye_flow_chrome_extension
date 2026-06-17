@@ -426,7 +426,7 @@ Confirm the X rules match the latest product decisions.
 - [yes ] Business is off
 - [yes ] Create your Space is off
 - [yes ] Settings and privacy is off
-i would like to add one more thing i just notics this taht people can go to the follow section and then they go the anyone prgile for ex i am going to MR Beast the famous one there they have soo many post and i thnk we should treat that section also as a DS beuase you can visit to anyopne prfile who is sharing meme and there you can do the DS so i think we should check this and aslo the like sction navtion of the like scetion is like this you can go the progile scaetion at there you will find the post replies highlightartilve media and like section or we can say tab so i ithink we should also add the DS in this spefic point like scsetion beause there he have already like item so think when user get bore from DS any he want to check his regular feed so he can visit there to watch that and also all the reel post are there fav 
+  i would like to add one more thing i just notics this taht people can go to the follow section and then they go the anyone prgile for ex i am going to MR Beast the famous one there they have soo many post and i thnk we should treat that section also as a DS beuase you can visit to anyopne prfile who is sharing meme and there you can do the DS so i think we should check this and aslo the like sction navtion of the like scetion is like this you can go the progile scaetion at there you will find the post replies highlightartilve media and like section or we can say tab so i ithink we should also add the DS in this spefic point like scsetion beause there he have already like item so think when user get bore from DS any he want to check his regular feed so he can visit there to watch that and also all the reel post are there fav
 
 ## Test 10. Reddit DS Behavior
 
@@ -475,7 +475,7 @@ Confirm Facebook feed/reel/video surfaces behave correctly.
 
 ### Checklist
 
-- [yes /no i just check that home secation of facebook is not in DS but on reel viedo and groups   ] Facebook feed/reels/videos behave as DS hey i just notice that my eye break time just carsh it get stuck at 00:00 i dont how i just cleaing my grup beause i just open i my facebook id and i see that i have been join in multiple grp so i decided to leave all the georup at that time tiemr was runnign then the timer hit the zero it just get stuck even i refesh the page but still its is on 00:00 so i think may it a bug but i am not sure buease i wa just celaing i mean ust levaing all the grp  whic i have joind and this happen and also notice this that the DS timer did t start at home scetion beause the gentle remider tiemr was on so that a easy guess sople fix also and and reel scetion and group section is already on and also one more imp think i will tell if user havet join any grp so the group tab will not have any reel or any post it was like if you have joind some grp then the grp section will have reel and psot so i think it doest mantter for us on the DS timer where user can watch the reel and do time pass and there is all the all section where user can do doom scling just remind me about this that i have to check facebook again for better understand i think ther eonly one place left which was all section i will tell you about this in chat so just remidn me about that 
+- [yes /no i just check that home secation of facebook is not in DS but on reel viedo and groups ] Facebook feed/reels/videos behave as DS hey i just notice that my eye break time just carsh it get stuck at 00:00 i dont how i just cleaing my grup beause i just open i my facebook id and i see that i have been join in multiple grp so i decided to leave all the georup at that time tiemr was runnign then the timer hit the zero it just get stuck even i refesh the page but still its is on 00:00 so i think may it a bug but i am not sure buease i wa just celaing i mean ust levaing all the grp whic i have joind and this happen and also notice this that the DS timer did t start at home scetion beause the gentle remider tiemr was on so that a easy guess sople fix also and and reel scetion and group section is already on and also one more imp think i will tell if user havet join any grp so the group tab will not have any reel or any post it was like if you have joind some grp then the grp section will have reel and psot so i think it doest mantter for us on the DS timer where user can watch the reel and do time pass and there is all the all section where user can do doom scling just remind me about this that i have to check facebook again for better understand i think ther eonly one place left which was all section i will tell you about this in chat so just remidn me about that
 - [yes ] Facebook detail page gets grace
 - [yes ] Facebook messaging stays off
 
@@ -505,7 +505,7 @@ Confirm Snapchat Spotlight is treated as a strong DS surface.
 - [ ] Spotlight is DS
 - [yes ] Gentle is off on Spotlight
 - [yes ] Chat/account/profile areas stay off
-there is a big mistake in this remidn me about this in the chat scetion this need a huge update in this scetion remind like this manaer or user that i am telling you this you the feature of the 1 min reading timer that the think which in the benfit in snapchat shpotlight every reel is treaed as single post so i want that treat this a intagram reel scetion intagram reel secrtion is equal to snapchat spotlight and also add the DS on the stoires scetion buease it aslo like a DS site just remind me about this and i will share you the image then you will agre on this firstly you think this prievte and we should not add but when i will share the screenshot i think you will agree to me 
+  there is a big mistake in this remidn me about this in the chat scetion this need a huge update in this scetion remind like this manaer or user that i am telling you this you the feature of the 1 min reading timer that the think which in the benfit in snapchat shpotlight every reel is treaed as single post so i want that treat this a intagram reel scetion intagram reel secrtion is equal to snapchat spotlight and also add the DS on the stoires scetion buease it aslo like a DS site just remind me about this and i will share you the image then you will agre on this firstly you think this prievte and we should not add but when i will share the screenshot i think you will agree to me
 
 ## Test 13. LinkedIn Video / Feed Behavior
 
@@ -529,7 +529,7 @@ Confirm LinkedIn only treats feed/video surfaces as DS and leaves professional s
 
 ### Checklist
 
-- [yes / no see i check this 3 time  and it happen all the first i wasthink bug  what the hell evein i amying this i am here to find the bug so the bug was i vist to all the tab se first i open leinkind then home scetion eye break timer was couting no issuse but when i go the the network and then jobs and then message and then notification and then i  came back to home sction and i otice that the eye break tiemr was pasue then i refesh do this agin same so i think we need to fix this bug] LinkedIn feed/video behaves correctly
+- [yes / no see i check this 3 time and it happen all the first i wasthink bug what the hell evein i amying this i am here to find the bug so the bug was i vist to all the tab se first i open leinkind then home scetion eye break timer was couting no issuse but when i go the the network and then jobs and then message and then notification and then i came back to home sction and i otice that the eye break tiemr was pasue then i refesh do this agin same so i think we need to fix this bug] LinkedIn feed/video behaves correctly
 - [yes ] Messaging is off
 - [yes ] Notifications is off
 - [yes ] Jobs is off
@@ -560,7 +560,8 @@ Confirm Twitch only treats clips-style short content as DS and leaves long-form 
 - [yes ] Channel page is off
 - [no ] Clips feed is DS
 - [no ] Single clip behaves as short-content surface
-i think this very difficlut to understand may be beuse i never used the twitch tv so i think we can remove this and now lets go the thread which is ismilar to the x so remind me about this beuse i just seen in twitch tv that it is complex to user beause i havet user may i think we should keep this think on annd we will modify it and make it more better with proper taing so i think we should keep this think but we will add the thread in ourproject so remid me for adding the thdraed and i will do the testing ok then
+  i think this very difficlut to understand may be beuse i never used the twitch tv so i think we can remove this and now lets go the thread which is ismilar to the x so remind me about this beuse i just seen in twitch tv that it is complex to user beause i havet user may i think we should keep this think on annd we will modify it and make it more better with proper taing so i think we should keep this think but we will add the thread in ourproject so remid me for adding the thdraed and i will do the testing ok then
+
 ## Test 15. Single-Post Grace Rule
 
 ### Goal
@@ -593,7 +594,8 @@ Confirm supported single-post/detail pages get the 1-minute reading grace before
 - [yes ] Grace state appears
 - [yes ] Grace lasts about 1 minute
 - [yes ] DS timer starts after grace
-yes i notice one more thing everthing was perfect just one thing was off that on x and reddit i notice that if post is have playlable which direct mean viedoe media then red time was be there and if user have image in there post then read time was there but this was not in inatragm in intagram post have video has no read time and post wioth page or only images had a read time so make this think clear add one min for everythink or just remove form everythink so about this i was think that we can i we should keep the timer of one min of reading on every single post which user manul click ok but dont let is go like when user whatchh reel we can say that beause that is also the smae logic  user is on sinlge post also now what so i think lets just remove this reding timer i dont hink we need this or the best think we can do this that we can add the one min reding timer only for the iamges upload post even if that post have mutiple meida wher eonly one meida is image and all other midea is viedo our amin goal is where ever is iamges or banner somthing like that i mena only viedo post no one min reading timer if post has one image add the one min timer tell me about this in the chat 
+  yes i notice one more thing everthing was perfect just one thing was off that on x and reddit i notice that if post is have playlable which direct mean viedoe media then red time was be there and if user have image in there post then read time was there but this was not in inatragm in intagram post have video has no read time and post wioth page or only images had a read time so make this think clear add one min for everythink or just remove form everythink so about this i was think that we can i we should keep the timer of one min of reading on every single post which user manul click ok but dont let is go like when user whatchh reel we can say that beause that is also the smae logic user is on sinlge post also now what so i think lets just remove this reding timer i dont hink we need this or the best think we can do this that we can add the one min reding timer only for the iamges upload post even if that post have mutiple meida wher eonly one meida is image and all other midea is viedo our amin goal is where ever is iamges or banner somthing like that i mena only viedo post no one min reading timer if post has one image add the one min timer tell me about this in the chat
+
 ## Test 16. Eye-Break Overlay
 
 ### Goal
@@ -621,12 +623,12 @@ Confirm the main eye-break overlay feels clean, centered, and usable.
 ### Checklist
 
 - [yes ] Moving point is visible
-- [may be we can inscre it more  ] Tracking area is large enough
+- [may be we can inscre it more ] Tracking area is large enough
 - [yes ] Layout is centered
 - [yes ] No unwanted scrollbar
 - [yes but the think i that it still show this on the tab where eye tracking is open Your eyes have been working hard
-30 seconds. Look away, breathe, come back. but i have set the eye break pop for 20 sec so i think we can remove this Your eyes have been working hard
-30 seconds and make some good sapce for better are for track  ] Countdown finishes correctly
+  30 seconds. Look away, breathe, come back. but i have set the eye break pop for 20 sec so i think we can remove this Your eyes have been working hard
+  30 seconds and make some good sapce for better are for track ] Countdown finishes correctly
 
 ## Test 17. Post-Break Screen
 
@@ -666,7 +668,8 @@ Confirm the post-break screen looks clean and the break cycle does not restart t
 - [yes ] Layout fits the screen
 - [yes ] Continue browsing works
 - [yes ] Close tab and step away works
-You can keep browsing if you want. The important part was taking the pause. i thnk we should remove the unescassy part or text from the post eye break this will make more clear think we hsould not add soo many text what do you think about this 
+  You can keep browsing if you want. The important part was taking the pause. i thnk we should remove the unescassy part or text from the post eye break this will make more clear think we hsould not add soo many text what do you think about this
+
 ## Test 18. Hydration Flow
 
 ### Goal
@@ -689,7 +692,7 @@ Confirm the water reminder still works and the new default timing feels correct.
 
 ### Checklist
 
-- [yes /no not sure about this beause i just set accoing to my self so you can check from you side if its ok then upte me about this  ] Default water reminder is 1 hour
+- [yes /no not sure about this beause i just set accoing to my self so you can check from you side if its ok then upte me about this ] Default water reminder is 1 hour
 - [yes ] Hydration reminder appears correctly
 
 ## Test 19. DS Site Time Stats
@@ -738,7 +741,8 @@ Very short sessions under 1 full minute may not appear yet, because DS stats are
 - [yes ] Closing DS tab commits time correctly
 - [yes but the ui ux of shoing this is not good i mean it get mix and overlapp somethime so remember me this in chat to fix this issue] Stats ranking looks believable
 - [yes ] Old count boxes are gone
-the ui of this think is not good remind me about this in my chat 
+  the ui of this think is not good remind me about this in my chat
+
 ## Test 20. Stats Persistence
 
 ### Goal
@@ -886,7 +890,7 @@ Do one last “would a normal user trust this?” pass.
 
 - [no ] Popup feels polished
 - [ no] Overlay feels polished
-- [no need implrovemt there is a sldie baar  ] Post-break screen feels polished
+- [no need implrovemt there is a sldie baar ] Post-break screen feels polished
 - [ not sure about this] No obviously broken screen remains
 
 ## Release Decision

@@ -17,17 +17,16 @@
 // ============================================================
 
 const SITE_RULES = {
-
   // -------------------------------------------------------
   // INSTAGRAM
-  // Strong DS: Home feed, Explore, Reels
-  // Gentle:    Direct messages, single posts
-  // Suppress:  Live streams, video calls
+  // Strong DS: Home feed, Explore, Reels, Direct messages
+  // Gentle:    single posts
+  // Suppress:  Live streams, video calls, AR
   // -------------------------------------------------------
   'instagram.com': {
-    strongDS: ['/', '/explore', '/reels'],
-    gentle:   ['/p/'],
-    suppress: ['/live', '/video/call', '/ar/', '/direct']
+    strongDS: ['/', '/explore', '/reels', '/direct'],
+    gentle: ['/p/'],
+    suppress: ['/live', '/video/call', '/ar/'],
   },
 
   // -------------------------------------------------------
@@ -38,8 +37,8 @@ const SITE_RULES = {
   // -------------------------------------------------------
   'youtube.com': {
     strongDS: ['/shorts'],
-    gentle:   ['/watch'],
-    suppress: ['/live_chat', '/channel/community']
+    gentle: ['/watch'],
+    suppress: ['/live_chat', '/channel/community'],
   },
 
   // -------------------------------------------------------
@@ -50,8 +49,8 @@ const SITE_RULES = {
   // -------------------------------------------------------
   'reddit.com': {
     strongDS: ['/', '/r/', '/hot', '/new', '/top', '/rising'],
-    gentle:   ['/comments/'],
-    suppress: ['/notifications', '/settings', '/message', '/chat']
+    gentle: ['/comments/'],
+    suppress: ['/notifications', '/settings', '/message', '/chat'],
   },
 
   // -------------------------------------------------------
@@ -62,13 +61,13 @@ const SITE_RULES = {
   // -------------------------------------------------------
   'x.com': {
     strongDS: ['/home', '/explore', '/i/communities'],
-    gentle:   ['/status/', '/notifications'],
-    suppress: ['/messages', '/i/mentions']
+    gentle: ['/status/', '/notifications'],
+    suppress: ['/messages', '/i/mentions'],
   },
   'twitter.com': {
     strongDS: ['/home', '/explore'],
-    gentle:   ['/status/', '/notifications'],
-    suppress: ['/messages']
+    gentle: ['/status/', '/notifications'],
+    suppress: ['/messages'],
   },
 
   // -------------------------------------------------------
@@ -79,8 +78,8 @@ const SITE_RULES = {
   // -------------------------------------------------------
   'facebook.com': {
     strongDS: ['/', '/watch', '/groups', '/pages'],
-    gentle:   ['/notifications', '/friends'],
-    suppress: ['/messages', '/marketplace/checkout']
+    gentle: ['/notifications', '/friends'],
+    suppress: ['/messages', '/marketplace/checkout'],
   },
 
   // -------------------------------------------------------
@@ -91,8 +90,8 @@ const SITE_RULES = {
   // -------------------------------------------------------
   'tiktok.com': {
     strongDS: ['/'],
-    gentle:   [],
-    suppress: ['/messages']
+    gentle: [],
+    suppress: ['/messages'],
   },
 
   // -------------------------------------------------------
@@ -100,10 +99,10 @@ const SITE_RULES = {
   // Gentle only (not strong DS — stories are less addictive than feeds)
   // -------------------------------------------------------
   'snapchat.com': {
-    strongDS: [],
-    gentle:   ['/'],
-    suppress: ['/chat']
-  }
+    strongDS: ['/chat'],
+    gentle: ['/'],
+    suppress: [],
+  },
 };
 
 // -------------------------------------------------------

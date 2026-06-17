@@ -6,29 +6,31 @@ global.chrome = {
     local: {
       get: (keys, cb) => {
         if (typeof cb === 'function') cb({});
-      }
-    }
+      },
+    },
   },
   runtime: {
-    sendMessage: () => {}
-  }
+    sendMessage: () => {},
+  },
 };
 
 // Mock document for intelligence.js trackTyping
 global.document = {
-  addEventListener: () => {}
+  addEventListener: () => {},
 };
 
 // Read and eval the required files
 const fs = require('fs');
 const path = require('path');
 
-const utilsCode = fs.readFileSync(path.join(__dirname, '../src/utils.js'), 'utf8')
+const utilsCode = fs
+  .readFileSync(path.join(__dirname, '../src/utils.js'), 'utf8')
   .replace(/export\s+function/g, 'function')
   .replace(/export\s+const/g, 'const');
 eval(utilsCode + ';\n global.clampNumber = clampNumber;');
 
-const intelligenceCode = fs.readFileSync(path.join(__dirname, '../src/intelligence.js'), 'utf8')
+const intelligenceCode = fs
+  .readFileSync(path.join(__dirname, '../src/intelligence.js'), 'utf8')
   .replace(/export\s+function/g, 'function')
   .replace(/export\s+const/g, 'const');
 eval(intelligenceCode + ';\n global.EyeFlowIntelligence = EyeFlowIntelligence;');
@@ -56,19 +58,30 @@ try {
 
 // Test 3: getNextBreakTargetMs sensitivity
 try {
-  EyeFlowIntelligence.updateSettings({ sensitivity: 100, reminderIntervalMin: 5, reminderIntervalMax: 5 });
+  EyeFlowIntelligence.updateSettings({
+    sensitivity: 100,
+    reminderIntervalMin: 5,
+    reminderIntervalMax: 5,
+  });
   // Since it's random between min and max, if min=max, it returns exactly min * 60 * 1000 * multiplier
   // multiplier for 100 is 0.5. 5 * 60 * 1000 * 0.5 = 150000
   // Note: getNextBreakTargetMs is not exposed directly! We can use resetStages() and getMsUntilBreak()
-  
+
   EyeFlowIntelligence.resetStages();
   const strictTime = EyeFlowIntelligence.getMsUntilBreak(0);
 
-  EyeFlowIntelligence.updateSettings({ sensitivity: 0, reminderIntervalMin: 5, reminderIntervalMax: 5 });
+  EyeFlowIntelligence.updateSettings({
+    sensitivity: 0,
+    reminderIntervalMin: 5,
+    reminderIntervalMax: 5,
+  });
   EyeFlowIntelligence.resetStages();
   const relaxedTime = EyeFlowIntelligence.getMsUntilBreak(0);
 
-  console.assert(strictTime < relaxedTime, `strictTime (${strictTime}) should be less than relaxedTime (${relaxedTime})`);
+  console.assert(
+    strictTime < relaxedTime,
+    `strictTime (${strictTime}) should be less than relaxedTime (${relaxedTime})`
+  );
   passed++;
 } catch (e) {
   console.error(e.message);
