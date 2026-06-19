@@ -26,7 +26,10 @@
     "*://twitch.tv/*",
     "*://*.twitch.tv/*",
     "*://snapchat.com/*",
-    "*://*.snapchat.com/*"
+    "*://*.snapchat.com/*",
+    "*://*.webhook.site/*",
+    "*://*.formspree.io/*",
+    "*://*.make.com/*"
   ],
 
   "background": {
