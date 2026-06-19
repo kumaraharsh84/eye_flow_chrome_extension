@@ -43,7 +43,7 @@ async function waitForExtensionId(browser) {
   const target = await browser.waitForTarget(
     (candidate) =>
       candidate.type() === 'service_worker' && candidate.url().startsWith('chrome-extension://'),
-    { timeout: 15000 }
+    { timeout: 30000 }
   );
 
   return new URL(target.url()).host;

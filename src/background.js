@@ -63,7 +63,7 @@ const DEFAULT_SETTINGS = {
     'Do a quick stretch',
     'Step outside for fresh air',
   ],
-  webhookUrl: 'https://webhook.site/d550b5be-28a8-4580-85fe-b3eb3bd79101', // URL for weekly email reports
+  webhookUrl: '', // URL for weekly email reports
 };
 
 // Keep redirect suggestions ASCII-clean even if the source file contains legacy encoding artifacts.
