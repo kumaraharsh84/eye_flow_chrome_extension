@@ -1,4 +1,4 @@
-import { clampNumber } from './utils.js';
+import { clampNumber, TIMER_LIMITS as TIMER_LIMITS_BASE } from './utils.js';
 
 // ============================================================
 // POPUP.JS - EyeFlow Extension Popup Logic
@@ -12,16 +12,13 @@ import { clampNumber } from './utils.js';
 //   - Saved popup theme switching
 // ============================================================
 
-const EYEFLOW_DEBUG = false;
-
 document.addEventListener('DOMContentLoaded', () => {
+  // TIMER_LIMITS is imported from utils.js (shared with background.js).
+  // We extend it locally with hydrationReminderHours, which is a display-unit
+  // alias (hours) for the underlying storage value (minutes).
   const TIMER_LIMITS = {
-    doomReminderMin: { min: 5, max: 30, fallback: 5 },
-    doomReminderMax: { min: 5, max: 30, fallback: 5 },
-    eyeBreakDurationSec: { min: 15, max: 40, fallback: 20 },
+    ...TIMER_LIMITS_BASE,
     hydrationReminderHours: { min: 1, max: 4, fallback: 1 },
-    subtleReminderMin: { min: 20, max: 60, fallback: 20 },
-    subtleReminderMax: { min: 20, max: 60, fallback: 35 },
   };
 
   const toggleEnabled = document.getElementById('toggle-enabled');
@@ -372,16 +369,37 @@ document.addEventListener('DOMContentLoaded', () => {
     isOthers = false,
     subline = '',
   }) {
-    return `
-      <div class="popup-top-site${isPrimary ? ' is-primary' : ''}${isOthers ? ' is-others' : ''}">
-        <div class="popup-top-site-row">
-          <span class="popup-top-site-rank">${rank}</span>
-          <span class="popup-top-site-name">${site}</span>
-          <span class="popup-top-site-time">${formatSiteMinutes(minutes)}</span>
-        </div>
-        ${subline ? `<div class="popup-top-site-subline">${subline}</div>` : ''}
-      </div>
-    `;
+    const card = document.createElement('div');
+    card.className = `popup-top-site${isPrimary ? ' is-primary' : ''}${isOthers ? ' is-others' : ''}`;
+
+    const row = document.createElement('div');
+    row.className = 'popup-top-site-row';
+
+    const rankEl = document.createElement('span');
+    rankEl.className = 'popup-top-site-rank';
+    rankEl.textContent = rank;
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'popup-top-site-name';
+    nameEl.textContent = site; // textContent — safe, no XSS risk
+
+    const timeEl = document.createElement('span');
+    timeEl.className = 'popup-top-site-time';
+    timeEl.textContent = formatSiteMinutes(minutes);
+
+    row.appendChild(rankEl);
+    row.appendChild(nameEl);
+    row.appendChild(timeEl);
+    card.appendChild(row);
+
+    if (subline) {
+      const subEl = document.createElement('div');
+      subEl.className = 'popup-top-site-subline';
+      subEl.textContent = subline;
+      card.appendChild(subEl);
+    }
+
+    return card.outerHTML; // return as string to join with other cards
   }
 
   function formatSiteMinutes(minutes) {
@@ -999,24 +1017,29 @@ document.addEventListener('DOMContentLoaded', () => {
         ? suggestions
         : getDefaultRedirectSuggestions();
 
-    items.forEach((suggestion, index) => {
+    items.forEach((suggestion) => {
       const item = document.createElement('div');
       item.className = 'popup-redirect-item';
-      item.innerHTML = `
-        <span>${suggestion}</span>
-        <button class="popup-redirect-remove" data-index="${index}" title="Remove">x</button>
-      `;
-      list.appendChild(item);
-    });
 
-    list.querySelectorAll('.popup-redirect-remove').forEach((button) => {
-      button.addEventListener('click', () => {
-        button.parentElement.remove();
+      // Use textContent to safely render user-provided suggestion text (no XSS)
+      const span = document.createElement('span');
+      span.textContent = suggestion;
+
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'popup-redirect-remove';
+      removeBtn.title = 'Remove';
+      removeBtn.textContent = 'x';
+      removeBtn.addEventListener('click', () => {
+        item.remove();
         if (!list.querySelector('.popup-redirect-item')) {
           renderRedirectList(getDefaultRedirectSuggestions());
         }
         saveSettings();
       });
+
+      item.appendChild(span);
+      item.appendChild(removeBtn);
+      list.appendChild(item);
     });
   }
 
@@ -1033,17 +1056,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const input = document.getElementById('new-redirect-input');
     const list = document.getElementById('redirect-list');
     if (!input || !list) return;
-    const text = input.value.trim();
+
+    // Enforce a max length so users can't store huge strings in chrome.storage
+    const MAX_SUGGESTION_LENGTH = 120;
+    const text = input.value.trim().slice(0, MAX_SUGGESTION_LENGTH);
     if (!text) return;
 
     const item = document.createElement('div');
     item.className = 'popup-redirect-item';
-    item.innerHTML = `
-      <span>${text}</span>
-      <button class="popup-redirect-remove" title="Remove">x</button>
-    `;
 
-    item.querySelector('.popup-redirect-remove').addEventListener('click', () => {
+    // Use textContent to safely insert user-typed text (no XSS)
+    const span = document.createElement('span');
+    span.textContent = text;
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'popup-redirect-remove';
+    removeBtn.title = 'Remove';
+    removeBtn.textContent = 'x';
+    removeBtn.addEventListener('click', () => {
       item.remove();
       if (!list.querySelector('.popup-redirect-item')) {
         renderRedirectList(getDefaultRedirectSuggestions());
@@ -1051,6 +1081,8 @@ document.addEventListener('DOMContentLoaded', () => {
       saveSettings();
     });
 
+    item.appendChild(span);
+    item.appendChild(removeBtn);
     list.appendChild(item);
     input.value = '';
     saveSettings();

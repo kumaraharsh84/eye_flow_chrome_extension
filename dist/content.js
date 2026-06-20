@@ -309,19 +309,15 @@
           return site === 'youtube.com' && window.location.pathname.startsWith('/shorts');
         }
         function buildExerciseHTML(duration, isStrict, site, timeOnSite, suggestions) {
-          const breakLine = `${duration} seconds. Look away, breathe, come back.`;
           return `
       <div class="eyeflow-card eyeflow-card-exercise">
-        <div class="eyeflow-title">Your eyes have been working hard</div>
-        <div class="eyeflow-subtitle">${breakLine}</div>
-
         <!-- Eye exercise area \u2014 the dot moves here -->
         <div class="eyeflow-exercise-area">
           <div class="eyeflow-dot"></div>
         </div>
 
         <!-- Instruction text (changes during exercise) -->
-        <div class="eyeflow-instruction">${breakLine}</div>
+        <div class="eyeflow-instruction">Follow the dot with your eyes \u2014 ${duration} seconds.</div>
 
         <!-- Countdown timer -->
         <div class="eyeflow-countdown">${duration}</div>
@@ -477,20 +473,19 @@
       <div class="eyeflow-postbreak">
         <!-- Title -->
         <div class="eyeflow-kicker">Break complete</div>
-        <div class="eyeflow-title">Your eyes got a little room to breathe.</div>
-        <div class="eyeflow-subtitle">Take a second to notice how they feel before you jump back in.</div>
+        <div class="eyeflow-title">Your eyes got a moment to breathe.</div>
 
         <!-- MOOD CHECK \u2014 How are you feeling? -->
-        <div class="eyeflow-mood-title">How do your eyes feel now?</div>
+        <div class="eyeflow-mood-title">How do your eyes feel?</div>
         <div class="eyeflow-mood-options">
-          <button class="eyeflow-mood-btn" data-mood="good" title="Feeling good">\u{1F60C}</button>
-          <button class="eyeflow-mood-btn" data-mood="okay" title="Feeling okay">\xF0\u0178\u02DC\x90</button>
-          <button class="eyeflow-mood-btn" data-mood="bad" title="Feeling stressed">\u{1F624}</button>
+          <button class="eyeflow-mood-btn" data-mood="good" title="Feeling good">Good</button>
+          <button class="eyeflow-mood-btn" data-mood="okay" title="Feeling okay">Okay</button>
+          <button class="eyeflow-mood-btn" data-mood="bad" title="Feeling stressed">Strained</button>
         </div>
 
         <!-- TIME-ON-SITE ALERT \u2014 How long you've been scrolling -->
         <div class="eyeflow-time-alert">
-          You have been on <strong>${site}</strong> for <strong>${timeOnSite} minutes</strong>. You can keep going, or use this as a clean stopping point.
+          You have been on <strong>${site}</strong> for <strong>${timeOnSite} minutes</strong>.
         </div>
 
         ${hydrationSection}
@@ -506,18 +501,12 @@
         </div>
 
         <!-- REDIRECT SUGGESTIONS \u2014 What to do instead -->
-        <div class="eyeflow-redirect-title">If you want a next step, try one of these:</div>
+        <div class="eyeflow-redirect-title">Or try something different:</div>
         <div class="eyeflow-redirect-list">
           ${suggestionsHTML}
         </div>
-
-        <!-- Done message -->
-        <div class="eyeflow-done-msg">Done - back to it</div>
       </div>
     `;
-          card.querySelector('[data-mood="good"]').textContent = 'Good';
-          card.querySelector('[data-mood="okay"]').textContent = 'Okay';
-          card.querySelector('[data-mood="bad"]').textContent = 'Strained';
           const moodBtns = card.querySelectorAll('.eyeflow-mood-btn');
           moodBtns.forEach((btn) => {
             btn.addEventListener('click', () => {
@@ -652,8 +641,11 @@
   });
 
   // src/utils.js
+  var GENTLE_REMINDER_DUPLICATE_GUARD_MS;
   var init_utils = __esm({
-    'src/utils.js'() {},
+    'src/utils.js'() {
+      GENTLE_REMINDER_DUPLICATE_GUARD_MS = 15 * 1e3;
+    },
   });
 
   // src/content.js
@@ -736,7 +728,6 @@
         const HYDRATION_GENTLE_DELAY_MS = 3 * 60 * 1e3;
         const SINGLE_POST_GRACE_MS = 60 * 1e3;
         const BREAK_DUPLICATE_GUARD_MS = 10 * 1e3;
-        const GENTLE_REMINDER_DUPLICATE_GUARD_MS = 15 * 1e3;
         const SESSION_RESET_INACTIVITY_MS = 15 * 60 * 1e3;
         const SCROLL_CHECK_INTERVAL_MS = 2e3;
         let scrollEvents = [];
@@ -900,9 +891,9 @@
           return contextKey === 'youtube.com/shorts';
         }
         function recordActivity() {
-          const now2 = Date.now();
-          lastActivityAt = now2;
-          lastMeaningfulInputAt = now2;
+          const now = Date.now();
+          lastActivityAt = now;
+          lastMeaningfulInputAt = now;
         }
         function hasRecentMeaningfulInput() {
           return Date.now() - lastMeaningfulInputAt <= PRESENCE_WINDOW_MS;
@@ -947,7 +938,10 @@
           return '';
         }
         function getRedditDoomSurfaceKey() {
-          const path = (window.location.pathname || '/').toLowerCase();
+          let path = (window.location.pathname || '/').toLowerCase();
+          if (path.length > 1 && path.endsWith('/')) {
+            path = path.slice(0, -1);
+          }
           if (path.startsWith('/explore')) {
             return '';
           }
@@ -1000,12 +994,7 @@
             return '';
           }
           if (path === '/' || path === '') {
-            const feedVisible = Boolean(
-              document.querySelector(
-                '[role="feed"], div[role="feed"], [role="main"] [role="article"], div[data-pagelet*="FeedUnit"], div[data-pagelet*="MainFeed"], div[aria-posinset][role="article"]'
-              )
-            );
-            return feedVisible ? 'facebook.com/home' : '';
+            return 'facebook.com/home';
           }
           return '';
         }
@@ -1050,10 +1039,11 @@
           if (path === '/i/following' || path.startsWith('/i/connect_tab')) {
             return '';
           }
+          if (/^\/[^/]+\/likes\/?$/.test(path) || /^\/[^/]+\/media\/?$/.test(path)) {
+            return 'x.com/profile-feed';
+          }
           if (
-            /^\/[^/]+(?:\/(with_replies|media|likes|highlights|articles|followers|following))?\/?$/.test(
-              path
-            )
+            /^\/[^/]+(?:\/(with_replies|highlights|articles|followers|following))?\/?$/.test(path)
           ) {
             return '';
           }
@@ -1095,7 +1085,7 @@
             return '';
           }
           if (path.includes('/spotlight/')) {
-            return 'snapchat.com/detail';
+            return 'snapchat.com/spotlight';
           }
           if (path.startsWith('/spotlight')) {
             return 'snapchat.com/spotlight';
@@ -1303,6 +1293,11 @@
           }
           if (contextChanged && lastContextKey && lastContextKey !== contextKey) {
             flushDsSiteTime();
+            if (contextKey && !lastContextKey) {
+              lastMeaningfulInputAt = Date.now();
+              lastActivityAt = Date.now();
+              sharedDsState.lastSyncedAt = Date.now();
+            }
           }
           if (isSinglePostGraceContextKey(contextKey)) {
             if (singlePostGraceContextKey !== contextKey) {
@@ -1504,21 +1499,21 @@
           return shouldCountUsageTime();
         }
         function syncActiveSession() {
-          const now2 = Date.now();
+          const now = Date.now();
           const isUsageActiveNow2 = shouldCountUsageTime();
           const isDsActiveNow = shouldCountActiveTime();
           if (isUsageActiveNow2 && !totalUsageStartedAt) {
-            totalUsageStartedAt = now2;
+            totalUsageStartedAt = now;
           } else if (!isUsageActiveNow2 && totalUsageStartedAt) {
-            totalActiveUsageMs += now2 - totalUsageStartedAt;
+            totalActiveUsageMs += now - totalUsageStartedAt;
             totalUsageStartedAt = 0;
           }
           if (isDsActiveNow && !activeSessionStartedAt) {
-            activeSessionStartedAt = now2;
+            activeSessionStartedAt = now;
             return;
           }
           if (!isDsActiveNow && activeSessionStartedAt) {
-            const elapsed = now2 - activeSessionStartedAt;
+            const elapsed = now - activeSessionStartedAt;
             activeSiteMs += elapsed;
             activeSessionStartedAt = 0;
             if (typeof EyeFlowIntelligence !== 'undefined') {
@@ -1533,7 +1528,7 @@
           }
           return activeSiteMs + (Date.now() - activeSessionStartedAt);
         }
-        function getEstimatedSharedDsActiveMs(now2 = Date.now()) {
+        function getEstimatedSharedDsActiveMs(now = Date.now()) {
           const baseActiveMs = sharedDsState.activeMs || 0;
           if (!shouldCountActiveTime()) {
             return baseActiveMs;
@@ -1541,7 +1536,7 @@
           if (!sharedDsState.lastSyncedAt) {
             return baseActiveMs;
           }
-          return baseActiveMs + Math.max(0, now2 - sharedDsState.lastSyncedAt);
+          return baseActiveMs + Math.max(0, now - sharedDsState.lastSyncedAt);
         }
         function getBreakCycleMs() {
           return getEstimatedSharedDsActiveMs();
@@ -1563,7 +1558,7 @@
           lastDoomScrollTime = Date.now();
         }
         function maybeResetSessionAfterLongGap() {
-          const now2 = Date.now();
+          const now = Date.now();
           const lastPresenceAt = Math.max(
             lastActivityAt || 0,
             lastMeaningfulInputAt || 0,
@@ -1571,15 +1566,15 @@
             totalUsageStartedAt || 0
           );
           if (!lastPresenceAt) return;
-          if (now2 - lastPresenceAt < SESSION_RESET_INACTIVITY_MS) return;
+          if (now - lastPresenceAt < SESSION_RESET_INACTIVITY_MS) return;
           resetTrackedSession();
           sharedDsState.activeMs = 0;
           sharedDsState.nextBreakTargetMs = EyeFlowIntelligence.getNextBreakTargetMs();
           sharedDsState.isActive = false;
           sharedDsState.contextKey = '';
           sharedDsState.activeTabId = 0;
-          sharedDsState.lastSyncedAt = now2;
-          lastDoomScrollTime = now2;
+          sharedDsState.lastSyncedAt = now;
+          lastDoomScrollTime = now;
         }
         function resetHydrationTimer() {
           hydrationMergedIntoNextBreak = false;
@@ -1604,13 +1599,13 @@
         function syncSharedDsTimer() {
           if (sharedDsSyncInFlight) return;
           try {
-            const now2 = Date.now();
+            const now = Date.now();
             const isActiveNow = shouldCountActiveTime();
-            const estimatedActiveMs = getEstimatedSharedDsActiveMs(now2);
+            const estimatedActiveMs = getEstimatedSharedDsActiveMs(now);
             sharedDsState.activeMs = estimatedActiveMs;
             sharedDsState.isActive = isActiveNow;
             sharedDsState.contextKey = isActiveNow ? getDoomScrollContextKey() : '';
-            sharedDsState.lastSyncedAt = now2;
+            sharedDsState.lastSyncedAt = now;
             sharedDsSyncInFlight = true;
             chrome.runtime.sendMessage(
               {
@@ -1648,26 +1643,12 @@
           }
           return `${minutes}:${String(seconds).padStart(2, '0')}`;
         }
-        const now = Date.now();
         function shouldMergeHydrationIntoBreak() {
           return isHydrationDue() && getMsUntilEyeBreak() <= HYDRATION_EYE_MERGE_WINDOW_MS;
         }
-        function maybeTriggerGentleReminderFailsafe() {
-          if (isDoomScrollContext()) return;
-          if (Date.now() - lastGentleReminderFallbackAt < 15e3) return;
-          if (Date.now() - lastGentleReminderShownAt < GENTLE_REMINDER_DUPLICATE_GUARD_MS) return;
-          if (!canShowGentleReminderWithPassiveVideoSupport()) return;
-          lastGentleReminderFallbackAt = Date.now();
-          const reminderShown = showGentleReminder();
-          if (!reminderShown) return;
-          acknowledgeLocalGentleReminder();
-          try {
-            chrome.runtime.sendMessage({ type: 'GENTLE_REMINDER_SHOWN' });
-          } catch (e) {}
-        }
-        function acknowledgeLocalGentleReminder(now2 = Date.now()) {
-          lastGentleReminderShownAt = now2;
-          lastGentleReminderFallbackAt = now2;
+        function acknowledgeLocalGentleReminder(now = Date.now()) {
+          lastGentleReminderShownAt = now;
+          lastGentleReminderFallbackAt = now;
         }
         function isHydrationDue() {
           if (!hydrationTargetMs) return false;
@@ -1752,14 +1733,14 @@
         }
         function handleScroll(event) {
           if (!isActive) return;
-          const now2 = Date.now();
-          if (now2 - lastScrollSignalAt < 120) return;
-          lastScrollSignalAt = now2;
+          const now = Date.now();
+          if (now - lastScrollSignalAt < 120) return;
+          lastScrollSignalAt = now;
           if (!isMeaningfulScrollSignal(event)) return;
-          scrollEvents.push(now2);
+          scrollEvents.push(now);
           recordActivity();
           const timeWindow = EyeFlowIntelligence.getTimeWindow(getHostname());
-          scrollEvents = scrollEvents.filter((t) => now2 - t < timeWindow);
+          scrollEvents = scrollEvents.filter((t) => now - t < timeWindow);
           if (scrollEvents.length > 250) {
             scrollEvents = scrollEvents.slice(-250);
           }
@@ -1783,7 +1764,7 @@
           if (!isActive) return;
           if (!isTabActivelyVisible()) return;
           const hostname = getHostname();
-          const now2 = Date.now();
+          const now = Date.now();
           if (EyeFlowIntelligence.isSingleVideoPage()) return;
           if (isDoomScrollContext()) {
             const isBreakDue =
@@ -1798,8 +1779,8 @@
                 tryShowHydrationPopup();
                 return;
               }
-              if (now2 - lastDoomScrollTime < 5e3) return;
-              lastDoomScrollTime = now2;
+              if (now - lastDoomScrollTime < 5e3) return;
+              lastDoomScrollTime = now;
               showStageInterruption('break', hostname);
               return;
             }
@@ -1837,9 +1818,9 @@
           if (isDoomScrollContext()) {
             const scrollThreshold = EyeFlowIntelligence.getScrollThreshold(hostname);
             const timeWindow = EyeFlowIntelligence.getTimeWindow(hostname);
-            const recentScrollCount = scrollEvents.filter((t) => now2 - t < timeWindow).length;
-            if (recentScrollCount >= scrollThreshold && now2 - lastDoomScrollTime > 5e3) {
-              lastDoomScrollTime = now2;
+            const recentScrollCount = scrollEvents.filter((t) => now - t < timeWindow).length;
+            if (recentScrollCount >= scrollThreshold && now - lastDoomScrollTime > 5e3) {
+              lastDoomScrollTime = now;
               scrollEvents = [];
               resetBreakCycle();
               showStageInterruption('break', hostname);
@@ -1851,8 +1832,8 @@
             )
               return;
             const stage = 'break';
-            if (now2 - lastDoomScrollTime < 5e3) return;
-            lastDoomScrollTime = now2;
+            if (now - lastDoomScrollTime < 5e3) return;
+            lastDoomScrollTime = now;
             showStageInterruption(stage, hostname);
             return;
           }
@@ -2137,7 +2118,10 @@
         function showGentleReminder(options = {}) {
           const overlayShowing =
             typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing();
-          if (!canShowGentleReminderWithPassiveVideoSupport() || overlayShowing) {
+          if (
+            !options.force &&
+            (!canShowGentleReminderWithPassiveVideoSupport() || overlayShowing)
+          ) {
             return false;
           }
           if (Date.now() - lastGentleReminderShownAt < GENTLE_REMINDER_DUPLICATE_GUARD_MS) {
@@ -2241,9 +2225,10 @@
               }
               if (message.type === 'RESET_SESSION_TIMERS') {
                 resetSessionTimersFromBackground(message.snapshot);
+                sharedDsState.lastSyncedAt = Date.now();
               }
               if (message.type === 'SHOW_GENTLE_REMINDER') {
-                if (showGentleReminder()) {
+                if (showGentleReminder(message)) {
                   acknowledgeLocalGentleReminder();
                 }
               }

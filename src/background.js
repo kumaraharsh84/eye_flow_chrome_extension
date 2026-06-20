@@ -1,18 +1,4 @@
-import { clampNumber } from './utils.js';
-
-// ============================================================
-// BACKGROUND.JS — EyeFlow Chrome Extension
-// ============================================================
-// This is the "brain" of the extension. It runs in the background
-// and manages everything:
-//   - Receiving doom-scroll alerts from content.js
-//   - Managing timers (snooze, alarms)
-//   - Storing/retrieving settings from Chrome storage
-//   - Coordinating between popup.js and content.js
-//   - Tracking stats (doom scrolls blocked, breaks taken, etc.)
-// ============================================================
-
-const EYEFLOW_DEBUG = false;
+import { clampNumber, TIMER_LIMITS } from './utils.js';
 
 // -------------------------------------------------------
 // DEFAULT SETTINGS
@@ -61,19 +47,11 @@ const DEFAULT_SETTINGS = {
     'Take a short walk',
     'Drink a glass of water',
     'Do a quick stretch',
+    'Read a book for 5 min',
     'Step outside for fresh air',
   ],
   webhookUrl: '', // URL for weekly email reports
 };
-
-// Keep redirect suggestions ASCII-clean even if the source file contains legacy encoding artifacts.
-DEFAULT_SETTINGS.redirectSuggestions = [
-  'Take a short walk',
-  'Drink a glass of water',
-  'Do a quick stretch',
-  'Read a book for 5 min',
-  'Step outside for fresh air',
-];
 
 // -------------------------------------------------------
 // DEFAULT STATS (tracked data)
@@ -150,7 +128,6 @@ const SHARED_DS_PAUSE_REASONS = Object.freeze({
   BREAK_FLOW: 'break_flow',
 });
 
-const GENTLE_REMINDER_DUPLICATE_GUARD_MS = 15 * 1000;
 const SOUND_REMINDER_FOLLOWUP_MS = 10 * 60 * 1000;
 const WATER_REMIND_SOON_DELAY_MS = 3 * 60 * 1000;
 const WATER_PENDING_TIMEOUT_MS = 2 * 60 * 1000;
@@ -166,17 +143,37 @@ const DOOM_SCROLL_HOSTS = new Set([
   'x.com',
 ]);
 
-const TIMER_LIMITS = {
-  doomReminderMin: { min: 5, max: 30, fallback: DEFAULT_SETTINGS.reminderIntervalMin },
-  doomReminderMax: { min: 5, max: 30, fallback: DEFAULT_SETTINGS.reminderIntervalMax },
-  eyeBreakDurationSec: { min: 15, max: 40, fallback: DEFAULT_SETTINGS.eyeBreakDurationSec },
-  hydrationReminderMin: { min: 60, max: 240, fallback: DEFAULT_SETTINGS.hydrationReminderMin },
-  subtleReminderMin: { min: 20, max: 60, fallback: DEFAULT_SETTINGS.subtleReminderMin },
-  subtleReminderMax: { min: 20, max: 60, fallback: DEFAULT_SETTINGS.subtleReminderMax },
-};
-
 // -------------------------------------------------------
-// ON INSTALL — Set up defaults
+// UTILITY HELPERS
+// -------------------------------------------------------
+
+/**
+ * Wraps chrome.storage.local.set with error logging.
+ * Silent failures on a full quota or invalidated context are easy to miss;
+ * this surfaces them without crashing the extension.
+ */
+function safeStorageSet(data) {
+  return new Promise((resolve) => {
+    chrome.storage.local.set(data, () => {
+      if (chrome.runtime.lastError) {
+        console.warn('[EyeFlow] storage write failed:', chrome.runtime.lastError.message);
+      }
+      resolve();
+    });
+  });
+}
+
+/**
+ * Returns a copy of settings safe to send to a content script.
+ * Content scripts run inside arbitrary web pages, so sensitive fields
+ * like the webhook URL must be stripped before transmission.
+ */
+function buildSafeSettingsForContent(settings) {
+  // eslint-disable-next-line no-unused-vars
+  const { webhookUrl, ...safeSettings } = settings;
+  return safeSettings;
+}
+
 // -------------------------------------------------------
 // When the extension is installed for the first time,
 // save the default settings and stats to Chrome storage.
@@ -323,7 +320,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       if (!runtimeState.sharedDsNextBreakTargetMs) {
         runtimeState.sharedDsNextBreakTargetMs = getNextSharedBreakTargetMs(settings);
-        chrome.storage.local.set({ runtimeState });
+        safeStorageSet({ runtimeState });
       }
 
       sendResponse(getSharedDsSnapshot(runtimeState));
@@ -357,7 +354,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         !runtimeState.waterQueuedForNextBreak
       ) {
         runtimeState.nextWaterReminderAt = Date.now() + getWaterDelayMs(settings);
-        chrome.storage.local.set({ runtimeState });
+        safeStorageSet({ runtimeState });
       }
       sendResponse({
         enabled: settings.enabled,
@@ -423,7 +420,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
       }
 
-      chrome.storage.local.set({ runtimeState }, () => {
+      safeStorageSet({ runtimeState }).then(() => {
         sendResponse(getSharedDsSnapshot(runtimeState));
       });
     });
@@ -452,7 +449,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         clearRuntimeStateForDisabled(runtimeState);
       }
 
-      chrome.storage.local.set({ settings, runtimeState }, () => {
+      safeStorageSet({ settings, runtimeState }).then(() => {
         sendResponse({ success: true });
       });
     });
@@ -508,13 +505,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       runtimeState.lastPrimaryInterventionAt = 0;
       runtimeState.nextSoundReminderAt = 0;
 
-      chrome.storage.local.set({ stats, runtimeState });
+      safeStorageSet({ stats, runtimeState });
 
-      // Tell the content script what stage of interruption to show
+      // Tell the content script what stage of interruption to show.
+      // Strip sensitive fields (e.g. webhookUrl) before sending settings to
+      // a content script — it runs inside the page and should not receive
+      // server credentials or private config.
+      const safeSettings = buildSafeSettingsForContent(settings);
       sendResponse({
         action: 'INTERVENE',
         stage: message.stage || 'nudge', // nudge, warning, or break
-        settings: settings,
+        settings: safeSettings,
       });
     });
     return true;
@@ -530,7 +531,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       stats.weekEyeBreaksCompleted++;
       stats.lastBreakTime = Date.now();
 
-      chrome.storage.local.set({ stats });
+      safeStorageSet({ stats });
       sendResponse({ success: true });
     });
     return true;
@@ -551,7 +552,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       runtimeState.sharedDsState = SHARED_DS_TIMER_STATES.PAUSED;
       runtimeState.sharedDsPauseReason = SHARED_DS_PAUSE_REASONS.BREAK_FLOW;
 
-      chrome.storage.local.set({ runtimeState });
+      safeStorageSet({ runtimeState });
       sendResponse({ success: true });
     });
     return true;
@@ -568,7 +569,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       runtimeState.waterReminderPendingSince = 0;
       runtimeState.waterQueuedForNextBreak = false;
 
-      chrome.storage.local.set({ runtimeState });
+      safeStorageSet({ runtimeState });
       sendResponse({ success: true });
     });
     return true;
@@ -584,7 +585,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       runtimeState.waterReminderPendingSince = 0;
       runtimeState.waterQueuedForNextBreak = false;
 
-      chrome.storage.local.set({ runtimeState });
+      safeStorageSet({ runtimeState });
       sendResponse({ success: true });
     });
     return true;
@@ -599,7 +600,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       runtimeState.lastGentleReminderAt = now;
       scheduleNextGentleReminder(runtimeState, settings, now);
 
-      chrome.storage.local.set({ runtimeState });
+      safeStorageSet({ runtimeState });
       sendResponse({ success: true });
     });
     return true;
@@ -621,7 +622,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         stats.moodHistory = stats.moodHistory.slice(-100);
       }
 
-      chrome.storage.local.set({ stats });
+      safeStorageSet({ stats });
       sendResponse({ success: true });
     });
     return true;
@@ -639,7 +640,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         const runtimeState = mergeRuntimeState(runtimeResult.runtimeState);
         pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.SNOOZE, now);
         runtimeState.nextSoundReminderAt = 0;
-        chrome.storage.local.set({ settings, runtimeState });
+        safeStorageSet({ settings, runtimeState });
 
         // Notify all tabs that snooze is active
         broadcastToAllTabs({ type: 'SNOOZE_STARTED', until: settings.snoozedUntil });
@@ -659,7 +660,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (!runtimeState.sharedDsIsActive) {
         resumeGentleReminder(runtimeState, now);
       }
-      chrome.storage.local.set({ settings, runtimeState });
+      safeStorageSet({ settings, runtimeState });
 
       broadcastToAllTabs({ type: 'SNOOZE_ENDED' });
       sendResponse({ success: true });
@@ -713,7 +714,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 async function runAmbientReminderTick(settings, runtimeState, now) {
   if (!settings.enabled) {
     clearRuntimeStateForDisabled(runtimeState);
-    await chrome.storage.local.set({ runtimeState });
+    await safeStorageSet({ runtimeState });
     return;
   }
 
@@ -759,7 +760,7 @@ async function runAmbientReminderTick(settings, runtimeState, now) {
   if (isSnoozed) {
     pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.SNOOZE, now);
     runtimeState.nextSoundReminderAt = 0;
-    await chrome.storage.local.set({ runtimeState });
+    await safeStorageSet({ runtimeState });
     return;
   }
 
@@ -767,7 +768,7 @@ async function runAmbientReminderTick(settings, runtimeState, now) {
   if (!chromeState.hasChromeWindow) {
     pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.NO_WINDOW, now);
     runtimeState.nextSoundReminderAt = 0;
-    await chrome.storage.local.set({ runtimeState });
+    await safeStorageSet({ runtimeState });
     return;
   }
 
@@ -776,20 +777,20 @@ async function runAmbientReminderTick(settings, runtimeState, now) {
 
     if (!settings.subtleReminderEnabled) {
       setGentleReminderOff(runtimeState, GENTLE_PAUSE_REASONS.FEATURE_OFF);
-      await chrome.storage.local.set({ runtimeState });
+      await safeStorageSet({ runtimeState });
       return;
     }
 
     if (runtimeState.sharedDsIsActive) {
       pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.DS_ACTIVE, now);
-      await chrome.storage.local.set({ runtimeState });
+      await safeStorageSet({ runtimeState });
       return;
     }
 
     const { pageContext } = await getActiveTabReminderContext();
     if (pageContext && pageContext.isUsageActive === false) {
       pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.INACTIVE, now);
-      await chrome.storage.local.set({ runtimeState });
+      await safeStorageSet({ runtimeState });
       return;
     }
 
@@ -801,9 +802,19 @@ async function runAmbientReminderTick(settings, runtimeState, now) {
       runtimeState.gentleState = GENTLE_TIMER_STATES.DUE;
       runtimeState.gentlePauseReason = GENTLE_PAUSE_REASONS.NONE;
       const reminderShown = await sendGentleReminderToActiveTab();
-      scheduleNextGentleReminder(runtimeState, settings, now);
       if (reminderShown) {
+        // Reminder was shown — schedule the next fresh cycle
+        scheduleNextGentleReminder(runtimeState, settings, now);
         runtimeState.lastGentleReminderAt = now;
+      } else {
+        // Reminder could NOT be shown (inactive, DS active, etc.) —
+        // Don't reschedule a fresh full interval. Instead, keep the state as
+        // paused/due so it retries on the very next tick when activity resumes.
+        runtimeState.gentleState = GENTLE_TIMER_STATES.PAUSED;
+        runtimeState.gentlePauseReason = GENTLE_PAUSE_REASONS.INACTIVE;
+        // Small remaining so it fires quickly once the user becomes active again
+        runtimeState.gentlePausedRemainingMs = 5 * 1000;
+        runtimeState.nextGentleReminderAt = 0;
       }
     } else {
       runtimeState.gentleState = GENTLE_TIMER_STATES.RUNNING;
@@ -812,7 +823,7 @@ async function runAmbientReminderTick(settings, runtimeState, now) {
   } else {
     if (!settings.soundReminderEnabled) {
       runtimeState.nextSoundReminderAt = 0;
-      await chrome.storage.local.set({ runtimeState });
+      await safeStorageSet({ runtimeState });
       return;
     }
 
@@ -831,7 +842,7 @@ async function runAmbientReminderTick(settings, runtimeState, now) {
     }
   }
 
-  await chrome.storage.local.set({ runtimeState });
+  await safeStorageSet({ runtimeState });
 }
 
 function setGentleReminderOff(runtimeState, reason = GENTLE_PAUSE_REASONS.DISABLED) {
@@ -1230,6 +1241,9 @@ function isLikelyDoomScrollUrl(url) {
       )
         return true;
       if (pathname.includes('/status/')) return true;
+      // Profile likes and media tabs are DS surfaces
+      if (/^\/[^/]+\/likes\/?$/.test(pathname)) return true;
+      if (/^\/[^/]+\/media\/?$/.test(pathname)) return true;
       return false;
     }
 
@@ -1442,7 +1456,7 @@ function ensureDefaults({ freshSession = false } = {}) {
       runtimeState.nextWaterReminderAt = Date.now() + getWaterDelayMs(settings);
     }
 
-    chrome.storage.local.set({
+    safeStorageSet({
       settings,
       stats: mergeStats(result.stats),
       runtimeState,
@@ -1472,7 +1486,7 @@ async function resetRuntimeStateForFreshSession(reason = 'manual') {
   const now = Date.now();
 
   resetRuntimeStateFields(runtimeState, settings, now);
-  await chrome.storage.local.set({ runtimeState });
+  await safeStorageSet({ runtimeState });
   broadcastRuntimeReset(runtimeState);
 }
 
@@ -1571,7 +1585,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     runtimeState.sharedDsState = SHARED_DS_TIMER_STATES.PAUSED;
     runtimeState.sharedDsPauseReason = SHARED_DS_PAUSE_REASONS.INACTIVE;
 
-    chrome.storage.local.set({ runtimeState });
+    safeStorageSet({ runtimeState });
   });
 });
 

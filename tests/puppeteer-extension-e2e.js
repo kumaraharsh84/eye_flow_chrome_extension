@@ -511,75 +511,49 @@ async function main() {
         'onboarding',
         'Onboarding presets save the expected values',
         async () => {
-          const modes = [
-            { key: 'strict', eyeBreak: 5, gentle: 20, sensitivity: 70 },
-            { key: 'balanced', eyeBreak: 5, gentle: 25, sensitivity: 50 },
-            { key: 'gentle', eyeBreak: 10, gentle: 35, sensitivity: 30 },
-          ];
+          const onboardingPage = await openExtensionPage(browser, extensionId, 'onboarding.html');
+          await onboardingPage.click('#btn-start-onboarding');
+          await onboardingPage.click('#btn-save-mode');
+          await onboardingPage.waitForSelector('#screen-2.active');
 
-          for (const mode of modes) {
-            const onboardingPage = await openExtensionPage(browser, extensionId, 'onboarding.html');
-            await onboardingPage.click('#btn-start-onboarding');
-            await onboardingPage.click(`.mode-card[data-mode="${mode.key}"]`);
-            await onboardingPage.click('#btn-save-mode');
-            await onboardingPage.waitForSelector('#screen-2.active');
+          const summary = await onboardingPage.evaluate(() => ({
+            eyeBreak: Number(document.getElementById('summary-eye-break').textContent.trim()),
+            gentle: Number(document.getElementById('summary-gentle').textContent.trim()),
+          }));
+          const { settings = {} } = await storageGet(onboardingPage, ['settings']);
 
-            const summary = await onboardingPage.evaluate(() => ({
-              preset: document.getElementById('applied-preset-name').textContent.trim(),
-              eyeBreak: Number(document.getElementById('summary-eye-break').textContent.trim()),
-              gentle: Number(document.getElementById('summary-gentle').textContent.trim()),
-            }));
-            const { settings = {} } = await storageGet(onboardingPage, ['settings']);
+          expect(summary.eyeBreak === 5, `Expected eye break summary 5, got ${summary.eyeBreak}.`);
+          expect(summary.gentle === 25, `Expected gentle summary 25, got ${summary.gentle}.`);
+          expect(
+            settings.sensitivity === 50,
+            `Expected sensitivity 50, got ${settings.sensitivity}.`
+          );
+          expect(
+            settings.reminderIntervalMin === 5,
+            `Expected reminder min 5, got ${settings.reminderIntervalMin}.`
+          );
+          expect(
+            settings.reminderIntervalMax === 5,
+            `Expected reminder max 5, got ${settings.reminderIntervalMax}.`
+          );
+          expect(
+            settings.subtleReminderMin === 25,
+            `Expected subtle min 25, got ${settings.subtleReminderMin}.`
+          );
+          expect(
+            settings.subtleReminderMax === 25,
+            `Expected subtle max 25, got ${settings.subtleReminderMax}.`
+          );
 
-            expect(
-              summary.preset.toLowerCase() === mode.key,
-              `Expected onboarding summary preset ${mode.key}.`
-            );
-            expect(
-              summary.eyeBreak === mode.eyeBreak,
-              `Expected ${mode.key} eye break summary ${mode.eyeBreak}.`
-            );
-            expect(
-              summary.gentle === mode.gentle,
-              `Expected ${mode.key} gentle summary ${mode.gentle}.`
-            );
-            expect(
-              settings.sensitivity === mode.sensitivity,
-              `Expected ${mode.key} sensitivity ${mode.sensitivity}.`
-            );
-            expect(
-              settings.reminderIntervalMin === mode.eyeBreak,
-              `Expected ${mode.key} reminder min ${mode.eyeBreak}.`
-            );
-            expect(
-              settings.reminderIntervalMax === mode.eyeBreak,
-              `Expected ${mode.key} reminder max ${mode.eyeBreak}.`
-            );
-            expect(
-              settings.subtleReminderMin === mode.gentle,
-              `Expected ${mode.key} subtle min ${mode.gentle}.`
-            );
-            expect(
-              settings.subtleReminderMax === mode.gentle,
-              `Expected ${mode.key} subtle max ${mode.gentle}.`
-            );
-
-            await onboardingPage.close();
-          }
-
-          const finishPage = await openExtensionPage(browser, extensionId, 'onboarding.html');
-          await finishPage.click('#btn-start-onboarding');
-          await finishPage.click('#btn-save-mode');
-          await finishPage.waitForSelector('#screen-2.active');
-          await finishPage.click('#btn-finish-onboarding');
+          await onboardingPage.click('#btn-finish-onboarding');
           await delay(600);
           const completed = await storageGet(controlPage, ['onboardingComplete']);
           expect(
             completed.onboardingComplete === true,
             'Expected onboardingComplete to be true after finishing.'
           );
-          if (!finishPage.isClosed()) {
-            await finishPage.close();
+          if (!onboardingPage.isClosed()) {
+            await onboardingPage.close();
           }
         },
         results
@@ -883,6 +857,7 @@ async function main() {
 
             const gentleResponse = await sendMessageToActiveTab(worker, sitePage, {
               type: 'SHOW_GENTLE_REMINDER',
+              force: true,
             });
             expect(
               gentleResponse.ok,

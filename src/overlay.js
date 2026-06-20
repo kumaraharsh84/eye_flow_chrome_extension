@@ -13,8 +13,6 @@ import { EyeFlowIntelligence } from './intelligence.js';
 //   6. Strict enforcement - hides the skip button on high-risk sites
 // ============================================================
 
-const EYEFLOW_DEBUG_OVERLAY = false;
-
 // -------------------------------------------------------
 // EYEFLOW OVERLAY — Main overlay controller
 // -------------------------------------------------------
@@ -152,19 +150,15 @@ export const EyeFlowOverlay = (() => {
   // BUILD EXERCISE HTML — Create the exercise screen HTML
   // -------------------------------------------------------
   function buildExerciseHTML(duration, isStrict, site, timeOnSite, suggestions) {
-    const breakLine = `${duration} seconds. Look away, breathe, come back.`;
     return `
       <div class="eyeflow-card eyeflow-card-exercise">
-        <div class="eyeflow-title">Your eyes have been working hard</div>
-        <div class="eyeflow-subtitle">${breakLine}</div>
-
         <!-- Eye exercise area — the dot moves here -->
         <div class="eyeflow-exercise-area">
           <div class="eyeflow-dot"></div>
         </div>
 
         <!-- Instruction text (changes during exercise) -->
-        <div class="eyeflow-instruction">${breakLine}</div>
+        <div class="eyeflow-instruction">Follow the dot with your eyes — ${duration} seconds.</div>
 
         <!-- Countdown timer -->
         <div class="eyeflow-countdown">${duration}</div>
@@ -374,20 +368,19 @@ export const EyeFlowOverlay = (() => {
       <div class="eyeflow-postbreak">
         <!-- Title -->
         <div class="eyeflow-kicker">Break complete</div>
-        <div class="eyeflow-title">Your eyes got a little room to breathe.</div>
-        <div class="eyeflow-subtitle">Take a second to notice how they feel before you jump back in.</div>
+        <div class="eyeflow-title">Your eyes got a moment to breathe.</div>
 
         <!-- MOOD CHECK — How are you feeling? -->
-        <div class="eyeflow-mood-title">How do your eyes feel now?</div>
+        <div class="eyeflow-mood-title">How do your eyes feel?</div>
         <div class="eyeflow-mood-options">
-          <button class="eyeflow-mood-btn" data-mood="good" title="Feeling good">😌</button>
-          <button class="eyeflow-mood-btn" data-mood="okay" title="Feeling okay">ðŸ˜</button>
-          <button class="eyeflow-mood-btn" data-mood="bad" title="Feeling stressed">😤</button>
+          <button class="eyeflow-mood-btn" data-mood="good" title="Feeling good">Good</button>
+          <button class="eyeflow-mood-btn" data-mood="okay" title="Feeling okay">Okay</button>
+          <button class="eyeflow-mood-btn" data-mood="bad" title="Feeling stressed">Strained</button>
         </div>
 
         <!-- TIME-ON-SITE ALERT — How long you've been scrolling -->
         <div class="eyeflow-time-alert">
-          You have been on <strong>${site}</strong> for <strong>${timeOnSite} minutes</strong>. You can keep going, or use this as a clean stopping point.
+          You have been on <strong>${site}</strong> for <strong>${timeOnSite} minutes</strong>.
         </div>
 
         ${hydrationSection}
@@ -403,18 +396,12 @@ export const EyeFlowOverlay = (() => {
         </div>
 
         <!-- REDIRECT SUGGESTIONS — What to do instead -->
-        <div class="eyeflow-redirect-title">If you want a next step, try one of these:</div>
+        <div class="eyeflow-redirect-title">Or try something different:</div>
         <div class="eyeflow-redirect-list">
           ${suggestionsHTML}
         </div>
-
-        <!-- Done message -->
-        <div class="eyeflow-done-msg">Done - back to it</div>
       </div>
     `;
-    card.querySelector('[data-mood="good"]').textContent = 'Good';
-    card.querySelector('[data-mood="okay"]').textContent = 'Okay';
-    card.querySelector('[data-mood="bad"]').textContent = 'Strained';
 
     // --- Mood button handlers ---
     // When user taps a mood emoji, save it and highlight the selection

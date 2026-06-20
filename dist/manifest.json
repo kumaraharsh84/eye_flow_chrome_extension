@@ -36,7 +36,7 @@
     "service_worker": "background.js"
   },
 
-  "incognito": "spanning",
+  "incognito": "split",
 
   "content_scripts": [
     {

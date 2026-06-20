@@ -323,6 +323,28 @@
       </div>
     </div>
 
+    <div class="popup-card popup-collapsible">
+      <div class="popup-card-title popup-collapse-toggle" id="toggle-redirects">
+        Redirect Suggestions <span class="popup-collapse-icon">></span>
+      </div>
+      <div class="popup-collapse-content" id="redirects-content" style="display: none">
+        <div class="popup-card-desc">
+          Add or remove suggestions for what to do instead of scrolling.
+        </div>
+        <div class="popup-add-site">
+          <input
+            type="text"
+            id="new-redirect-input"
+            class="popup-input"
+            placeholder="Type a suggestion..."
+            style="flex: 1"
+          />
+          <button class="popup-add-btn" id="add-redirect-btn" type="button">+</button>
+        </div>
+        <div class="popup-redirect-list" id="redirect-list"></div>
+      </div>
+    </div>
+
     <div class="popup-card popup-stats-card popup-collapsible">
       <div class="popup-card-title popup-collapse-toggle" id="toggle-stats">
         Your Stats <span class="popup-collapse-icon">></span>

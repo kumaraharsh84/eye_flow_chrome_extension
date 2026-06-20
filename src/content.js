@@ -1,6 +1,6 @@
 import { EyeFlowIntelligence } from './intelligence.js';
 import { EyeFlowOverlay } from './overlay.js';
-import { clampNumber } from './utils.js';
+import { clampNumber, GENTLE_REMINDER_DUPLICATE_GUARD_MS } from './utils.js';
 
 // ============================================================
 // CONTENT.JS — EyeFlow Doom-Scroll Detection
@@ -94,8 +94,7 @@ const EyeFlowContent = (() => {
   const HYDRATION_REMIND_SOON_WINDOW_MS = 5 * 60 * 1000;
   const HYDRATION_GENTLE_DELAY_MS = 3 * 60 * 1000;
   const SINGLE_POST_GRACE_MS = 60 * 1000;
-  const BREAK_DUPLICATE_GUARD_MS = 10 * 1000;
-  const GENTLE_REMINDER_DUPLICATE_GUARD_MS = 15 * 1000;
+  const BREAK_DUPLICATE_GUARD_MS = 10 * 1000; // min gap between two break overlay showings
   const SESSION_RESET_INACTIVITY_MS = 15 * 60 * 1000;
   const SCROLL_CHECK_INTERVAL_MS = 2000;
 
@@ -358,7 +357,10 @@ const EyeFlowContent = (() => {
   }
 
   function getRedditDoomSurfaceKey() {
-    const path = (window.location.pathname || '/').toLowerCase();
+    let path = (window.location.pathname || '/').toLowerCase();
+    if (path.length > 1 && path.endsWith('/')) {
+      path = path.slice(0, -1);
+    }
 
     // Explore is just the chooser surface; actual community feeds entered from there can be strong later.
     if (path.startsWith('/explore')) {
@@ -430,12 +432,10 @@ const EyeFlowContent = (() => {
     }
 
     if (path === '/' || path === '') {
-      const feedVisible = Boolean(
-        document.querySelector(
-          '[role="feed"], div[role="feed"], [role="main"] [role="article"], div[data-pagelet*="FeedUnit"], div[data-pagelet*="MainFeed"], div[aria-posinset][role="article"]'
-        )
-      );
-      return feedVisible ? 'facebook.com/home' : '';
+      // Classify Facebook home as a DS surface immediately — don't wait for
+      // the feed to render in the DOM, which can cause the gentle reminder
+      // timer to fire first on a slow page load.
+      return 'facebook.com/home';
     }
 
     return '';
@@ -489,11 +489,13 @@ const EyeFlowContent = (() => {
       return '';
     }
 
-    if (
-      /^\/[^/]+(?:\/(with_replies|media|likes|highlights|articles|followers|following))?\/?$/.test(
-        path
-      )
-    ) {
+    // Profile pages with likes or media tabs are strong DS surfaces (user browses liked/saved reels)
+    if (/^\/[^/]+\/likes\/?$/.test(path) || /^\/[^/]+\/media\/?$/.test(path)) {
+      return 'x.com/profile-feed';
+    }
+
+    // Plain profile pages (followers, following, highlights, articles, with_replies) are non-DS
+    if (/^\/[^/]+(?:\/(with_replies|highlights|articles|followers|following))?\/?$/.test(path)) {
       return '';
     }
 
@@ -544,7 +546,9 @@ const EyeFlowContent = (() => {
     }
 
     if (path.includes('/spotlight/')) {
-      return 'snapchat.com/detail';
+      // A single spotlight clip URL - treat as strong DS feed (like Instagram Reels)
+      // because Snapchat Spotlight auto-plays the next clip just like a reel feed.
+      return 'snapchat.com/spotlight';
     }
 
     if (path.startsWith('/spotlight')) {
@@ -791,6 +795,17 @@ const EyeFlowContent = (() => {
 
     if (contextChanged && lastContextKey && lastContextKey !== contextKey) {
       flushDsSiteTime();
+
+      // When navigating BACK into a DS context from a non-DS page, refresh
+      // lastMeaningfulInputAt so the new DS session isn't immediately treated
+      // as inactive, and re-anchor the shared DS state so the stale elapsed
+      // estimation doesn't push the timer past the break target immediately.
+      if (contextKey && !lastContextKey) {
+        lastMeaningfulInputAt = Date.now();
+        lastActivityAt = Date.now();
+        // Re-anchor the sync timestamp so we don't accumulate phantom elapsed time
+        sharedDsState.lastSyncedAt = Date.now();
+      }
     }
 
     if (isSinglePostGraceContextKey(contextKey)) {
@@ -1202,31 +1217,13 @@ const EyeFlowContent = (() => {
     return `${minutes}:${String(seconds).padStart(2, '0')}`;
   }
 
-  const now = Date.now();
-
   function shouldMergeHydrationIntoBreak() {
     return isHydrationDue() && getMsUntilEyeBreak() <= HYDRATION_EYE_MERGE_WINDOW_MS;
   }
 
-  function maybeTriggerGentleReminderFailsafe() {
-    if (isDoomScrollContext()) return;
-
-    if (Date.now() - lastGentleReminderFallbackAt < 15000) return;
-    if (Date.now() - lastGentleReminderShownAt < GENTLE_REMINDER_DUPLICATE_GUARD_MS) return;
-    if (!canShowGentleReminderWithPassiveVideoSupport()) return;
-
-    lastGentleReminderFallbackAt = Date.now();
-    const reminderShown = showGentleReminder();
-    if (!reminderShown) return;
-    acknowledgeLocalGentleReminder();
-
-    try {
-      chrome.runtime.sendMessage({ type: 'GENTLE_REMINDER_SHOWN' });
-    } catch (e) {
-      // Ignore temporary extension-context issues.
-    }
-  }
-
+  // Stamps the local dedup timestamps after a gentle reminder is shown.
+  // Called both from the SHOW_GENTLE_REMINDER message handler and from
+  // any local show path so we never show two reminders within the guard window.
   function acknowledgeLocalGentleReminder(now = Date.now()) {
     lastGentleReminderShownAt = now;
     lastGentleReminderFallbackAt = now;
@@ -1809,7 +1806,7 @@ const EyeFlowContent = (() => {
 
   function showGentleReminder(options = {}) {
     const overlayShowing = typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing();
-    if (!canShowGentleReminderWithPassiveVideoSupport() || overlayShowing) {
+    if (!options.force && (!canShowGentleReminderWithPassiveVideoSupport() || overlayShowing)) {
       return false;
     }
 
@@ -1938,10 +1935,13 @@ const EyeFlowContent = (() => {
 
         if (message.type === 'RESET_SESSION_TIMERS') {
           resetSessionTimersFromBackground(message.snapshot);
+          // Re-anchor the sync timestamp to now so stale elapsed time doesn't
+          // immediately push the fresh shared DS state past the break target.
+          sharedDsState.lastSyncedAt = Date.now();
         }
 
         if (message.type === 'SHOW_GENTLE_REMINDER') {
-          if (showGentleReminder()) {
+          if (showGentleReminder(message)) {
             acknowledgeLocalGentleReminder();
           }
         }

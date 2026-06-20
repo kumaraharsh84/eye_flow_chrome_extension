@@ -140,14 +140,16 @@ Timer resets — cycle begins again
 
 ## Supported Sites
 
-| Site            | Strong DS surfaces   | Gentle only                   | Suppressed                |
-| --------------- | -------------------- | ----------------------------- | ------------------------- |
-| **Instagram**   | Home, Explore, Reels | Direct messages, single posts | Live streams, video calls |
-| **YouTube**     | Shorts               | Long-form videos              | Live chat                 |
-| **Reddit**      | Home, Popular, feeds | Single post + comments        | Notifications, settings   |
-| **X / Twitter** | Home, Explore        | Single tweet, notifications   | Direct messages           |
-| **Facebook**    | Home, Watch, Groups  | —                             | Messenger                 |
-| **TikTok**      | Everything           | —                             | Direct messages           |
+| Site            | Strong DS surfaces          | Gentle only                    | Suppressed                |
+| --------------- | --------------------------- | ------------------------------ | ------------------------- |
+| **Instagram**   | Home, Explore, Reels        | Direct messages, single posts  | Live streams, video calls |
+| **YouTube**     | Shorts                      | Long-form videos               | Live chat                 |
+| **Reddit**      | Home, Popular, feeds        | Single post + comments         | Notifications, settings   |
+| **X / Twitter** | Home, Explore, Likes, Media | Single tweet, notifications    | Direct messages           |
+| **Facebook**    | Home, Watch, Groups         | —                              | Messenger                 |
+| **TikTok**      | Everything                  | —                              | Direct messages           |
+| **Snapchat**    | Spotlight (feed & clips)    | Chat                           | Direct messages           |
+| **LinkedIn**    | Feed, Video feeds           | Messaging, Jobs, Notifications | Profile pages             |
 
 ---
 
@@ -173,6 +175,7 @@ eyeflow-chrome-extension/
 │   ├── overlay.js          ← Fullscreen eye-break and post-break UI
 │   ├── intelligence.js     ← Detection heuristics
 │   ├── popup.js            ← Popup logic
+│   ├── utils.js            ← Shared configuration and utility functions
 │   └── ...                 ← HTML/CSS files
 │
 ├── dist/                   ← Bundled output files (Load this in Chrome)
@@ -241,7 +244,19 @@ npm run test:popup
 ✅ ESLint warnings fixed     working
 ✅ Incognito mode sync       working
 ✅ Webhook Email Reports     working
+✅ XSS & data safety patches applied
+✅ Custom redirects guard    working
 ```
+
+### Recent Fixes & Improvements
+
+- **Reliability & Idle Pause**: Added logic to pause the gentle reminder timer when the system is inactive, preventing background notifications from firing repeatedly when the user is away.
+- **Timer Reset Precision**: Implemented re-anchoring of timestamps upon timer resets and route navigation back to doom scroll feeds, resolving the stuck `00:00` timer and phantom accumulated time.
+- **DOM-Independent FB Detection**: Facebook Home is now immediately recognized on load, avoiding timer races with lazy-loaded feed components.
+- **Snapchat, X, and Reddit Support**: Expanded detection for Snapchat Spotlight clip pages (`/spotlight/*`), Twitter Likes (`/:user/likes`) & Media (`/:user/media`) feeds, and Reddit feeds (with trailing slash normalization).
+- **Security Hardening**: Replaced all dynamic `innerHTML` rendering with secure DOM manipulation / `textContent` assignments to block XSS. Stripped webhook URLs from telemetry settings before transmission to page content scripts. Enforced a 120-character limit on custom redirect suggestions to prevent browser storage overflow.
+- **Privacy Partitioning**: Manifest upgraded to utilize split-process Incognito runtimes (`"incognito": "split"`).
+- **Refactoring & Performance**: Extracted limits and settings constants to a shared `src/utils.js` library, cleaned up unused legacy files (`src/site-rules.js`), removed dead debug variables, and added storage-saving `Object.freeze()` safety guards.
 
 ---
 

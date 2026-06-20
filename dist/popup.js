@@ -27,8 +27,19 @@
     if (!Number.isFinite(numericValue)) return fallback;
     return Math.min(max, Math.max(min, Math.round(numericValue)));
   }
+  var TIMER_LIMITS, GENTLE_REMINDER_DUPLICATE_GUARD_MS;
   var init_utils = __esm({
-    'src/utils.js'() {},
+    'src/utils.js'() {
+      TIMER_LIMITS = {
+        doomReminderMin: { min: 5, max: 30, fallback: 5 },
+        doomReminderMax: { min: 5, max: 30, fallback: 5 },
+        eyeBreakDurationSec: { min: 15, max: 40, fallback: 20 },
+        hydrationReminderMin: { min: 60, max: 240, fallback: 60 },
+        subtleReminderMin: { min: 20, max: 60, fallback: 20 },
+        subtleReminderMax: { min: 20, max: 60, fallback: 35 },
+      };
+      GENTLE_REMINDER_DUPLICATE_GUARD_MS = 15 * 1e3;
+    },
   });
 
   // src/popup.js
@@ -36,13 +47,9 @@
     'src/popup.js'() {
       init_utils();
       document.addEventListener('DOMContentLoaded', () => {
-        const TIMER_LIMITS = {
-          doomReminderMin: { min: 5, max: 30, fallback: 5 },
-          doomReminderMax: { min: 5, max: 30, fallback: 5 },
-          eyeBreakDurationSec: { min: 15, max: 40, fallback: 20 },
+        const TIMER_LIMITS2 = {
+          ...TIMER_LIMITS,
           hydrationReminderHours: { min: 1, max: 4, fallback: 1 },
-          subtleReminderMin: { min: 20, max: 60, fallback: 20 },
-          subtleReminderMax: { min: 20, max: 60, fallback: 35 },
         };
         const toggleEnabled = document.getElementById('toggle-enabled');
         const sensitivitySlider = document.getElementById('sensitivity-slider');
@@ -358,16 +365,30 @@
           isOthers = false,
           subline = '',
         }) {
-          return `
-      <div class="popup-top-site${isPrimary ? ' is-primary' : ''}${isOthers ? ' is-others' : ''}">
-        <div class="popup-top-site-row">
-          <span class="popup-top-site-rank">${rank}</span>
-          <span class="popup-top-site-name">${site}</span>
-          <span class="popup-top-site-time">${formatSiteMinutes(minutes)}</span>
-        </div>
-        ${subline ? `<div class="popup-top-site-subline">${subline}</div>` : ''}
-      </div>
-    `;
+          const card = document.createElement('div');
+          card.className = `popup-top-site${isPrimary ? ' is-primary' : ''}${isOthers ? ' is-others' : ''}`;
+          const row = document.createElement('div');
+          row.className = 'popup-top-site-row';
+          const rankEl = document.createElement('span');
+          rankEl.className = 'popup-top-site-rank';
+          rankEl.textContent = rank;
+          const nameEl = document.createElement('span');
+          nameEl.className = 'popup-top-site-name';
+          nameEl.textContent = site;
+          const timeEl = document.createElement('span');
+          timeEl.className = 'popup-top-site-time';
+          timeEl.textContent = formatSiteMinutes(minutes);
+          row.appendChild(rankEl);
+          row.appendChild(nameEl);
+          row.appendChild(timeEl);
+          card.appendChild(row);
+          if (subline) {
+            const subEl = document.createElement('div');
+            subEl.className = 'popup-top-site-subline';
+            subEl.textContent = subline;
+            card.appendChild(subEl);
+          }
+          return card.outerHTML;
         }
         function formatSiteMinutes(minutes) {
           const totalMinutes = Math.max(0, Math.round(Number(minutes) || 0));
@@ -458,27 +479,27 @@
         function normalizeSettingsForPopup(settings) {
           const subtleReminderMin = clampNumber(
             settings.subtleReminderMin,
-            TIMER_LIMITS.subtleReminderMin.min,
-            TIMER_LIMITS.subtleReminderMin.max,
-            TIMER_LIMITS.subtleReminderMin.fallback
+            TIMER_LIMITS2.subtleReminderMin.min,
+            TIMER_LIMITS2.subtleReminderMin.max,
+            TIMER_LIMITS2.subtleReminderMin.fallback
           );
           const subtleReminderMax = clampNumber(
             settings.subtleReminderMax,
             subtleReminderMin,
-            TIMER_LIMITS.subtleReminderMax.max,
-            Math.max(subtleReminderMin, TIMER_LIMITS.subtleReminderMax.fallback)
+            TIMER_LIMITS2.subtleReminderMax.max,
+            Math.max(subtleReminderMin, TIMER_LIMITS2.subtleReminderMax.fallback)
           );
           const doomReminderMin = clampNumber(
             settings.reminderIntervalMin,
-            TIMER_LIMITS.doomReminderMin.min,
-            TIMER_LIMITS.doomReminderMin.max,
-            TIMER_LIMITS.doomReminderMin.fallback
+            TIMER_LIMITS2.doomReminderMin.min,
+            TIMER_LIMITS2.doomReminderMin.max,
+            TIMER_LIMITS2.doomReminderMin.fallback
           );
           const doomReminderMax = clampNumber(
             settings.reminderIntervalMax,
             doomReminderMin,
-            TIMER_LIMITS.doomReminderMax.max,
-            Math.max(doomReminderMin, TIMER_LIMITS.doomReminderMax.fallback)
+            TIMER_LIMITS2.doomReminderMax.max,
+            Math.max(doomReminderMin, TIMER_LIMITS2.doomReminderMax.fallback)
           );
           return {
             ...settings,
@@ -487,17 +508,17 @@
             sensitivity: clampNumber(settings.sensitivity, 0, 100, 50),
             eyeBreakDurationSec: clampNumber(
               settings.eyeBreakDurationSec,
-              TIMER_LIMITS.eyeBreakDurationSec.min,
-              TIMER_LIMITS.eyeBreakDurationSec.max,
-              TIMER_LIMITS.eyeBreakDurationSec.fallback
+              TIMER_LIMITS2.eyeBreakDurationSec.min,
+              TIMER_LIMITS2.eyeBreakDurationSec.max,
+              TIMER_LIMITS2.eyeBreakDurationSec.fallback
             ),
             reminderIntervalMin: doomReminderMin,
             reminderIntervalMax: doomReminderMax,
             hydrationReminderMin: clampNumber(
               settings.hydrationReminderMin,
-              TIMER_LIMITS.hydrationReminderHours.min * 60,
-              TIMER_LIMITS.hydrationReminderHours.max * 60,
-              TIMER_LIMITS.hydrationReminderHours.fallback * 60
+              TIMER_LIMITS2.hydrationReminderHours.min * 60,
+              TIMER_LIMITS2.hydrationReminderHours.max * 60,
+              TIMER_LIMITS2.hydrationReminderHours.fallback * 60
             ),
             subtleReminderMin,
             subtleReminderMax,
@@ -583,45 +604,45 @@
           if (mode === 'fixed') {
             const fixedEyeValue = clampNumber(
               eyeBreakFixedInput.value,
-              TIMER_LIMITS.doomReminderMin.min,
-              TIMER_LIMITS.doomReminderMin.max,
-              TIMER_LIMITS.doomReminderMin.fallback
+              TIMER_LIMITS2.doomReminderMin.min,
+              TIMER_LIMITS2.doomReminderMin.max,
+              TIMER_LIMITS2.doomReminderMin.fallback
             );
             doomReminderInput.value = fixedEyeValue;
             doomReminderMaxInput.value = fixedEyeValue;
             const fixedGentleValue = clampNumber(
               gentleReminderFixedInput.value,
-              TIMER_LIMITS.subtleReminderMin.min,
-              TIMER_LIMITS.subtleReminderMax.max,
-              TIMER_LIMITS.subtleReminderMin.fallback
+              TIMER_LIMITS2.subtleReminderMin.min,
+              TIMER_LIMITS2.subtleReminderMax.max,
+              TIMER_LIMITS2.subtleReminderMin.fallback
             );
             subtleReminderMinInput.value = fixedGentleValue;
             subtleReminderMaxInput.value = fixedGentleValue;
           } else {
             const eyeBreakMin = clampNumber(
               doomReminderInput.value,
-              TIMER_LIMITS.doomReminderMin.min,
-              TIMER_LIMITS.doomReminderMin.max,
-              TIMER_LIMITS.doomReminderMin.fallback
+              TIMER_LIMITS2.doomReminderMin.min,
+              TIMER_LIMITS2.doomReminderMin.max,
+              TIMER_LIMITS2.doomReminderMin.fallback
             );
             const eyeBreakMax = clampNumber(
               doomReminderMaxInput.value,
               eyeBreakMin,
-              TIMER_LIMITS.doomReminderMax.max,
-              Math.max(eyeBreakMin, TIMER_LIMITS.doomReminderMax.fallback)
+              TIMER_LIMITS2.doomReminderMax.max,
+              Math.max(eyeBreakMin, TIMER_LIMITS2.doomReminderMax.fallback)
             );
             eyeBreakFixedInput.value = getRepresentativeSingleValue(eyeBreakMin, eyeBreakMax);
             const gentleMin = clampNumber(
               subtleReminderMinInput.value,
-              TIMER_LIMITS.subtleReminderMin.min,
-              TIMER_LIMITS.subtleReminderMin.max,
-              TIMER_LIMITS.subtleReminderMin.fallback
+              TIMER_LIMITS2.subtleReminderMin.min,
+              TIMER_LIMITS2.subtleReminderMin.max,
+              TIMER_LIMITS2.subtleReminderMin.fallback
             );
             const gentleMax = clampNumber(
               subtleReminderMaxInput.value,
               gentleMin,
-              TIMER_LIMITS.subtleReminderMax.max,
-              Math.max(gentleMin, TIMER_LIMITS.subtleReminderMax.fallback)
+              TIMER_LIMITS2.subtleReminderMax.max,
+              Math.max(gentleMin, TIMER_LIMITS2.subtleReminderMax.fallback)
             );
             gentleReminderFixedInput.value = getRepresentativeSingleValue(gentleMin, gentleMax);
           }
@@ -630,26 +651,26 @@
           const min = Number(minValue);
           const max = Number(maxValue);
           if (!Number.isFinite(min) && !Number.isFinite(max))
-            return TIMER_LIMITS.doomReminderMin.fallback;
+            return TIMER_LIMITS2.doomReminderMin.fallback;
           if (!Number.isFinite(min))
             return clampNumber(
               max,
-              TIMER_LIMITS.doomReminderMin.min,
-              TIMER_LIMITS.doomReminderMin.max,
-              TIMER_LIMITS.doomReminderMin.fallback
+              TIMER_LIMITS2.doomReminderMin.min,
+              TIMER_LIMITS2.doomReminderMin.max,
+              TIMER_LIMITS2.doomReminderMin.fallback
             );
           if (!Number.isFinite(max))
             return clampNumber(
               min,
-              TIMER_LIMITS.doomReminderMin.min,
-              TIMER_LIMITS.doomReminderMin.max,
-              TIMER_LIMITS.doomReminderMin.fallback
+              TIMER_LIMITS2.doomReminderMin.min,
+              TIMER_LIMITS2.doomReminderMin.max,
+              TIMER_LIMITS2.doomReminderMin.fallback
             );
           return clampNumber(
             Math.round((min + max) / 2),
-            TIMER_LIMITS.doomReminderMin.min,
-            TIMER_LIMITS.doomReminderMin.max,
-            TIMER_LIMITS.doomReminderMin.fallback
+            TIMER_LIMITS2.doomReminderMin.min,
+            TIMER_LIMITS2.doomReminderMin.max,
+            TIMER_LIMITS2.doomReminderMin.fallback
           );
         }
         function collectAdvancedFormState() {
@@ -721,15 +742,15 @@
           const errors = {};
           const eyeBreakDuration = clampNumber(
             formState.eyeBreakDurationSec,
-            TIMER_LIMITS.eyeBreakDurationSec.min,
-            TIMER_LIMITS.eyeBreakDurationSec.max,
-            TIMER_LIMITS.eyeBreakDurationSec.fallback
+            TIMER_LIMITS2.eyeBreakDurationSec.min,
+            TIMER_LIMITS2.eyeBreakDurationSec.max,
+            TIMER_LIMITS2.eyeBreakDurationSec.fallback
           );
           const hydrationHours = clampNumber(
             hydrationReminderInput.value,
-            TIMER_LIMITS.hydrationReminderHours.min,
-            TIMER_LIMITS.hydrationReminderHours.max,
-            TIMER_LIMITS.hydrationReminderHours.fallback
+            TIMER_LIMITS2.hydrationReminderHours.min,
+            TIMER_LIMITS2.hydrationReminderHours.max,
+            TIMER_LIMITS2.hydrationReminderHours.fallback
           );
           if (Number(formState.eyeBreakDurationSec) !== eyeBreakDuration) {
             errors['eye-break-duration-sec'] = 'Enter a value between 15 and 40 sec';
@@ -740,15 +761,15 @@
           if (formState.timingMode === 'fixed') {
             const eyeBreakFixed = clampNumber(
               eyeBreakFixedInput.value,
-              TIMER_LIMITS.doomReminderMin.min,
-              TIMER_LIMITS.doomReminderMin.max,
-              TIMER_LIMITS.doomReminderMin.fallback
+              TIMER_LIMITS2.doomReminderMin.min,
+              TIMER_LIMITS2.doomReminderMin.max,
+              TIMER_LIMITS2.doomReminderMin.fallback
             );
             const gentleFixed = clampNumber(
               gentleReminderFixedInput.value,
-              TIMER_LIMITS.subtleReminderMin.min,
-              TIMER_LIMITS.subtleReminderMax.max,
-              TIMER_LIMITS.subtleReminderMin.fallback
+              TIMER_LIMITS2.subtleReminderMin.min,
+              TIMER_LIMITS2.subtleReminderMax.max,
+              TIMER_LIMITS2.subtleReminderMin.fallback
             );
             if (Number(eyeBreakFixedInput.value) !== eyeBreakFixed) {
               errors['eye-break-fixed-min'] = 'Enter a value between 5 and 30 min';
@@ -771,27 +792,27 @@
           }
           const eyeBreakMin = clampNumber(
             doomReminderInput.value,
-            TIMER_LIMITS.doomReminderMin.min,
-            TIMER_LIMITS.doomReminderMin.max,
-            TIMER_LIMITS.doomReminderMin.fallback
+            TIMER_LIMITS2.doomReminderMin.min,
+            TIMER_LIMITS2.doomReminderMin.max,
+            TIMER_LIMITS2.doomReminderMin.fallback
           );
           const eyeBreakMax = clampNumber(
             doomReminderMaxInput.value,
             eyeBreakMin,
-            TIMER_LIMITS.doomReminderMax.max,
-            Math.max(eyeBreakMin, TIMER_LIMITS.doomReminderMax.fallback)
+            TIMER_LIMITS2.doomReminderMax.max,
+            Math.max(eyeBreakMin, TIMER_LIMITS2.doomReminderMax.fallback)
           );
           const gentleMin = clampNumber(
             subtleReminderMinInput.value,
-            TIMER_LIMITS.subtleReminderMin.min,
-            TIMER_LIMITS.subtleReminderMin.max,
-            TIMER_LIMITS.subtleReminderMin.fallback
+            TIMER_LIMITS2.subtleReminderMin.min,
+            TIMER_LIMITS2.subtleReminderMin.max,
+            TIMER_LIMITS2.subtleReminderMin.fallback
           );
           const gentleMax = clampNumber(
             subtleReminderMaxInput.value,
             gentleMin,
-            TIMER_LIMITS.subtleReminderMax.max,
-            Math.max(gentleMin, TIMER_LIMITS.subtleReminderMax.fallback)
+            TIMER_LIMITS2.subtleReminderMax.max,
+            Math.max(gentleMin, TIMER_LIMITS2.subtleReminderMax.fallback)
           );
           if (Number(doomReminderInput.value) !== eyeBreakMin) {
             errors['doom-reminder-min'] = 'Enter a value between 5 and 30 min';
@@ -935,23 +956,25 @@
             Array.isArray(suggestions) && suggestions.length > 0
               ? suggestions
               : getDefaultRedirectSuggestions();
-          items.forEach((suggestion, index) => {
+          items.forEach((suggestion) => {
             const item = document.createElement('div');
             item.className = 'popup-redirect-item';
-            item.innerHTML = `
-        <span>${suggestion}</span>
-        <button class="popup-redirect-remove" data-index="${index}" title="Remove">x</button>
-      `;
-            list.appendChild(item);
-          });
-          list.querySelectorAll('.popup-redirect-remove').forEach((button) => {
-            button.addEventListener('click', () => {
-              button.parentElement.remove();
+            const span = document.createElement('span');
+            span.textContent = suggestion;
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'popup-redirect-remove';
+            removeBtn.title = 'Remove';
+            removeBtn.textContent = 'x';
+            removeBtn.addEventListener('click', () => {
+              item.remove();
               if (!list.querySelector('.popup-redirect-item')) {
                 renderRedirectList(getDefaultRedirectSuggestions());
               }
               saveSettings();
             });
+            item.appendChild(span);
+            item.appendChild(removeBtn);
+            list.appendChild(item);
           });
         }
         function collectRedirectSuggestions() {
@@ -966,21 +989,26 @@
           const input = document.getElementById('new-redirect-input');
           const list = document.getElementById('redirect-list');
           if (!input || !list) return;
-          const text = input.value.trim();
+          const MAX_SUGGESTION_LENGTH = 120;
+          const text = input.value.trim().slice(0, MAX_SUGGESTION_LENGTH);
           if (!text) return;
           const item = document.createElement('div');
           item.className = 'popup-redirect-item';
-          item.innerHTML = `
-      <span>${text}</span>
-      <button class="popup-redirect-remove" title="Remove">x</button>
-    `;
-          item.querySelector('.popup-redirect-remove').addEventListener('click', () => {
+          const span = document.createElement('span');
+          span.textContent = text;
+          const removeBtn = document.createElement('button');
+          removeBtn.className = 'popup-redirect-remove';
+          removeBtn.title = 'Remove';
+          removeBtn.textContent = 'x';
+          removeBtn.addEventListener('click', () => {
             item.remove();
             if (!list.querySelector('.popup-redirect-item')) {
               renderRedirectList(getDefaultRedirectSuggestions());
             }
             saveSettings();
           });
+          item.appendChild(span);
+          item.appendChild(removeBtn);
           list.appendChild(item);
           input.value = '';
           saveSettings();
@@ -1017,9 +1045,9 @@
           return (
             clampNumber(
               value,
-              TIMER_LIMITS.hydrationReminderHours.min,
-              TIMER_LIMITS.hydrationReminderHours.max,
-              TIMER_LIMITS.hydrationReminderHours.fallback
+              TIMER_LIMITS2.hydrationReminderHours.min,
+              TIMER_LIMITS2.hydrationReminderHours.max,
+              TIMER_LIMITS2.hydrationReminderHours.fallback
             ) * 60
           );
         }
@@ -1027,9 +1055,9 @@
           const roundedHours = Math.round(Number(value) / 60);
           return clampNumber(
             roundedHours,
-            TIMER_LIMITS.hydrationReminderHours.min,
-            TIMER_LIMITS.hydrationReminderHours.max,
-            TIMER_LIMITS.hydrationReminderHours.fallback
+            TIMER_LIMITS2.hydrationReminderHours.min,
+            TIMER_LIMITS2.hydrationReminderHours.max,
+            TIMER_LIMITS2.hydrationReminderHours.fallback
           );
         }
       });

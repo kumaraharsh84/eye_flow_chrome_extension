@@ -13,8 +13,6 @@
 // by content.js to decide what to do.
 // ============================================================
 
-const EYEFLOW_DEBUG_INTELLIGENCE = false;
-
 // -------------------------------------------------------
 // EYEFLOW INTELLIGENCE - Main intelligence object
 // -------------------------------------------------------
