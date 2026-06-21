@@ -52,6 +52,7 @@ const DEFAULT_SETTINGS = {
   ],
   webhookUrl: '', // URL for weekly email reports
 };
+Object.freeze(DEFAULT_SETTINGS);
 
 // -------------------------------------------------------
 // DEFAULT STATS (tracked data)

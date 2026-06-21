@@ -109,6 +109,7 @@
         webhookUrl: '',
         // URL for weekly email reports
       };
+      Object.freeze(DEFAULT_SETTINGS);
       var DEFAULT_STATS = {
         totalDoomScrollsBlocked: 0,
         // Total interruptions ever

@@ -1819,12 +1819,21 @@ const EyeFlowContent = (() => {
 
     subtleReminderElement = document.createElement('div');
     subtleReminderElement.id = 'eyeflow-gentle-reminder';
-    subtleReminderElement.innerHTML = `
-      <div class="eyeflow-gentle-reminder-content">
-        <div class="eyeflow-gentle-reminder-title">${options.title || 'Your eyes could use a moment'}</div>
-        <div class="eyeflow-gentle-reminder-text">${options.text || 'Blink a little and relax your focus.'}</div>
-      </div>
-    `;
+
+    const reminderContent = document.createElement('div');
+    reminderContent.className = 'eyeflow-gentle-reminder-content';
+
+    const reminderTitle = document.createElement('div');
+    reminderTitle.className = 'eyeflow-gentle-reminder-title';
+    reminderTitle.textContent = options.title || 'Your eyes could use a moment';
+
+    const reminderText = document.createElement('div');
+    reminderText.className = 'eyeflow-gentle-reminder-text';
+    reminderText.textContent = options.text || 'Blink a little and relax your focus.';
+
+    reminderContent.appendChild(reminderTitle);
+    reminderContent.appendChild(reminderText);
+    subtleReminderElement.appendChild(reminderContent);
 
     subtleReminderElement.style.cssText = `
       position: fixed;
