@@ -16,7 +16,7 @@ Character count: 108 ✅
 
 ### What it does
 
-**Detects doom scrolling** on Instagram, YouTube Shorts, Reddit, X, Facebook, and TikTok. When you've been in a scroll loop too long, EyeFlow interrupts with a short guided eye exercise.
+**Detects doom scrolling** on Instagram, YouTube Shorts, Reddit, X (Twitter), Facebook, TikTok, Snapchat, LinkedIn, and Twitch. When you've been in a scroll loop too long, EyeFlow interrupts with a short guided eye exercise.
 
 **Guided eye breaks** — a 20-second exercise that moves your focus in different directions to relieve screen strain. Backed by the 20-20-20 rule recommended by eye doctors.
 
@@ -30,9 +30,12 @@ Character count: 108 ✅
 
 ### Key features
 
-- Doom-scroll detection on 6 major platforms
+- Doom-scroll detection on 9 major platforms
 - Context-aware: Instagram home vs DMs get different treatment
 - YouTube Shorts = strong break, YouTube long video = gentle reminder
+- X/Twitter Likes & Media feeds treated as strong doom scroll surfaces
+- Snapchat Spotlight auto-play clips trigger the same as a reel feed
+- LinkedIn video feed and home feed tracked separately from jobs/messaging
 - Gradual interruption: nudge → warning → full eye break
 - Post-break mood tracking and redirect suggestions
 - Work mode snooze: pause gentle reminders while you focus
@@ -73,7 +76,7 @@ English
 
 ## Tags / Keywords
 
-eye care, eye break, doom scroll, screen time, hydration, wellness, focus, productivity, instagram blocker, youtube blocker, 20-20-20 rule
+eye care, eye break, doom scroll, screen time, hydration, wellness, focus, productivity, instagram blocker, youtube blocker, 20-20-20 rule, snapchat, linkedin, tiktok, twitter
 
 ---
 

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "EyeFlow - Doom Scroll Blocker & Eye Care",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Detects doom scrolling on Instagram, YouTube & Reddit. Triggers guided eye breaks, gentle reminders, and hydration nudges. Smart enough to stay silent while you work.",
 
   "permissions": ["storage", "alarms", "notifications", "tabs", "idle", "offscreen"],
