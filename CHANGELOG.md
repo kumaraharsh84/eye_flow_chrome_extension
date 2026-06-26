@@ -51,7 +51,6 @@ This release focuses on manual QA feedback, security hardening, privacy enhancem
 #### Bug Fixes & UX Polish
 
 - **Continuous Gentle Reminders**: Refactored gentle reminders to run as a global continuous countdown, removing focus/idle pausing rules so that it doesn't get stuck on Hold.
-- **Admin PIN Lock**: Intercepts toggle-off attempts in the settings popup, requiring a PIN (default `1234`) to disable the extension and prevent impulsive turn-offs.
 - **Keyboard Commands**: Added extension commands shortcut support, mapping `Ctrl+Shift+E` (Mac: `Command+Shift+E`) to immediately trigger an eye-break session.
 - **JSON Data Export**: Added an "Export stats as JSON" button in the popup stats card to allow downloading all local tracking data.
 - **Timer Sticking at 00:00**: Resolved the issue where timers would get stuck at 00:00 after completing an eye-break session by re-anchoring the sync state timestamps when resetting.
@@ -74,6 +73,10 @@ This release focuses on manual QA feedback, security hardening, privacy enhancem
 - **Centralized Constants**: Extracted shared configuration limits (`TIMER_LIMITS`) and duplicate guards (`GENTLE_REMINDER_DUPLICATE_GUARD_MS`) into a single source of truth at `src/utils.js`.
 - **Storage Write Error Handling**: Created a `safeStorageSet()` helper in `background.js` to catch and log errors for all local Chrome storage write operations.
 - **Dead Code Cleanup**: Deleted the unused, legacy 5.8KB `src/site-rules.js` file, removed stale load-time `const now` in `src/content.js`, deleted redundant failsafe routines, and removed unused debug logging flags.
+
+#### Removed
+
+- **Admin PIN Lock feature**: Removed the toggle-off PIN modal — the hardcoded default PIN (`1234`) was a security anti-pattern and the feature added complexity without protecting against anything.
 
 ## Planned - Future
 

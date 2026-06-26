@@ -14,9 +14,10 @@
     "*://*.twitter.com/*",
     "*://*.facebook.com/*",
     "*://*.tiktok.com/*",
-    "*://*.snapchat.com/*",
-    "*://*.formspree.io/*"
+    "*://*.snapchat.com/*"
   ],
+
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
 
   "background": {
     "service_worker": "background.js"

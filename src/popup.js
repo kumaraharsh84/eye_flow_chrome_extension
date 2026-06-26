@@ -68,6 +68,7 @@ document.addEventListener('DOMContentLoaded', () => {
     'hydration-reminder-hours': document.querySelector(
       '[data-error-for="hydration-reminder-hours"]'
     ),
+    'webhook-url-input': document.querySelector('[data-error-for="webhook-url-input"]'),
   };
 
   function runtimeCallbackFailed() {
@@ -496,20 +497,49 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const nextSettings = buildAdvancedSettingsFromForm(formState, validation.normalized);
-    currentSettings = nextSettings;
-    currentTimingMode = formState.timingMode;
-    syncAdvancedInputsFromSettings(nextSettings, currentTimingMode);
-    syncModeButtons();
-    syncAdvancedUiState();
 
-    chrome.runtime.sendMessage({ type: 'SAVE_SETTINGS', settings: nextSettings }, (response) => {
-      if (runtimeCallbackFailed()) return;
-      if (!response?.success) return;
-      clearAdvancedSettingsDirty('Settings saved');
-      window.setTimeout(() => {
-        collapseSection('advanced-content', '#toggle-advanced .popup-collapse-icon');
-      }, 2000);
-    });
+    const saveSettingsToStorage = () => {
+      currentSettings = nextSettings;
+      currentTimingMode = formState.timingMode;
+      syncAdvancedInputsFromSettings(nextSettings, currentTimingMode);
+      syncModeButtons();
+      syncAdvancedUiState();
+
+      chrome.runtime.sendMessage({ type: 'SAVE_SETTINGS', settings: nextSettings }, (response) => {
+        if (runtimeCallbackFailed()) return;
+        if (!response?.success) return;
+        clearAdvancedSettingsDirty('Settings saved');
+        window.setTimeout(() => {
+          collapseSection('advanced-content', '#toggle-advanced .popup-collapse-icon');
+        }, 2000);
+      });
+    };
+
+    const newWebhookUrl = nextSettings.webhookUrl;
+    if (newWebhookUrl && newWebhookUrl !== (currentSettings?.webhookUrl || '')) {
+      try {
+        const urlObj = new URL(newWebhookUrl);
+        const origin = `${urlObj.protocol}//${urlObj.hostname}/*`;
+
+        chrome.permissions.request({ origins: [origin] }, (granted) => {
+          if (runtimeCallbackFailed()) {
+            applyAdvancedValidation({ 'webhook-url-input': 'Extension permission error.' });
+            return;
+          }
+          if (!granted) {
+            applyAdvancedValidation({
+              'webhook-url-input': 'Host permission denied. Webhook URL cannot be saved.',
+            });
+            return;
+          }
+          saveSettingsToStorage();
+        });
+      } catch (e) {
+        applyAdvancedValidation({ 'webhook-url-input': 'Invalid URL format.' });
+      }
+    } else {
+      saveSettingsToStorage();
+    }
   }
 
   function normalizeSettingsForPopup(settings) {
@@ -901,6 +931,14 @@ document.addEventListener('DOMContentLoaded', () => {
         errors['subtle-reminder-max'] = 'Min cannot be greater than max';
       } else {
         errors['subtle-reminder-max'] = 'Enter a value between 20 and 60 min';
+      }
+    }
+
+    if (formState.webhookUrl) {
+      try {
+        new URL(formState.webhookUrl);
+      } catch (e) {
+        errors['webhook-url-input'] = 'Enter a valid URL (e.g. https://formspree.io/f/...)';
       }
     }
 
