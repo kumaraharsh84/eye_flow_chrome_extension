@@ -409,20 +409,44 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       // ambient tick to pause or resume it.
       if (runtimeState.sharedDsIsActive) {
         pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.DS_ACTIVE, now);
-      } else if (
-        !isSnoozed &&
-        wasDsActive &&
-        !runtimeState.sharedDsIsActive &&
-        settings.subtleReminderEnabled
-      ) {
-        resumeGentleReminder(runtimeState, now);
+      } else if (!isSnoozed && settings.subtleReminderEnabled) {
+        // If the gentle reminder is currently paused (e.g. due to inactivity or window blur),
+        // resume it immediately when we receive active user presence from the content script.
+        if (runtimeState.gentleState === GENTLE_TIMER_STATES.PAUSED) {
+          resumeGentleReminder(runtimeState, now);
+        }
         if (!runtimeState.nextGentleReminderAt) {
           runtimeState.nextGentleReminderAt = now + getGentleDelayMs(settings);
         }
       }
 
-      safeStorageSet({ runtimeState }).then(() => {
-        sendResponse(getSharedDsSnapshot(runtimeState));
+      // If the gentle reminder is due and we are active on a normal page, show it immediately
+      // instead of waiting up to 30 seconds for the next ambient alarm tick.
+      const runImmediateGentleCheck = async () => {
+        if (
+          !runtimeState.sharedDsIsActive &&
+          !isSnoozed &&
+          settings.subtleReminderEnabled &&
+          runtimeState.nextGentleReminderAt > 0 &&
+          now >= runtimeState.nextGentleReminderAt
+        ) {
+          runtimeState.gentleState = GENTLE_TIMER_STATES.DUE;
+          const reminderShown = await sendGentleReminderToActiveTab();
+          if (reminderShown) {
+            scheduleNextGentleReminder(runtimeState, settings, now);
+            runtimeState.lastGentleReminderAt = now;
+          } else {
+            // Keep the state as DUE so it retries immediately on subsequent scroll/click interactions
+            runtimeState.gentleState = GENTLE_TIMER_STATES.DUE;
+            runtimeState.gentlePauseReason = GENTLE_PAUSE_REASONS.INACTIVE;
+          }
+        }
+      };
+
+      runImmediateGentleCheck().then(() => {
+        safeStorageSet({ runtimeState }).then(() => {
+          sendResponse(getSharedDsSnapshot(runtimeState));
+        });
       });
     });
     return true;
@@ -525,14 +549,27 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   // --- EYE_BREAK_COMPLETED: user finished the eye exercise ---
   if (message.type === 'EYE_BREAK_COMPLETED') {
     chrome.storage.local.get(['settings', 'stats', 'runtimeState'], (result) => {
+      const settings = mergeSettings(result.settings);
       const stats = mergeStats(result.stats);
+      const runtimeState = mergeRuntimeState(result.runtimeState);
 
       stats.totalEyeBreaksCompleted++;
       stats.todayEyeBreaksCompleted++;
       stats.weekEyeBreaksCompleted++;
       stats.lastBreakTime = Date.now();
 
-      safeStorageSet({ stats });
+      // Reset active DS scrolling time immediately when the break exercise is completed,
+      // so if the user closes the tab or browser during the post-break screen,
+      // the timer is already reset and won't loop.
+      runtimeState.lastPrimaryInterventionAt = 0;
+      runtimeState.nextSoundReminderAt = 0;
+      runtimeState.sharedDsActiveMs = 0;
+      runtimeState.sharedDsNextBreakTargetMs = getNextSharedBreakTargetMs(settings);
+      runtimeState.sharedDsLastUpdateAt = Date.now();
+      runtimeState.sharedDsState = SHARED_DS_TIMER_STATES.PAUSED;
+      runtimeState.sharedDsPauseReason = SHARED_DS_PAUSE_REASONS.BREAK_FLOW;
+
+      safeStorageSet({ stats, runtimeState });
       sendResponse({ success: true });
     });
     return true;
@@ -712,6 +749,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command !== 'trigger-eye-break') return;
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.id) return;
+  try {
+    await chrome.tabs.sendMessage(tab.id, { type: 'SHOW_EYE_BREAK_NOW' });
+  } catch (_) {}
+});
+
 async function runAmbientReminderTick(settings, runtimeState, now) {
   if (!settings.enabled) {
     clearRuntimeStateForDisabled(runtimeState);
@@ -765,37 +811,16 @@ async function runAmbientReminderTick(settings, runtimeState, now) {
     return;
   }
 
-  const chromeState = await getChromeWindowState();
-  if (!chromeState.hasChromeWindow) {
-    pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.NO_WINDOW, now);
-    runtimeState.nextSoundReminderAt = 0;
-    await safeStorageSet({ runtimeState });
-    return;
-  }
-
-  if (chromeState.chromeFocused) {
-    runtimeState.nextSoundReminderAt = 0;
-
-    if (!settings.subtleReminderEnabled) {
-      setGentleReminderOff(runtimeState, GENTLE_PAUSE_REASONS.FEATURE_OFF);
-      await safeStorageSet({ runtimeState });
-      return;
+  // --- GENTLE REMINDER CORE LOGIC ---
+  if (!settings.subtleReminderEnabled) {
+    setGentleReminderOff(runtimeState, GENTLE_PAUSE_REASONS.FEATURE_OFF);
+  } else if (runtimeState.sharedDsIsActive) {
+    pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.DS_ACTIVE, now);
+  } else {
+    // If it was paused (e.g. from DS_ACTIVE or SNOOZE), resume it
+    if (runtimeState.gentleState === GENTLE_TIMER_STATES.PAUSED) {
+      resumeGentleReminder(runtimeState, now);
     }
-
-    if (runtimeState.sharedDsIsActive) {
-      pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.DS_ACTIVE, now);
-      await safeStorageSet({ runtimeState });
-      return;
-    }
-
-    const { pageContext } = await getActiveTabReminderContext();
-    if (pageContext && pageContext.isUsageActive === false) {
-      pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.INACTIVE, now);
-      await safeStorageSet({ runtimeState });
-      return;
-    }
-
-    resumeGentleReminder(runtimeState, now);
 
     if (!runtimeState.nextGentleReminderAt) {
       scheduleNextGentleReminder(runtimeState, settings, now);
@@ -804,43 +829,42 @@ async function runAmbientReminderTick(settings, runtimeState, now) {
       runtimeState.gentlePauseReason = GENTLE_PAUSE_REASONS.NONE;
       const reminderShown = await sendGentleReminderToActiveTab();
       if (reminderShown) {
-        // Reminder was shown — schedule the next fresh cycle
         scheduleNextGentleReminder(runtimeState, settings, now);
         runtimeState.lastGentleReminderAt = now;
       } else {
-        // Reminder could NOT be shown (inactive, DS active, etc.) —
-        // Don't reschedule a fresh full interval. Instead, keep the state as
-        // paused/due so it retries on the very next tick when activity resumes.
-        runtimeState.gentleState = GENTLE_TIMER_STATES.PAUSED;
+        // If it cannot be shown (e.g. user is on sensitive page/typing/tab not focused),
+        // we DO NOT pause/hold or reset the timer. It stays due and will retry on subsequent checks.
+        runtimeState.gentleState = GENTLE_TIMER_STATES.DUE;
         runtimeState.gentlePauseReason = GENTLE_PAUSE_REASONS.INACTIVE;
-        // Small remaining so it fires quickly once the user becomes active again
-        runtimeState.gentlePausedRemainingMs = 5 * 1000;
-        runtimeState.nextGentleReminderAt = 0;
       }
     } else {
       runtimeState.gentleState = GENTLE_TIMER_STATES.RUNNING;
       runtimeState.gentlePauseReason = GENTLE_PAUSE_REASONS.NONE;
     }
-  } else {
+  }
+
+  // --- SOUND REMINDER LOGIC (only when Chrome window is not focused) ---
+  const chromeState = await getChromeWindowState();
+  if (chromeState.hasChromeWindow && !chromeState.chromeFocused) {
     if (!settings.soundReminderEnabled) {
       runtimeState.nextSoundReminderAt = 0;
-      await safeStorageSet({ runtimeState });
-      return;
-    }
-
-    if (!runtimeState.nextSoundReminderAt) {
-      runtimeState.nextSoundReminderAt =
-        now + getRandomDelayMs(settings.soundReminderMin, settings.soundReminderMax);
-    } else if (now >= runtimeState.nextSoundReminderAt) {
-      const soundPlayed = await playReminderSound();
-      runtimeState.nextSoundReminderAt =
-        now + getRandomDelayMs(settings.soundReminderMin, settings.soundReminderMax);
-      if (!soundPlayed) {
-        runtimeState.nextSoundReminderAt = now + SOUND_REMINDER_FOLLOWUP_MS;
-      } else {
-        runtimeState.lastSoundReminderAt = now;
+    } else {
+      if (!runtimeState.nextSoundReminderAt) {
+        runtimeState.nextSoundReminderAt =
+          now + getRandomDelayMs(settings.soundReminderMin, settings.soundReminderMax);
+      } else if (now >= runtimeState.nextSoundReminderAt) {
+        const soundPlayed = await playReminderSound();
+        runtimeState.nextSoundReminderAt =
+          now + getRandomDelayMs(settings.soundReminderMin, settings.soundReminderMax);
+        if (!soundPlayed) {
+          runtimeState.nextSoundReminderAt = now + SOUND_REMINDER_FOLLOWUP_MS;
+        } else {
+          runtimeState.lastSoundReminderAt = now;
+        }
       }
     }
+  } else {
+    runtimeState.nextSoundReminderAt = 0;
   }
 
   await safeStorageSet({ runtimeState });

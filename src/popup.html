@@ -367,12 +367,50 @@
         <p class="popup-trust-note">
           Only active browsing counts. Chat, login, and settings pages stay quiet.
         </p>
+        <div style="margin-top: 12px; text-align: center">
+          <button
+            class="btn-secondary"
+            id="btn-export-stats"
+            type="button"
+            style="font-size: 11px; padding: 5px 10px; height: auto"
+          >
+            Export stats as JSON
+          </button>
+        </div>
       </div>
     </div>
 
     <footer class="popup-footer">
       <span>Built to help you pause, reset, and keep going with less strain.</span>
     </footer>
+
+    <!-- PIN Lock Modal -->
+    <div
+      id="pin-lock-overlay"
+      style="display: none"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="pin-lock-title"
+    >
+      <div id="pin-lock-modal">
+        <div id="pin-lock-icon">🔒</div>
+        <div id="pin-lock-title">Admin PIN Required</div>
+        <div id="pin-lock-desc">Enter the PIN to turn off EyeFlow</div>
+        <input
+          type="password"
+          id="pin-lock-input"
+          maxlength="8"
+          placeholder="Enter PIN"
+          autocomplete="off"
+          inputmode="numeric"
+        />
+        <div id="pin-lock-error"></div>
+        <div id="pin-lock-actions">
+          <button id="pin-lock-cancel">Cancel</button>
+          <button id="pin-lock-confirm">Confirm</button>
+        </div>
+      </div>
+    </div>
 
     <script src="popup.js"></script>
   </body>

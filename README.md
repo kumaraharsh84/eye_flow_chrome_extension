@@ -34,11 +34,9 @@ The core workflow is strict and universal: it helps **you** stay focused and hea
 
 ## Screenshots
 
-> Add your screenshots to `docs/screenshots/` folder and update the links below
-
-| Popup                                | Eye Break Overlay (GIF)                      | Nudge Pill                           | Post-Break Mood Tracking           |
-| ------------------------------------ | -------------------------------------------- | ------------------------------------ | ---------------------------------- |
-| ![Popup](docs/screenshots/popup.png) | ![Overlay GIF](docs/screenshots/overlay.gif) | ![Nudge](docs/screenshots/nudge.png) | ![Mood](docs/screenshots/mood.png) |
+| Popup                                | Eye Break Overlay                        | Onboarding Mode Picker                         |
+| ------------------------------------ | ---------------------------------------- | ---------------------------------------------- |
+| ![Popup](docs/screenshots/popup.png) | ![Overlay](docs/screenshots/overlay.png) | ![Onboarding](docs/screenshots/onboarding.png) |
 
 ---
 
@@ -250,6 +248,10 @@ npm run test:popup
 
 ### Recent Fixes & Improvements
 
+- **Debug Timer HUD**: Restored a floating debug HUD widget in the bottom-left corner of all pages during development/testing, showing live countdowns for all three timers (Eye Break, Gentle Reminder, and Water Reminder).
+- **Stuck Timer & Close Tab Loop Fix**: Configured the Doom Scroll timer to immediately reset in background storage upon eye-break exercise completion, resolving the loop where closing the tab during the post-break screen prevented timer resets.
+- **Continuous Gentle Reminder**: Refactored the Subtle/Gentle Reminder to function as a global continuous countdown clock (similar to the water reminder), removing window focus and idle/inactivity pausing rules so that it doesn't get stuck in `Hold` states.
+- **YouTube Channel Selector Refinement**: Updated the YouTube channel Shorts tab selector to only trigger if the Shorts tab is actively selected (`[selected]`, `[aria-selected="true"]`, or `.iron-selected`), preventing false positive matches on standard channel pages.
 - **Reliability & Idle Pause**: Added logic to pause the gentle reminder timer when the system is inactive, preventing background notifications from firing repeatedly when the user is away.
 - **Timer Reset Precision**: Implemented re-anchoring of timestamps upon timer resets and route navigation back to doom scroll feeds, resolving the stuck `00:00` timer and phantom accumulated time.
 - **DOM-Independent FB Detection**: Facebook Home is now immediately recognized on load, avoiding timer races with lazy-loaded feed components.

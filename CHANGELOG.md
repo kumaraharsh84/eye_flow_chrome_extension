@@ -50,7 +50,10 @@ This release focuses on manual QA feedback, security hardening, privacy enhancem
 
 #### Bug Fixes & UX Polish
 
-- **Gentle Reminder Inactivity Pause**: Fixed the gentle reminder timer failing to pause during idle states. It now pauses after 2 minutes of inactivity and resumes immediately upon user input.
+- **Continuous Gentle Reminders**: Refactored gentle reminders to run as a global continuous countdown, removing focus/idle pausing rules so that it doesn't get stuck on Hold.
+- **Admin PIN Lock**: Intercepts toggle-off attempts in the settings popup, requiring a PIN (default `1234`) to disable the extension and prevent impulsive turn-offs.
+- **Keyboard Commands**: Added extension commands shortcut support, mapping `Ctrl+Shift+E` (Mac: `Command+Shift+E`) to immediately trigger an eye-break session.
+- **JSON Data Export**: Added an "Export stats as JSON" button in the popup stats card to allow downloading all local tracking data.
 - **Timer Sticking at 00:00**: Resolved the issue where timers would get stuck at 00:00 after completing an eye-break session by re-anchoring the sync state timestamps when resetting.
 - **Site Navigation Improvements**: Added re-anchoring when navigating back into a doom-scroll surface (e.g., from LinkedIn messaging/jobs back to the feed, or Twitter likes back to the home feed) to prevent phantom elapsed time calculations.
 - **Facebook Home Feed**: Eliminated DOM-dependent checks for `facebook.com/` to immediately classify it as a strong DS surface, preventing race conditions with page loading.
@@ -60,6 +63,7 @@ This release focuses on manual QA feedback, security hardening, privacy enhancem
 
 #### Security & Privacy Hardening
 
+- **Narrowed Host Permissions**: Restricted background host permissions in `manifest.json` from broad wildcard scopes to only the core social networks and webhook reporting endpoints.
 - **XSS Prevention**: Migrated all dynamic HTML element rendering (including redirect suggestion lists, top site stats cards, and gentle reminder notifications) from `innerHTML` to safe `textContent` / DOM creation APIs.
 - **Data Protection**: Stripped webhook URLs from settings payloads sent from the background service worker to tab content scripts to prevent exposure.
 - **Input Length Capping**: Enforced a 120-character input limit on redirect suggestions in the settings popup to block storage bloating.

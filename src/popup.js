@@ -137,7 +137,108 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function attachPersistentHandlers() {
-    toggleEnabled.addEventListener('change', saveSettings);
+    // ---- PIN LOCK: intercept toggle-off attempts ----
+    const ADMIN_PIN_DEFAULT = '1234'; // Change this to your chosen PIN
+    const pinOverlay = document.getElementById('pin-lock-overlay');
+    const pinInput = document.getElementById('pin-lock-input');
+    const pinError = document.getElementById('pin-lock-error');
+    const pinConfirm = document.getElementById('pin-lock-confirm');
+    const pinCancel = document.getElementById('pin-lock-cancel');
+
+    // Inject PIN modal styles
+    const pinStyle = document.createElement('style');
+    pinStyle.textContent = `
+      #pin-lock-overlay {
+        position: fixed; inset: 0; z-index: 99999;
+        background: rgba(0,0,0,0.72);
+        display: flex; align-items: center; justify-content: center;
+      }
+      #pin-lock-modal {
+        background: #1a1a2e; border: 1px solid #2e2e50;
+        border-radius: 16px; padding: 28px 24px;
+        width: 220px; text-align: center;
+        box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+      }
+      #pin-lock-icon { font-size: 36px; margin-bottom: 10px; }
+      #pin-lock-title { font-size: 15px; font-weight: 700; color: #e8e8f0; margin-bottom: 6px; }
+      #pin-lock-desc { font-size: 12px; color: #888; margin-bottom: 16px; }
+      #pin-lock-input {
+        width: 100%; padding: 10px 12px; border-radius: 8px;
+        border: 1px solid #3a3a5c; background: #12122a;
+        color: #e8e8f0; font-size: 18px; text-align: center;
+        letter-spacing: 4px; outline: none; box-sizing: border-box;
+      }
+      #pin-lock-input:focus { border-color: #6366f1; }
+      #pin-lock-error {
+        color: #f87171; font-size: 12px; min-height: 18px;
+        margin: 8px 0 12px;
+      }
+      #pin-lock-actions { display: flex; gap: 8px; }
+      #pin-lock-cancel {
+        flex: 1; padding: 9px; border-radius: 8px;
+        border: 1px solid #3a3a5c; background: transparent;
+        color: #aaa; cursor: pointer; font-size: 13px;
+      }
+      #pin-lock-confirm {
+        flex: 1; padding: 9px; border-radius: 8px;
+        border: none; background: #6366f1;
+        color: #fff; cursor: pointer; font-size: 13px; font-weight: 600;
+      }
+      #pin-lock-confirm:hover { background: #4f46e5; }
+    `;
+    document.head.appendChild(pinStyle);
+
+    function showPinModal() {
+      pinInput.value = '';
+      pinError.textContent = '';
+      pinOverlay.style.display = 'flex';
+      setTimeout(() => pinInput.focus(), 80);
+    }
+
+    function hidePinModal() {
+      pinOverlay.style.display = 'none';
+    }
+
+    function checkPin() {
+      chrome.storage.local.get(['adminPin'], (result) => {
+        const storedPin = result.adminPin || ADMIN_PIN_DEFAULT;
+        if (pinInput.value === storedPin) {
+          hidePinModal();
+          saveSettings(); // proceed with turning off
+        } else {
+          pinError.textContent = 'Incorrect PIN. Try again.';
+          pinInput.value = '';
+          pinInput.focus();
+        }
+      });
+    }
+
+    pinConfirm.addEventListener('click', checkPin);
+    pinCancel.addEventListener('click', () => {
+      hidePinModal();
+      // Snap toggle back to ON since the user cancelled
+      toggleEnabled.checked = true;
+    });
+    pinInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') checkPin();
+      if (e.key === 'Escape') {
+        hidePinModal();
+        toggleEnabled.checked = true;
+      }
+    });
+
+    // The guarded toggle listener
+    toggleEnabled.addEventListener('change', () => {
+      if (!toggleEnabled.checked) {
+        // Turning OFF — require PIN
+        showPinModal();
+      } else {
+        // Turning ON — no PIN needed
+        saveSettings();
+      }
+    });
+    // ---- END PIN LOCK ----
+
     timingModeFixedButton.addEventListener('click', () => setTimingMode('fixed'));
     timingModeSurpriseButton.addEventListener('click', () => setTimingMode('surprise'));
 
@@ -194,6 +295,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     saveAdvancedSettingsButton.addEventListener('click', saveAdvancedSettings);
+
+    const btnExportStats = document.getElementById('btn-export-stats');
+    if (btnExportStats) {
+      btnExportStats.addEventListener('click', () => {
+        chrome.storage.local.get(null, (data) => {
+          if (runtimeCallbackFailed()) return;
+          const blob = new Blob([JSON.stringify(data || {}, null, 2)], {
+            type: 'application/json',
+          });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `eyeflow-export-${new Date().toISOString().slice(0, 10)}.json`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        });
+      });
+    }
 
     document.querySelectorAll('.popup-snooze-btn[data-hours]').forEach((button) => {
       button.addEventListener('click', () => {

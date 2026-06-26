@@ -396,19 +396,37 @@
             }
             if (runtimeState.sharedDsIsActive) {
               pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.DS_ACTIVE, now);
-            } else if (
-              !isSnoozed &&
-              wasDsActive &&
-              !runtimeState.sharedDsIsActive &&
-              settings.subtleReminderEnabled
-            ) {
-              resumeGentleReminder(runtimeState, now);
+            } else if (!isSnoozed && settings.subtleReminderEnabled) {
+              if (runtimeState.gentleState === GENTLE_TIMER_STATES.PAUSED) {
+                resumeGentleReminder(runtimeState, now);
+              }
               if (!runtimeState.nextGentleReminderAt) {
                 runtimeState.nextGentleReminderAt = now + getGentleDelayMs(settings);
               }
             }
-            safeStorageSet({ runtimeState }).then(() => {
-              sendResponse(getSharedDsSnapshot(runtimeState));
+            const runImmediateGentleCheck = async () => {
+              if (
+                !runtimeState.sharedDsIsActive &&
+                !isSnoozed &&
+                settings.subtleReminderEnabled &&
+                runtimeState.nextGentleReminderAt > 0 &&
+                now >= runtimeState.nextGentleReminderAt
+              ) {
+                runtimeState.gentleState = GENTLE_TIMER_STATES.DUE;
+                const reminderShown = await sendGentleReminderToActiveTab();
+                if (reminderShown) {
+                  scheduleNextGentleReminder(runtimeState, settings, now);
+                  runtimeState.lastGentleReminderAt = now;
+                } else {
+                  runtimeState.gentleState = GENTLE_TIMER_STATES.DUE;
+                  runtimeState.gentlePauseReason = GENTLE_PAUSE_REASONS.INACTIVE;
+                }
+              }
+            };
+            runImmediateGentleCheck().then(() => {
+              safeStorageSet({ runtimeState }).then(() => {
+                sendResponse(getSharedDsSnapshot(runtimeState));
+              });
             });
           });
           return true;
@@ -484,12 +502,21 @@
         }
         if (message.type === 'EYE_BREAK_COMPLETED') {
           chrome.storage.local.get(['settings', 'stats', 'runtimeState'], (result) => {
+            const settings = mergeSettings(result.settings);
             const stats = mergeStats(result.stats);
+            const runtimeState = mergeRuntimeState(result.runtimeState);
             stats.totalEyeBreaksCompleted++;
             stats.todayEyeBreaksCompleted++;
             stats.weekEyeBreaksCompleted++;
             stats.lastBreakTime = Date.now();
-            safeStorageSet({ stats });
+            runtimeState.lastPrimaryInterventionAt = 0;
+            runtimeState.nextSoundReminderAt = 0;
+            runtimeState.sharedDsActiveMs = 0;
+            runtimeState.sharedDsNextBreakTargetMs = getNextSharedBreakTargetMs(settings);
+            runtimeState.sharedDsLastUpdateAt = Date.now();
+            runtimeState.sharedDsState = SHARED_DS_TIMER_STATES.PAUSED;
+            runtimeState.sharedDsPauseReason = SHARED_DS_PAUSE_REASONS.BREAK_FLOW;
+            safeStorageSet({ stats, runtimeState });
             sendResponse({ success: true });
           });
           return true;
@@ -633,6 +660,14 @@
         }
         return true;
       });
+      chrome.commands.onCommand.addListener(async (command) => {
+        if (command !== 'trigger-eye-break') return;
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab?.id) return;
+        try {
+          await chrome.tabs.sendMessage(tab.id, { type: 'SHOW_EYE_BREAK_NOW' });
+        } catch (_) {}
+      });
       async function runAmbientReminderTick(settings, runtimeState, now) {
         if (!settings.enabled) {
           clearRuntimeStateForDisabled(runtimeState);
@@ -678,32 +713,14 @@
           await safeStorageSet({ runtimeState });
           return;
         }
-        const chromeState = await getChromeWindowState();
-        if (!chromeState.hasChromeWindow) {
-          pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.NO_WINDOW, now);
-          runtimeState.nextSoundReminderAt = 0;
-          await safeStorageSet({ runtimeState });
-          return;
-        }
-        if (chromeState.chromeFocused) {
-          runtimeState.nextSoundReminderAt = 0;
-          if (!settings.subtleReminderEnabled) {
-            setGentleReminderOff(runtimeState, GENTLE_PAUSE_REASONS.FEATURE_OFF);
-            await safeStorageSet({ runtimeState });
-            return;
+        if (!settings.subtleReminderEnabled) {
+          setGentleReminderOff(runtimeState, GENTLE_PAUSE_REASONS.FEATURE_OFF);
+        } else if (runtimeState.sharedDsIsActive) {
+          pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.DS_ACTIVE, now);
+        } else {
+          if (runtimeState.gentleState === GENTLE_TIMER_STATES.PAUSED) {
+            resumeGentleReminder(runtimeState, now);
           }
-          if (runtimeState.sharedDsIsActive) {
-            pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.DS_ACTIVE, now);
-            await safeStorageSet({ runtimeState });
-            return;
-          }
-          const { pageContext } = await getActiveTabReminderContext();
-          if (pageContext && pageContext.isUsageActive === false) {
-            pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.INACTIVE, now);
-            await safeStorageSet({ runtimeState });
-            return;
-          }
-          resumeGentleReminder(runtimeState, now);
           if (!runtimeState.nextGentleReminderAt) {
             scheduleNextGentleReminder(runtimeState, settings, now);
           } else if (now >= runtimeState.nextGentleReminderAt) {
@@ -714,34 +731,35 @@
               scheduleNextGentleReminder(runtimeState, settings, now);
               runtimeState.lastGentleReminderAt = now;
             } else {
-              runtimeState.gentleState = GENTLE_TIMER_STATES.PAUSED;
+              runtimeState.gentleState = GENTLE_TIMER_STATES.DUE;
               runtimeState.gentlePauseReason = GENTLE_PAUSE_REASONS.INACTIVE;
-              runtimeState.gentlePausedRemainingMs = 5 * 1e3;
-              runtimeState.nextGentleReminderAt = 0;
             }
           } else {
             runtimeState.gentleState = GENTLE_TIMER_STATES.RUNNING;
             runtimeState.gentlePauseReason = GENTLE_PAUSE_REASONS.NONE;
           }
-        } else {
+        }
+        const chromeState = await getChromeWindowState();
+        if (chromeState.hasChromeWindow && !chromeState.chromeFocused) {
           if (!settings.soundReminderEnabled) {
             runtimeState.nextSoundReminderAt = 0;
-            await safeStorageSet({ runtimeState });
-            return;
-          }
-          if (!runtimeState.nextSoundReminderAt) {
-            runtimeState.nextSoundReminderAt =
-              now + getRandomDelayMs(settings.soundReminderMin, settings.soundReminderMax);
-          } else if (now >= runtimeState.nextSoundReminderAt) {
-            const soundPlayed = await playReminderSound();
-            runtimeState.nextSoundReminderAt =
-              now + getRandomDelayMs(settings.soundReminderMin, settings.soundReminderMax);
-            if (!soundPlayed) {
-              runtimeState.nextSoundReminderAt = now + SOUND_REMINDER_FOLLOWUP_MS;
-            } else {
-              runtimeState.lastSoundReminderAt = now;
+          } else {
+            if (!runtimeState.nextSoundReminderAt) {
+              runtimeState.nextSoundReminderAt =
+                now + getRandomDelayMs(settings.soundReminderMin, settings.soundReminderMax);
+            } else if (now >= runtimeState.nextSoundReminderAt) {
+              const soundPlayed = await playReminderSound();
+              runtimeState.nextSoundReminderAt =
+                now + getRandomDelayMs(settings.soundReminderMin, settings.soundReminderMax);
+              if (!soundPlayed) {
+                runtimeState.nextSoundReminderAt = now + SOUND_REMINDER_FOLLOWUP_MS;
+              } else {
+                runtimeState.lastSoundReminderAt = now;
+              }
             }
           }
+        } else {
+          runtimeState.nextSoundReminderAt = 0;
         }
         await safeStorageSet({ runtimeState });
       }
@@ -836,21 +854,6 @@ ${totalTimeEntries || 'No doom scrolling time recorded this week!'}`,
           return true;
         } catch (e) {
           return false;
-        }
-      }
-      async function getActiveTabReminderContext() {
-        const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-        const activeTab = tabs.find((tab) => tab.id && tab.url && !tab.url.startsWith('chrome://'));
-        if (!activeTab || !activeTab.id) {
-          return { activeTab: null, pageContext: null };
-        }
-        try {
-          const pageContext = await chrome.tabs.sendMessage(activeTab.id, {
-            type: 'GET_PAGE_REMINDER_CONTEXT',
-          });
-          return { activeTab, pageContext };
-        } catch (e) {
-          return { activeTab, pageContext: null };
         }
       }
       async function deliverWaterReminder(now = Date.now()) {

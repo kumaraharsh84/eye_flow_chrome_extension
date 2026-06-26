@@ -654,6 +654,7 @@
       init_intelligence();
       init_overlay();
       init_utils();
+      var EYEFLOW_DEBUG_CONTENT = false;
       var EyeFlowContent = (() => {
         const DOOM_SCROLL_SITES = /* @__PURE__ */ new Set([
           'instagram.com',
@@ -760,6 +761,18 @@
         let nudgeElement = null;
         let warningElement = null;
         let subtleReminderElement = null;
+        let debugTimerElement = null;
+        let debugTimerInterval = null;
+        let debugTimerMeta = {
+          nextGentleReminderAt: 0,
+          gentlePausedRemainingMs: 0,
+          gentleState: 'off',
+          gentlePauseReason: 'none',
+          nextWaterReminderAt: 0,
+          waterReminderPending: false,
+          waterQueuedForNextBreak: false,
+          lastFetchedAt: 0,
+        };
         let sharedDsSyncInFlight = false;
         let sharedDsState = {
           activeMs: 0,
@@ -1056,7 +1069,7 @@
           }
           const shortsTabSelected = Boolean(
             document.querySelector(
-              'yt-tab-shape[tab-title="Shorts"][selected], [role="tab"][aria-label*="Shorts" i][aria-selected="true"], [aria-label*="Shorts" i][tab-identifier="shorts"]'
+              'yt-tab-shape[tab-title="Shorts"][selected], [role="tab"][aria-label*="Shorts" i][aria-selected="true"], [aria-selected="true"][tab-identifier="shorts"], [selected][tab-identifier="shorts"], .iron-selected[tab-identifier="shorts"]'
             )
           );
           const shortsGridVisible = Boolean(
@@ -2197,6 +2210,155 @@
             flushDsSiteTime();
           }, SITE_TIME_REPORT_INTERVAL_MS);
         }
+        function updateDebugTimerChip() {
+          if (!EYEFLOW_DEBUG_CONTENT) {
+            removeDebugTimerChip();
+            return;
+          }
+          const overlayShowing =
+            typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing();
+          const shouldShow = isActive && !overlayShowing;
+          if (!shouldShow) {
+            removeDebugTimerChip();
+            return;
+          }
+          syncDebugTimerMeta();
+          if (EYEFLOW_DEBUG_CONTENT && !debugTimerElement) {
+            debugTimerElement = document.createElement('div');
+            debugTimerElement.id = 'eyeflow-debug-timer';
+            debugTimerElement.innerHTML = `
+        <div class="eyeflow-debug-timer-content">
+          <div class="eyeflow-debug-timer-row">
+            <div class="eyeflow-debug-timer-label">Eye break (tab)</div>
+            <div class="eyeflow-debug-timer-value" data-debug-timer="eye">0:00</div>
+          </div>
+          <div class="eyeflow-debug-timer-row">
+            <div class="eyeflow-debug-timer-label">Gentle (global)</div>
+            <div class="eyeflow-debug-timer-value" data-debug-timer="gentle">0:00</div>
+          </div>
+          <div class="eyeflow-debug-timer-row">
+            <div class="eyeflow-debug-timer-label">Water (global)</div>
+            <div class="eyeflow-debug-timer-value" data-debug-timer="water">0:00</div>
+          </div>
+        </div>
+      `;
+            debugTimerElement.style.cssText = `
+        position: fixed;
+        left: 18px;
+        bottom: 18px;
+        z-index: 2147483642;
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        pointer-events: none;
+      `;
+            const style = document.createElement('style');
+            style.id = 'eyeflow-debug-timer-style';
+            style.textContent = `
+        #eyeflow-debug-timer .eyeflow-debug-timer-content {
+          min-width: 156px;
+          padding: 10px 12px;
+          border-radius: 16px;
+          background: rgba(28, 20, 14, 0.28);
+          border: 1px solid rgba(216, 156, 96, 0.1);
+          box-shadow: 0 8px 18px rgba(22, 16, 11, 0.1);
+          color: #fff6ea;
+          backdrop-filter: blur(3px);
+        }
+        #eyeflow-debug-timer .eyeflow-debug-timer-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+        }
+        #eyeflow-debug-timer .eyeflow-debug-timer-row + .eyeflow-debug-timer-row {
+          margin-top: 6px;
+          padding-top: 6px;
+          border-top: 1px solid rgba(255, 246, 234, 0.08);
+        }
+        #eyeflow-debug-timer .eyeflow-debug-timer-label {
+          font-size: 11px;
+          line-height: 1.2;
+          opacity: 0.66;
+        }
+        #eyeflow-debug-timer .eyeflow-debug-timer-value {
+          font-size: 16px;
+          font-weight: 700;
+          letter-spacing: 0.02em;
+          white-space: nowrap;
+        }
+      `;
+            document.head.appendChild(style);
+            document.body.appendChild(debugTimerElement);
+          }
+          const eyeValueElement = debugTimerElement.querySelector('[data-debug-timer="eye"]');
+          const gentleValueElement = debugTimerElement.querySelector('[data-debug-timer="gentle"]');
+          const waterValueElement = debugTimerElement.querySelector('[data-debug-timer="water"]');
+          if (!eyeValueElement || !gentleValueElement || !waterValueElement) return;
+          if (isDoomScrollContext()) {
+            eyeValueElement.textContent = shouldCountActiveTime()
+              ? formatCountdown(getMsUntilEyeBreak())
+              : 'Paused';
+          } else if (isWithinSinglePostGraceWindow()) {
+            eyeValueElement.textContent = `Read ${formatCountdown(getSinglePostGraceRemainingMs())}`;
+          } else {
+            eyeValueElement.textContent = 'Off';
+          }
+          if (isDoomScrollContext()) {
+            gentleValueElement.textContent = 'Off';
+          } else if (debugTimerMeta.gentleState === 'off') {
+            gentleValueElement.textContent = 'Off';
+          } else if (
+            debugTimerMeta.gentleState === 'paused' ||
+            debugTimerMeta.gentleState === 'hold'
+          ) {
+            const holdMs =
+              debugTimerMeta.gentlePausedRemainingMs > 0
+                ? debugTimerMeta.gentlePausedRemainingMs
+                : Math.max(0, debugTimerMeta.nextGentleReminderAt - Date.now());
+            gentleValueElement.textContent = `Hold ${formatCountdown(holdMs)}`;
+          } else if (debugTimerMeta.nextGentleReminderAt > 0) {
+            const gentleRemainingMs = Math.max(0, debugTimerMeta.nextGentleReminderAt - Date.now());
+            gentleValueElement.textContent = formatCountdown(gentleRemainingMs);
+          } else {
+            gentleValueElement.textContent = 'Off';
+          }
+          if (debugTimerMeta.waterQueuedForNextBreak) {
+            waterValueElement.textContent = 'Queued';
+          } else if (debugTimerMeta.waterReminderPending) {
+            waterValueElement.textContent = 'Pending';
+          } else if (debugTimerMeta.nextWaterReminderAt > 0) {
+            waterValueElement.textContent = formatReadableTimer(
+              debugTimerMeta.nextWaterReminderAt - Date.now()
+            );
+          } else {
+            waterValueElement.textContent = 'Waiting';
+          }
+        }
+        function removeDebugTimerChip() {
+          if (debugTimerElement) {
+            debugTimerElement.remove();
+            debugTimerElement = null;
+          }
+          const style = document.getElementById('eyeflow-debug-timer-style');
+          if (style) style.remove();
+        }
+        function syncDebugTimerMeta(force = false) {
+          const now = Date.now();
+          if (!force && now - debugTimerMeta.lastFetchedAt < 1e3) return;
+          debugTimerMeta.lastFetchedAt = now;
+          try {
+            chrome.runtime.sendMessage({ type: 'GET_DEBUG_TIMERS' }, (response) => {
+              if (runtimeCallbackFailed()) return;
+              if (!response) return;
+              debugTimerMeta.nextGentleReminderAt = response.nextGentleReminderAt || 0;
+              debugTimerMeta.gentlePausedRemainingMs = response.gentlePausedRemainingMs || 0;
+              debugTimerMeta.gentleState = response.gentleState || 'off';
+              debugTimerMeta.gentlePauseReason = response.gentlePauseReason || 'none';
+              debugTimerMeta.nextWaterReminderAt = response.nextWaterReminderAt || 0;
+              debugTimerMeta.waterReminderPending = Boolean(response.waterReminderPending);
+              debugTimerMeta.waterQueuedForNextBreak = Boolean(response.waterQueuedForNextBreak);
+            });
+          } catch (e) {}
+        }
         function setupMessageListener() {
           try {
             chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -2231,6 +2393,22 @@
               if (message.type === 'RESET_SESSION_TIMERS') {
                 resetSessionTimersFromBackground(message.snapshot);
                 sharedDsState.lastSyncedAt = Date.now();
+              }
+              if (message.type === 'SHOW_EYE_BREAK_NOW') {
+                removeGentleReminder();
+                removeNudge();
+                removeWarning();
+                if (typeof EyeFlowOverlay !== 'undefined') {
+                  lastBreakOverlayShownAt = Date.now();
+                  EyeFlowOverlay.show(
+                    currentSettings || {},
+                    getHostname(),
+                    Math.round(getActiveSiteMs() / 6e4),
+                    { hydrationPrompt: false }
+                  );
+                }
+                sendResponse({ success: true });
+                return true;
               }
               if (message.type === 'SHOW_GENTLE_REMINDER') {
                 if (showGentleReminder(message)) {
@@ -2316,6 +2494,7 @@
                 recordActivity();
               }
               syncSessionAndSharedTimer();
+              syncDebugTimerMeta();
             },
             { passive: true }
           );
@@ -2324,6 +2503,7 @@
             () => {
               recordActivity();
               syncSessionAndSharedTimer();
+              syncDebugTimerMeta();
             },
             { passive: true }
           );
@@ -2360,6 +2540,10 @@
           resetTrackedSession();
           syncSessionAndSharedTimer();
           scrollCheckInterval = setInterval(checkForDoomScroll, SCROLL_CHECK_INTERVAL_MS);
+          if (EYEFLOW_DEBUG_CONTENT) {
+            debugTimerInterval = setInterval(updateDebugTimerChip, 1e3);
+            updateDebugTimerChip();
+          }
           startTimeTracking();
           setupMessageListener();
         }
