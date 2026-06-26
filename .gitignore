@@ -4,6 +4,7 @@ archive/
 release/
 .sixth/
 HANDOFF_NEXT_STEPS.md
+dist/
 
 *.zip
 *.log

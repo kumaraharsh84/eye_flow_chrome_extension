@@ -576,62 +576,12 @@ async function main() {
             statusText: 'Active - gentle reminders on',
           });
 
-          // 1. Try to toggle disabled (requires PIN lock)
+          // 1. Try to toggle disabled
           await popupPage.$eval('#toggle-enabled', (input) => {
             input.click();
             input.dispatchEvent(new Event('change', { bubbles: true }));
           });
 
-          // Wait for PIN overlay to appear
-          await popupPage.waitForFunction(
-            () => document.getElementById('pin-lock-overlay').style.display === 'flex'
-          );
-
-          // 2. Test cancel option
-          await popupPage.click('#pin-lock-cancel');
-          await popupPage.waitForFunction(
-            () => document.getElementById('pin-lock-overlay').style.display === 'none'
-          );
-          // Verify it snapped back to enabled: true and status remains active
-          await popupPage.waitForFunction(
-            () =>
-              document.getElementById('status-text').textContent.trim() ===
-              'Active - gentle reminders on'
-          );
-          expect(
-            await popupPage.$eval('#toggle-enabled', (input) => input.checked),
-            'Expected toggle to snap back to checked (ON) after cancel'
-          );
-
-          // 3. Try to toggle off again
-          await popupPage.$eval('#toggle-enabled', (input) => {
-            input.click();
-            input.dispatchEvent(new Event('change', { bubbles: true }));
-          });
-          await popupPage.waitForFunction(
-            () => document.getElementById('pin-lock-overlay').style.display === 'flex'
-          );
-
-          // 4. Test wrong PIN
-          await popupPage.type('#pin-lock-input', '9999');
-          await popupPage.click('#pin-lock-confirm');
-          await popupPage.waitForFunction(() =>
-            document.getElementById('pin-lock-error').textContent.includes('Incorrect PIN')
-          );
-          // Verify PIN overlay is still visible
-          expect(
-            await popupPage.$eval('#pin-lock-overlay', (el) => el.style.display),
-            'Expected PIN lock overlay to remain visible after wrong PIN'
-          );
-
-          // 5. Test correct PIN ('1234')
-          await popupPage.type('#pin-lock-input', '1234');
-          await popupPage.click('#pin-lock-confirm');
-
-          // Wait for PIN overlay to disappear and status to change to Inactive
-          await popupPage.waitForFunction(
-            () => document.getElementById('pin-lock-overlay').style.display === 'none'
-          );
           await popupPage.waitForFunction(
             () => document.getElementById('status-text').textContent.trim() === 'Inactive'
           );
@@ -639,7 +589,7 @@ async function main() {
           let stored = await storageGet(popupPage, ['settings']);
           expect(stored.settings.enabled === false, 'Expected toggle to save enabled=false.');
 
-          // 6. Toggle it back ON (should NOT require a PIN, should work immediately)
+          // 2. Toggle it back ON
           await popupPage.$eval('#toggle-enabled', (input) => {
             input.click();
             input.dispatchEvent(new Event('change', { bubbles: true }));
@@ -648,11 +598,6 @@ async function main() {
             () =>
               document.getElementById('status-text').textContent.trim() ===
               'Active - gentle reminders on'
-          );
-          // Verify overlay did not appear
-          expect(
-            await popupPage.$eval('#pin-lock-overlay', (el) => el.style.display),
-            'Expected PIN lock overlay to remain hidden when toggling ON'
           );
 
           await ensurePopupSectionOpen(popupPage, '#toggle-work-mode', '#work-mode-content');

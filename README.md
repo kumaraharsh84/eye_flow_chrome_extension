@@ -187,7 +187,10 @@ eyeflow-chrome-extension/
 
 ## Install Locally (Developer Mode)
 
-The project uses ES Modules and `esbuild` for bundling. You must build the project before loading it into Chrome!
+The project uses ES Modules and `esbuild` for bundling.
+
+> [!IMPORTANT]
+> **Load `/dist`, not `/src`:** Always select and load the built `/dist` folder when loading the unpacked extension in Chrome. The `/src` folder contains unbundled ES modules and CSS templates which must be compiled via the build pipeline to run properly inside the browser.
 
 ```bash
 # 1. Clone the repo

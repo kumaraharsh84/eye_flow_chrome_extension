@@ -15,9 +15,7 @@
     "*://*.facebook.com/*",
     "*://*.tiktok.com/*",
     "*://*.snapchat.com/*",
-    "*://*.webhook.site/*",
-    "*://*.formspree.io/*",
-    "*://*.make.com/*"
+    "*://*.formspree.io/*"
   ],
 
   "background": {
