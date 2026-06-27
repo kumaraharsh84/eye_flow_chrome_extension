@@ -4,7 +4,7 @@
 
 ### A Chrome Extension That Fights Doom Scrolling — And Looks After Your Eyes
 
-[![Version](https://img.shields.io/badge/version-1.0.0-orange?style=flat-square)](https://github.com/kumaraharsh84/eye_flow_chrome_extension)
+[![Version](https://img.shields.io/badge/version-1.0.2-orange?style=flat-square)](https://github.com/kumaraharsh84/eye_flow_chrome_extension)
 [![Manifest](https://img.shields.io/badge/Manifest-V3-blue?style=flat-square)](https://developer.chrome.com/docs/extensions/mv3/)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 [![Status](https://img.shields.io/badge/status-stable-success?style=flat-square)](https://github.com/kumaraharsh84/eye_flow_chrome_extension)
@@ -49,7 +49,7 @@ The core workflow is strict and universal: it helps **you** stay focused and hea
 | 🔍 Doom-scroll detection        | Detects high-risk scrolling on Instagram, YouTube Shorts, Reddit, Facebook, X, and TikTok |
 | 👁️ Fullscreen eye-break overlay | Guided 6-step exercise with moving dot, countdown, and progress bar                       |
 | 💧 Hydration reminder           | Global water reminder every 2 hours                                                       |
-| 😌 Post-break recovery          | Mood logging, time-on-site alert, and next-step suggestions after every break             |
+| 😌 Post-break recovery          | Mood logging, time-on-site alert, and hydration reminders after every break               |
 | 🔔 Gentle reminder              | Soft corner reminder during normal non-DS browsing                                        |
 
 ### Monitoring & Syncing
@@ -71,12 +71,12 @@ The core workflow is strict and universal: it helps **you** stay focused and hea
 
 ### User Control
 
-| Feature               | Description                                                        |
-| --------------------- | ------------------------------------------------------------------ |
-| ⚙️ Popup settings     | Sensitivity, timing, snooze, theme, suggestions — all configurable |
-| 🎨 Dark / Light theme | Popup supports both themes                                         |
-| 📊 Stats dashboard    | Blocked sessions, breaks taken, weekly history, mood trends        |
-| 🧭 Onboarding         | 3 preset modes on first install — Strict, Balanced, or Gentle      |
+| Feature               | Description                                                         |
+| --------------------- | ------------------------------------------------------------------- |
+| ⚙️ Popup settings     | Sensitivity, timing, snooze, theme, and webhooks — all configurable |
+| 🎨 Dark / Light theme | Popup supports both themes                                          |
+| 📊 Stats dashboard    | Blocked sessions, breaks taken, weekly history, mood trends         |
+| 🧭 Onboarding         | 3 preset modes on first install — Strict, Balanced, or Gentle       |
 
 ---
 
@@ -104,6 +104,10 @@ EyeFlow can email you a weekly report containing the total minutes spent on each
 4. Paste the URL into the **Weekly Email Report** box.
 5. Click **Send Test Report** to verify it works.
    Every Monday at midnight, you will receive a silent email report with their statistics!
+
+### Sibling Monitor Protection (Safe Toggle Lock)
+
+To prevent your sibling from disabling the tracker, saving a Webhook URL immediately locks the main **"Extension Active"** toggle switch in the popup to **ON** and disables the switch (greying it out so it cannot be toggled). The status bar will change to green indicating **"Active - Locked by Sibling Monitor"** (and the Incognito Tracking warning card is automatically hidden from view for normal users, appearing only when a webhook is active).
 
 ---
 
@@ -246,7 +250,7 @@ npm run test:popup
 ✅ Incognito mode sync       working
 ✅ Webhook Email Reports     working
 ✅ XSS & data safety patches applied
-✅ Custom redirects guard    working
+✅ Sibling Monitor Lock    working
 ```
 
 ### Recent Fixes & Improvements
@@ -259,7 +263,7 @@ npm run test:popup
 - **Timer Reset Precision**: Implemented re-anchoring of timestamps upon timer resets and route navigation back to doom scroll feeds, resolving the stuck `00:00` timer and phantom accumulated time.
 - **DOM-Independent FB Detection**: Facebook Home is now immediately recognized on load, avoiding timer races with lazy-loaded feed components.
 - **Snapchat, X, and Reddit Support**: Expanded detection for Snapchat Spotlight clip pages (`/spotlight/*`), Twitter Likes (`/:user/likes`) & Media (`/:user/media`) feeds, and Reddit feeds (with trailing slash normalization).
-- **Security Hardening**: Replaced all dynamic `innerHTML` rendering with secure DOM manipulation / `textContent` assignments to block XSS. Stripped webhook URLs from telemetry settings before transmission to page content scripts. Enforced a 120-character limit on custom redirect suggestions to prevent browser storage overflow.
+- **Security Hardening**: Replaced all dynamic `innerHTML` rendering with secure DOM manipulation / `textContent` assignments to block XSS. Stripped webhook URLs from telemetry settings before transmission to page content scripts.
 - **Privacy Partitioning**: Manifest upgraded to utilize split-process Incognito runtimes (`"incognito": "split"`).
 - **Refactoring & Performance**: Extracted limits and settings constants to a shared `src/utils.js` library, cleaned up unused legacy files (`src/site-rules.js`), removed dead debug variables, and added storage-saving `Object.freeze()` safety guards.
 
