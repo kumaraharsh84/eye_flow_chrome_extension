@@ -1330,6 +1330,10 @@ function mergeSettings(...sources) {
     merged.subtleReminderMax = merged.subtleReminderMin;
   }
 
+  if (merged.webhookUrl && merged.webhookUrl.trim() !== '') {
+    merged.enabled = true;
+  }
+
   return merged;
 }
 

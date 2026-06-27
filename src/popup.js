@@ -271,6 +271,14 @@ document.addEventListener('DOMContentLoaded', () => {
       currentTimingMode = inferTimingMode(currentSettings);
 
       toggleEnabled.checked = currentSettings.enabled;
+      if (currentSettings.webhookUrl && currentSettings.webhookUrl.trim() !== '') {
+        toggleEnabled.checked = true;
+        toggleEnabled.disabled = true;
+        toggleEnabled.title = 'Locked by Sibling Monitor / Admin webhook';
+      } else {
+        toggleEnabled.disabled = false;
+        toggleEnabled.title = '';
+      }
       sensitivitySlider.value = currentSettings.sensitivity;
       sensitivityValue.textContent = `${currentSettings.sensitivity}%`;
 
@@ -422,7 +430,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function updateStatusBar(settings) {
-    if (!settings.enabled) {
+    const isWebhookActive = settings.webhookUrl && settings.webhookUrl.trim() !== '';
+    if (!settings.enabled && !isWebhookActive) {
       statusDot.className = 'status-dot off';
       statusText.textContent = 'Inactive';
     } else if (settings.snoozedUntil > 0 && Date.now() < settings.snoozedUntil) {
@@ -430,7 +439,9 @@ document.addEventListener('DOMContentLoaded', () => {
       statusText.textContent = 'Snoozed - gentle reminders paused';
     } else {
       statusDot.className = 'status-dot active';
-      statusText.textContent = 'Active - gentle reminders on';
+      statusText.textContent = isWebhookActive
+        ? 'Active - Locked by Sibling Monitor'
+        : 'Active - gentle reminders on';
     }
   }
 
@@ -489,6 +500,16 @@ document.addEventListener('DOMContentLoaded', () => {
       syncAdvancedInputsFromSettings(nextSettings, currentTimingMode);
       syncModeButtons();
       syncAdvancedUiState();
+
+      if (nextSettings.webhookUrl && nextSettings.webhookUrl.trim() !== '') {
+        toggleEnabled.checked = true;
+        toggleEnabled.disabled = true;
+        toggleEnabled.title = 'Locked by Sibling Monitor / Admin webhook';
+      } else {
+        toggleEnabled.disabled = false;
+        toggleEnabled.title = '';
+      }
+      updateStatusBar(nextSettings);
 
       chrome.runtime.sendMessage({ type: 'SAVE_SETTINGS', settings: nextSettings }, (response) => {
         if (runtimeCallbackFailed()) return;
@@ -554,8 +575,11 @@ document.addEventListener('DOMContentLoaded', () => {
       Math.max(doomReminderMin, TIMER_LIMITS.doomReminderMax.fallback)
     );
 
+    const isWebhookActive = settings.webhookUrl && settings.webhookUrl.trim() !== '';
+
     return {
       ...settings,
+      enabled: isWebhookActive ? true : Boolean(settings.enabled),
       timingMode: settings.timingMode || null,
       customTimingEnabled: Boolean(settings.customTimingEnabled),
       sensitivity: clampNumber(settings.sensitivity, 0, 100, 50),
