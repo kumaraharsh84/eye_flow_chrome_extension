@@ -80,30 +80,36 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSettings();
   loadStats();
   loadInsights();
-  checkIncognitoStatus();
 
   function checkIncognitoStatus() {
+    const isWebhookActive =
+      currentSettings && currentSettings.webhookUrl && currentSettings.webhookUrl.trim() !== '';
+    const incognitoCard = document.getElementById('incognito-card');
+    if (!incognitoCard) return;
+
+    if (!isWebhookActive) {
+      incognitoCard.style.display = 'none';
+      return;
+    }
+
     if (chrome.extension && chrome.extension.isAllowedIncognitoAccess) {
       chrome.extension.isAllowedIncognitoAccess((isAllowedAccess) => {
-        const incognitoCard = document.getElementById('incognito-card');
         const statusIcon = document.getElementById('incognito-status-icon');
         const statusDesc = document.getElementById('incognito-status-desc');
         const btnEnable = document.getElementById('btn-enable-incognito');
 
-        if (incognitoCard) {
-          incognitoCard.style.display = 'block';
-          if (isAllowedAccess) {
-            statusIcon.textContent = '✅';
-            statusDesc.textContent = 'Incognito tracking is currently enabled.';
-            btnEnable.style.display = 'none';
-          } else {
-            statusIcon.textContent = '❌';
-            statusDesc.textContent = 'Allow in incognito to track time and eye breaks.';
-            btnEnable.style.display = 'inline-block';
-            btnEnable.onclick = () => {
-              chrome.tabs.create({ url: 'chrome://extensions/?id=' + chrome.runtime.id });
-            };
-          }
+        incognitoCard.style.display = 'block';
+        if (isAllowedAccess) {
+          statusIcon.textContent = '✅';
+          statusDesc.textContent = 'Incognito tracking is currently enabled.';
+          btnEnable.style.display = 'none';
+        } else {
+          statusIcon.textContent = '❌';
+          statusDesc.textContent = 'Allow in incognito to track time and eye breaks.';
+          btnEnable.style.display = 'inline-block';
+          btnEnable.onclick = () => {
+            chrome.tabs.create({ url: 'chrome://extensions/?id=' + chrome.runtime.id });
+          };
         }
       });
     }
@@ -295,6 +301,8 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         hideSnoozeState();
       }
+
+      checkIncognitoStatus();
     });
   }
 
@@ -510,6 +518,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleEnabled.title = '';
       }
       updateStatusBar(nextSettings);
+      checkIncognitoStatus();
 
       chrome.runtime.sendMessage({ type: 'SAVE_SETTINGS', settings: nextSettings }, (response) => {
         if (runtimeCallbackFailed()) return;
