@@ -1267,18 +1267,16 @@ const EyeFlowContent = (() => {
   }
 
   function maybeShowHydrationGentleReminder() {
-    if (!hydrationGentleReminderAt || hydrationGentleReminderAt === 0) return false;
-    if (Date.now() >= hydrationGentleReminderAt) {
-      if (canShowGentleReminder()) {
-        showGentleReminder({
-          title: 'Stay Hydrated',
-          text: 'Just a gentle nudge to take a sip of water!',
-        });
-        hydrationGentleReminderAt = 0;
-        return true;
-      }
-    }
-    return false;
+    if (!hydrationGentleReminderAt) return false;
+    if (Date.now() < hydrationGentleReminderAt) return false;
+    if (!canShowGentleReminder()) return false;
+    hydrationGentleReminderAt = 0;
+    showGentleReminder({
+      title: 'Water check-in',
+      text: 'Take a few sips if you have not had water in a while.',
+    });
+    resetHydrationTimer();
+    return true;
   }
 
   function showStageInterruption(stage, hostname) {
