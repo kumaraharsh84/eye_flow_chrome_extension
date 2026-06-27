@@ -1,6 +1,6 @@
 {
   "name": "eyeflow-chrome-extension",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "description": "EyeFlow Chrome extension with Puppeteer-based test automation.",
   "repository": {
     "type": "git",
