@@ -80,8 +80,51 @@ By default, Chrome disables extensions in Incognito mode. To ensure time is trac
 
 ### 2. Configure Weekly Email Reports
 
-1. Go to a webhook service like [Formspree](https://formspree.io/) or [Webhook.site](https://webhook.site).
+1. Go to a webhook service like [Formspree](https://formspree.io/) or [Make.com](https://make.com).
 2. Copy your unique Webhook URL.
 3. Open the EyeFlow popup, click to expand **Advanced Controls**, and paste your URL into the **Weekly Email Report** input field.
 4. Click **Save Settings** and then click **Send Test Report** to verify.
-5. Bookmark your Webhook.site URL on your phone or work device to view incoming reports remotely.
+5. Bookmark or check your email inbox connected to Formspree/Make to view incoming weekly reports.
+
+---
+
+## 🔒 Optional: Sibling Bypass Lockdown Guide (Advanced)
+
+If you are using EyeFlow to monitor a sibling's screen habits, they might try to bypass the extension by opening Guest Mode, creating a new Chrome profile, or using another browser (like Microsoft Edge).
+
+Here is how you can optionally lock down Windows and Google Chrome to prevent these bypasses:
+
+### 1. Disable Chrome Guest Mode & Profile Creation (Windows Registry)
+
+By default, users can click their profile icon in Chrome and browse as a Guest or create a new profile (which won't have EyeFlow installed). You can disable this:
+
+1. Press `Win + R`, type `regedit`, and press **Enter** to open the Registry Editor.
+2. Navigate to: `HKEY_LOCAL_MACHINE\SOFTWARE\Policies`
+3. Right-click the `Policies` folder, select **New > Key**, and name it `Google`.
+4. Right-click the `Google` folder, select **New > Key**, and name it `Chrome`.
+5. Inside the `Chrome` key, right-click in the right pane, select **New > DWORD (32-bit) Value**, and name it:
+   - `BrowserGuestModeEnabled` — leave its value data as `0`.
+   - `BrowserAddPersonEnabled` — leave its value data as `0`.
+6. Restart Chrome. The "Guest Mode" and "Add Profile" buttons will now be completely disabled.
+
+### 2. Lock Down Microsoft Edge or Other Browsers
+
+If they switch to Microsoft Edge, Safari, or Firefox, EyeFlow won't run. You can block access to these browsers or disable their internet connection:
+
+#### Method A: Disable/Block Execution via registry (Simple)
+
+1. In the Registry Editor, go to: `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Policies`
+2. Create a new key inside `Policies` named `Explorer`.
+3. Inside `Explorer`, create a new **DWORD (32-bit) Value** named `DisallowRun` and set its value to `1`.
+4. Create a new key inside `Explorer` named `DisallowRun`.
+5. Inside `DisallowRun`, create a **New > String Value** named `1` and set its value to `msedge.exe`.
+6. (Optional) Create more string values named `2`, `3` for other browsers (e.g., `firefox.exe`, `opera.exe`).
+7. Windows will now prevent Microsoft Edge or other listed browsers from launching.
+
+#### Method B: Windows Parental Controls (Built-in)
+
+Alternatively, if your sibling has a standard non-admin account:
+
+1. Go to Windows **Settings > Accounts > Family**.
+2. Add your sibling's account and classify it as a **Member** (Standard Account).
+3. Under parental controls online, set a time limit of `0 minutes` on Microsoft Edge and block installation of other browsers, making Google Chrome (with EyeFlow) the only usable internet gateway.
