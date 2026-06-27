@@ -42,14 +42,6 @@ const DEFAULT_SETTINGS = {
     'github.com': 'relaxed',
   },
 
-  // User's custom redirect suggestions (what to do instead of scrolling)
-  redirectSuggestions: [
-    'Take a short walk',
-    'Drink a glass of water',
-    'Do a quick stretch',
-    'Read a book for 5 min',
-    'Step outside for fresh air',
-  ],
   webhookUrl: '', // URL for weekly email reports
 };
 Object.freeze(DEFAULT_SETTINGS);
@@ -1282,7 +1274,6 @@ function mergeSettings(...sources) {
   const merged = {
     ...DEFAULT_SETTINGS,
     siteTiers: { ...DEFAULT_SETTINGS.siteTiers },
-    redirectSuggestions: [...DEFAULT_SETTINGS.redirectSuggestions],
   };
 
   sources.filter(Boolean).forEach((source) => {
@@ -1290,10 +1281,6 @@ function mergeSettings(...sources) {
 
     if (source.siteTiers) {
       merged.siteTiers = { ...merged.siteTiers, ...source.siteTiers };
-    }
-
-    if (Array.isArray(source.redirectSuggestions)) {
-      merged.redirectSuggestions = [...source.redirectSuggestions];
     }
   });
 

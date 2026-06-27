@@ -90,13 +90,6 @@ export const EyeFlowOverlay = (() => {
 
     const duration = (settings && settings.eyeBreakDurationSec) || 20;
     const isStrict = isEnforcedStrictSite(site);
-    const suggestions = (settings && settings.redirectSuggestions) || [
-      'Take a short walk',
-      'Drink a glass of water',
-      'Do a quick stretch',
-      'Read a book for 5 min',
-      'Step outside for fresh air',
-    ];
 
     // Create the overlay DOM
     overlayElement = document.createElement('div');
@@ -109,13 +102,13 @@ export const EyeFlowOverlay = (() => {
     }
 
     // Build the exercise HTML
-    overlayElement.innerHTML = buildExerciseHTML(duration, isStrict, site, timeOnSite, suggestions);
+    overlayElement.innerHTML = buildExerciseHTML(duration, isStrict, site, timeOnSite);
 
     // Add to page
     document.body.appendChild(overlayElement);
 
     // Start the eye exercise
-    startExercise(duration, site, timeOnSite, suggestions, settings, options);
+    startExercise(duration, site, timeOnSite, settings, options);
   }
 
   function showHydration(settings, site, timeOnSite) {
@@ -149,7 +142,7 @@ export const EyeFlowOverlay = (() => {
   // -------------------------------------------------------
   // BUILD EXERCISE HTML — Create the exercise screen HTML
   // -------------------------------------------------------
-  function buildExerciseHTML(duration, isStrict, site, timeOnSite, suggestions) {
+  function buildExerciseHTML(duration, isStrict, site, timeOnSite) {
     return `
       <div class="eyeflow-card eyeflow-card-exercise">
         <!-- Eye exercise area — the dot moves here -->
@@ -207,7 +200,7 @@ export const EyeFlowOverlay = (() => {
   // START EXERCISE — Begin the eye movement exercise
   // -------------------------------------------------------
   // Moves the dot to different positions and counts down.
-  function startExercise(duration, site, timeOnSite, suggestions, settings, options = {}) {
+  function startExercise(duration, site, timeOnSite, settings, options = {}) {
     let timeLeft = duration;
     let dotIndex = 0;
 
@@ -270,7 +263,7 @@ export const EyeFlowOverlay = (() => {
         shouldResetBreakCycleOnHide = true;
 
         // Transition to post-break experience
-        showPostBreak(site, timeOnSite, suggestions, settings, options);
+        showPostBreak(site, timeOnSite, settings, options);
       }
     }, 1000);
 
@@ -338,18 +331,12 @@ export const EyeFlowOverlay = (() => {
   //   1. Mood check (one tap)
   //   2. Time-on-site alert
   //   3. Redirect suggestions
-  function showPostBreak(site, timeOnSite, suggestions, settings, options = {}) {
+  function showPostBreak(site, timeOnSite, settings, options = {}) {
     if (!overlayElement) return;
 
     const card = overlayElement.querySelector('.eyeflow-card');
     if (!card) return;
     card.classList.add('eyeflow-card-postbreak');
-
-    // Build the redirect suggestions HTML
-    const suggestionsHTML = suggestions
-      .slice(0, 4)
-      .map((s) => `<div class="eyeflow-redirect-chip">${s}</div>`)
-      .join('');
     const hydrationSection = options.hydrationPrompt
       ? `
         <div class="eyeflow-hydration-followup">
@@ -395,10 +382,6 @@ export const EyeFlowOverlay = (() => {
           </button>
         </div>
 
-        <!-- REDIRECT SUGGESTIONS — What to do instead -->
-        <div class="eyeflow-redirect-title">Or try something different:</div>
-        <div class="eyeflow-redirect-list">
-          ${suggestionsHTML}
         </div>
       </div>
     `;
@@ -467,22 +450,6 @@ export const EyeFlowOverlay = (() => {
         hydrationLaterBtn.textContent = 'Not right now';
       });
     }
-
-    // --- Redirect chip handlers ---
-    // When user clicks a suggestion, close the overlay
-    // (the suggestion itself is just a reminder)
-    const chips = card.querySelectorAll('.eyeflow-redirect-chip');
-    chips.forEach((chip) => {
-      chip.addEventListener('click', () => {
-        // Highlight the chosen suggestion
-        chips.forEach((c) => (c.style.borderColor = 'rgba(52, 211, 153, 0.2)'));
-        chip.style.borderColor = '#34d399';
-        chip.style.background = 'rgba(52, 211, 153, 0.25)';
-
-        // Close after a brief moment so user sees the selection
-        setTimeout(hide, 800);
-      });
-    });
   }
 
   // -------------------------------------------------------

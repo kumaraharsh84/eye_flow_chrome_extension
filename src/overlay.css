@@ -403,8 +403,7 @@
   line-height: 1.55;
 }
 
-#eyeflow-overlay .eyeflow-mood-title,
-#eyeflow-overlay .eyeflow-redirect-title {
+#eyeflow-overlay .eyeflow-mood-title {
   color: var(--text);
   font-family: 'Fraunces', serif;
   font-size: 18px;
@@ -412,8 +411,7 @@
   margin: 18px 0 14px;
 }
 
-#eyeflow-overlay .eyeflow-card-postbreak .eyeflow-mood-title,
-#eyeflow-overlay .eyeflow-card-postbreak .eyeflow-redirect-title {
+#eyeflow-overlay .eyeflow-card-postbreak .eyeflow-mood-title {
   font-size: 20px;
   margin: 16px 0 14px;
 }
@@ -556,46 +554,6 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
-#eyeflow-overlay .eyeflow-redirect-list {
-  display: grid;
-  gap: 10px;
-  margin-top: 10px;
-}
-
-#eyeflow-overlay .eyeflow-card-postbreak .eyeflow-redirect-list {
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-top: 10px;
-}
-
-#eyeflow-overlay .eyeflow-redirect-chip {
-  padding: 14px 16px;
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text);
-  cursor: pointer;
-  transition:
-    border-color 0.2s ease,
-    transform 0.2s ease,
-    background 0.2s ease;
-}
-
-#eyeflow-overlay .eyeflow-card-postbreak .eyeflow-redirect-chip {
-  min-height: 54px;
-  display: flex;
-  align-items: center;
-  padding: 14px 16px;
-  border-radius: 18px;
-  line-height: 1.45;
-}
-
-#eyeflow-overlay .eyeflow-redirect-chip:hover {
-  border-color: rgba(232, 98, 42, 0.28);
-  background: rgba(255, 255, 255, 0.06);
-  transform: translateY(-1px);
-}
-
 #eyeflow-overlay .eyeflow-done-msg {
   margin-top: 16px;
   text-align: center;
@@ -648,8 +606,7 @@
     font-size: 15px;
   }
 
-  #eyeflow-overlay .eyeflow-card-postbreak .eyeflow-action-btns,
-  #eyeflow-overlay .eyeflow-card-postbreak .eyeflow-redirect-list {
+  #eyeflow-overlay .eyeflow-card-postbreak .eyeflow-action-btns {
     grid-template-columns: 1fr;
   }
 

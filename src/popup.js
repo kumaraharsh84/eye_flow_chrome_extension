@@ -261,18 +261,6 @@ document.addEventListener('DOMContentLoaded', () => {
       .addEventListener('click', () =>
         toggleSection('stats-content', '#toggle-stats .popup-collapse-icon')
       );
-
-    const addRedirectButton = document.getElementById('add-redirect-btn');
-    if (addRedirectButton) {
-      addRedirectButton.addEventListener('click', addRedirectSuggestion);
-    }
-
-    const redirectsToggle = document.getElementById('toggle-redirects');
-    if (redirectsToggle) {
-      redirectsToggle.addEventListener('click', () =>
-        toggleSection('redirects-content', '#toggle-redirects .popup-collapse-icon')
-      );
-    }
   }
 
   function loadSettings() {
@@ -299,8 +287,6 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         hideSnoozeState();
       }
-
-      renderRedirectList(currentSettings.redirectSuggestions || []);
     });
   }
 
@@ -472,7 +458,6 @@ document.addEventListener('DOMContentLoaded', () => {
       // Site Sensitivity is intentionally hidden from the current product UI.
       // Keep the saved tiers untouched so we can revive the feature later if needed.
       siteTiers: currentSettings?.siteTiers || {},
-      redirectSuggestions: collectRedirectSuggestions(),
     });
 
     currentSettings = nextSettings;
@@ -772,7 +757,7 @@ document.addEventListener('DOMContentLoaded', () => {
       soundReminderMax: currentSettings?.soundReminderMax ?? 30,
       snoozedUntil: currentSnoozeUntil || 0,
       siteTiers: currentSettings?.siteTiers || {},
-      redirectSuggestions: collectRedirectSuggestions(),
+
       webhookUrl: webhookUrlInput ? webhookUrlInput.value.trim() : '',
     };
 
@@ -815,7 +800,6 @@ document.addEventListener('DOMContentLoaded', () => {
       webhookUrl: formState.webhookUrl,
       snoozedUntil: formState.snoozedUntil,
       siteTiers: formState.siteTiers,
-      redirectSuggestions: formState.redirectSuggestions,
     });
 
     nextSettings.eyeBreakDurationSec = normalized.eyeBreakDurationSec;
@@ -1067,86 +1051,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function renderRedirectList(suggestions) {
-    const list = document.getElementById('redirect-list');
-    if (!list) return;
-    list.innerHTML = '';
-    const items =
-      Array.isArray(suggestions) && suggestions.length > 0
-        ? suggestions
-        : getDefaultRedirectSuggestions();
-
-    items.forEach((suggestion) => {
-      const item = document.createElement('div');
-      item.className = 'popup-redirect-item';
-
-      // Use textContent to safely render user-provided suggestion text (no XSS)
-      const span = document.createElement('span');
-      span.textContent = suggestion;
-
-      const removeBtn = document.createElement('button');
-      removeBtn.className = 'popup-redirect-remove';
-      removeBtn.title = 'Remove';
-      removeBtn.textContent = 'x';
-      removeBtn.addEventListener('click', () => {
-        item.remove();
-        if (!list.querySelector('.popup-redirect-item')) {
-          renderRedirectList(getDefaultRedirectSuggestions());
-        }
-        saveSettings();
-      });
-
-      item.appendChild(span);
-      item.appendChild(removeBtn);
-      list.appendChild(item);
-    });
-  }
-
-  function collectRedirectSuggestions() {
-    const suggestions = Array.from(
-      document.querySelectorAll('.popup-redirect-item span:first-child')
-    )
-      .map((element) => element.textContent)
-      .filter(Boolean);
-    return suggestions.length > 0 ? suggestions : getDefaultRedirectSuggestions();
-  }
-
-  function addRedirectSuggestion() {
-    const input = document.getElementById('new-redirect-input');
-    const list = document.getElementById('redirect-list');
-    if (!input || !list) return;
-
-    // Enforce a max length so users can't store huge strings in chrome.storage
-    const MAX_SUGGESTION_LENGTH = 120;
-    const text = input.value.trim().slice(0, MAX_SUGGESTION_LENGTH);
-    if (!text) return;
-
-    const item = document.createElement('div');
-    item.className = 'popup-redirect-item';
-
-    // Use textContent to safely insert user-typed text (no XSS)
-    const span = document.createElement('span');
-    span.textContent = text;
-
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'popup-redirect-remove';
-    removeBtn.title = 'Remove';
-    removeBtn.textContent = 'x';
-    removeBtn.addEventListener('click', () => {
-      item.remove();
-      if (!list.querySelector('.popup-redirect-item')) {
-        renderRedirectList(getDefaultRedirectSuggestions());
-      }
-      saveSettings();
-    });
-
-    item.appendChild(span);
-    item.appendChild(removeBtn);
-    list.appendChild(item);
-    input.value = '';
-    saveSettings();
-  }
-
   function toggleSection(contentId, iconSelector) {
     const content = document.getElementById(contentId);
     const icon = document.querySelector(iconSelector);
@@ -1168,16 +1072,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const icon = document.querySelector(iconSelector);
     if (content) content.style.display = 'block';
     if (icon) icon.classList.add('open');
-  }
-
-  function getDefaultRedirectSuggestions() {
-    return [
-      'Take a short walk',
-      'Drink a glass of water',
-      'Do a quick stretch',
-      'Read a book for 5 min',
-      'Step outside for fresh air',
-    ];
   }
 
   function hoursToMinutes(value) {

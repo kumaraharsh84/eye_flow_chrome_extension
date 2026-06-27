@@ -305,13 +305,6 @@ async function resetPopupState(page) {
     subtleReminderMax: 25,
     timingMode: 'fixed',
     customTimingEnabled: false,
-    redirectSuggestions: [
-      'Take a short walk',
-      'Drink a glass of water',
-      'Do a quick stretch',
-      'Read a book for 5 min',
-      'Step outside for fresh air',
-    ],
   });
   await storageSet(page, { onboardingComplete: false });
 }
@@ -745,54 +738,6 @@ async function main() {
               saveButton.disabled
             );
           });
-
-          await popupPage.close();
-        },
-        results
-      );
-
-      await runTest(
-        'popup',
-        'Popup redirect suggestions can be added and removed',
-        async () => {
-          await resetPopupState(controlPage);
-          const popupPage = await openExtensionPage(browser, extensionId, 'popup.html');
-          await ensurePopupSectionOpen(popupPage, '#toggle-redirects', '#redirects-content');
-
-          await popupPage.type('#new-redirect-input', 'Look out the window');
-          await popupPage.click('#add-redirect-btn');
-          await popupPage.waitForFunction(() =>
-            Array.from(document.querySelectorAll('.popup-redirect-item span:first-child')).some(
-              (node) => node.textContent.trim() === 'Look out the window'
-            )
-          );
-
-          let stored = await storageGet(popupPage, ['settings']);
-          expect(
-            stored.settings.redirectSuggestions.includes('Look out the window'),
-            'Expected new redirect suggestion to persist.'
-          );
-
-          await popupPage.evaluate(() => {
-            const item = Array.from(document.querySelectorAll('.popup-redirect-item')).find(
-              (node) => node.textContent.includes('Look out the window')
-            );
-            const removeButton = item ? item.querySelector('.popup-redirect-remove') : null;
-            if (removeButton) removeButton.click();
-          });
-
-          await popupPage.waitForFunction(
-            () =>
-              !Array.from(document.querySelectorAll('.popup-redirect-item span:first-child')).some(
-                (node) => node.textContent.trim() === 'Look out the window'
-              )
-          );
-
-          stored = await storageGet(popupPage, ['settings']);
-          expect(
-            !stored.settings.redirectSuggestions.includes('Look out the window'),
-            'Expected redirect suggestion removal to persist.'
-          );
 
           await popupPage.close();
         },
