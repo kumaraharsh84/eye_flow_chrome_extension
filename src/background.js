@@ -89,6 +89,11 @@ const DEFAULT_RUNTIME_STATE = {
   sharedDsState: 'off',
   sharedDsPauseReason: 'none',
   lastBreakOverlayShownAt: 0,
+  currentSessionStartedAt: 0,
+  currentSessionSite: '',
+  currentSessionInterrupted: false,
+  lastSessionEndedAt: 0,
+  lastSessionSite: '',
 };
 
 const GENTLE_TIMER_STATES = Object.freeze({
@@ -176,6 +181,46 @@ function addAuditLog(event, details) {
       });
     });
   });
+}
+
+function finalizeCurrentSession(runtimeState, stats, now = Date.now()) {
+  const start = runtimeState.currentSessionStartedAt;
+  const site = runtimeState.currentSessionSite;
+  if (start > 0 && site) {
+    const durationSec = Math.round((now - start) / 1000);
+    if (durationSec >= 5) {
+      let swappedFrom = null;
+      if (
+        runtimeState.lastSessionEndedAt > 0 &&
+        now - runtimeState.lastSessionEndedAt < 60 * 1000
+      ) {
+        if (runtimeState.lastSessionSite && runtimeState.lastSessionSite !== site) {
+          swappedFrom = runtimeState.lastSessionSite;
+          addAuditLog('Feed-Hop Detected', `User swapped directly from ${swappedFrom} to ${site}`);
+        }
+      }
+
+      const sessionData = {
+        site: site,
+        day: new Date(start).getDay(),
+        hour: new Date(start).getHours(),
+        duration: durationSec,
+        timestamp: start,
+        interrupted: Boolean(runtimeState.currentSessionInterrupted),
+        swappedFrom: swappedFrom,
+      };
+      stats.doomScrollSessions.push(sessionData);
+      if (stats.doomScrollSessions.length > 200) {
+        stats.doomScrollSessions = stats.doomScrollSessions.slice(-200);
+      }
+
+      runtimeState.lastSessionEndedAt = now;
+      runtimeState.lastSessionSite = site;
+    }
+  }
+  runtimeState.currentSessionStartedAt = 0;
+  runtimeState.currentSessionSite = '';
+  runtimeState.currentSessionInterrupted = false;
 }
 
 /**
@@ -394,8 +439,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'SYNC_SHARED_DS_STATE') {
-    chrome.storage.local.get(['settings', 'runtimeState'], (result) => {
+    chrome.storage.local.get(['settings', 'stats', 'runtimeState'], (result) => {
       const settings = mergeSettings(result.settings);
+      const stats = mergeStats(result.stats);
       const runtimeState = mergeRuntimeState(result.runtimeState);
       const now = Date.now();
       const senderTabId = sender?.tab?.id || 0;
@@ -415,6 +461,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             'Doom Scroll Session Started',
             `Site context: ${message.contextKey || 'unknown'} (tab: ${senderTabId})`
           );
+          runtimeState.currentSessionStartedAt = now;
+          runtimeState.currentSessionSite = message.contextKey || 'unknown';
+          runtimeState.currentSessionInterrupted = false;
         }
         runtimeState.sharedDsIsActive = true;
         runtimeState.sharedDsActiveTabId = senderTabId;
@@ -425,6 +474,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       } else if (runtimeState.sharedDsActiveTabId === senderTabId || senderTabIsActive) {
         if (runtimeState.sharedDsIsActive) {
           addAuditLog('Doom Scroll Session Paused/Ended', `Tab ${senderTabId} reported inactive`);
+          finalizeCurrentSession(runtimeState, stats, now);
         }
         runtimeState.sharedDsIsActive = false;
         runtimeState.sharedDsActiveTabId = 0;
@@ -474,7 +524,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       };
 
       runImmediateGentleCheck().then(() => {
-        safeStorageSet({ runtimeState }).then(() => {
+        safeStorageSet({ stats, runtimeState }).then(() => {
           sendResponse(getSharedDsSnapshot(runtimeState));
         });
       });
@@ -539,22 +589,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       stats.todayDoomScrollsBlocked++;
       stats.weekDoomScrollsBlocked++;
 
-      // Save the session data for pattern learning
-      const sessionData = {
-        site: message.site || 'unknown',
-        day: new Date().getDay(), // 0=Sunday, 1=Monday, etc.
-        hour: new Date().getHours(), // 0-23
-        duration: message.duration || 0,
-        scrollCount: message.scrollCount || 0,
-        timestamp: Date.now(),
-      };
-      stats.doomScrollSessions.push(sessionData);
-
-      // Keep only the last 200 sessions to avoid using too much storage
-      if (stats.doomScrollSessions.length > 200) {
-        stats.doomScrollSessions = stats.doomScrollSessions.slice(-200);
-      }
-
       // Strong DS handling should pause the gentle timeline, not rewrite it.
       // The pause/resume path is managed separately through the shared DS state.
       runtimeState.lastPrimaryInterventionAt = 0;
@@ -562,6 +596,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       if (message.stage === 'break') {
         runtimeState.lastBreakOverlayShownAt = Date.now();
+        runtimeState.currentSessionInterrupted = true;
         addAuditLog(
           'Break Interruption Triggered',
           `Requested break overlay on ${message.site || 'unknown site'}`
@@ -963,13 +998,55 @@ function sendWeeklyReport(stats, webhookUrl) {
     .map(([site, minutes]) => `${site}: ${Math.round(minutes)} minutes`)
     .join('\n');
 
+  const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const recentSessions = (stats.doomScrollSessions || [])
+    .filter((s) => s.timestamp >= oneWeekAgo)
+    .sort((a, b) => b.timestamp - a.timestamp);
+
+  let feedHopsCount = 0;
+  const hopTransitions = {};
+  recentSessions.forEach((s) => {
+    if (s.swappedFrom) {
+      feedHopsCount++;
+      const key = `${s.swappedFrom} -> ${s.site}`;
+      hopTransitions[key] = (hopTransitions[key] || 0) + 1;
+    }
+  });
+
+  const topTransitions = Object.entries(hopTransitions)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([trans, count]) => `${trans} (${count} times)`)
+    .join(', ');
+
+  const daysOfWeek = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const sessionEntries = recentSessions
+    .slice(0, 30)
+    .map((s) => {
+      const date = new Date(s.timestamp);
+      const dayName = daysOfWeek[date.getDay()];
+      const timeStr = date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      });
+      const durationStr = s.duration >= 60 ? `${(s.duration / 60).toFixed(1)}m` : `${s.duration}s`;
+      const hopStr = s.swappedFrom ? ` (swapped from ${s.swappedFrom})` : '';
+      const interruptedStr = s.interrupted ? ' [Exercise Completed]' : ' [No exercise]';
+      return `- ${dayName} ${timeStr} | ${s.site} | Duration: ${durationStr}${interruptedStr}${hopStr}`;
+    })
+    .join('\n');
+
   const reportPayload = {
     subject: 'EyeFlow Weekly Report',
-    message: `Here is the weekly doom-scrolling report:\n\nDoom Scrolls Blocked: ${stats.weekDoomScrollsBlocked}\nEye Breaks Completed: ${stats.weekEyeBreaksCompleted}\n\nTime Spent on Doom Scrolling Sites:\n${totalTimeEntries || 'No doom scrolling time recorded this week!'}`,
+    message: `Here is the weekly doom-scrolling report:\n\nDoom Scrolls Blocked: ${stats.weekDoomScrollsBlocked}\nEye Breaks Completed: ${stats.weekEyeBreaksCompleted}\n\nTime Spent on Doom Scrolling Sites:\n${totalTimeEntries || 'No doom scrolling time recorded this week!'}\n\n🔄 Feed-Hopping Patterns:\n- Total app-swaps: ${feedHopsCount} times\n- Most common transitions: ${topTransitions || 'None'}\n\n📅 Detailed Session Activity Log (Last 30 Sessions):\n${sessionEntries || 'No individual sessions recorded.'}`,
     stats: {
       weekDoomScrollsBlocked: stats.weekDoomScrollsBlocked,
       weekEyeBreaksCompleted: stats.weekEyeBreaksCompleted,
       weekDsSiteTimeSpent: stats.weekDsSiteTimeSpent,
+      feedHopsCount: feedHopsCount,
+      topTransitions: topTransitions || '',
+      recentSessions: recentSessions.slice(0, 30),
     },
   };
 
@@ -1659,11 +1736,16 @@ function broadcastToAllTabs(message) {
 }
 
 chrome.tabs.onRemoved.addListener((tabId) => {
-  chrome.storage.local.get(['settings', 'runtimeState'], (result) => {
+  chrome.storage.local.get(['settings', 'stats', 'runtimeState'], (result) => {
     const settings = mergeSettings(result.settings);
+    const stats = mergeStats(result.stats);
     const runtimeState = mergeRuntimeState(result.runtimeState);
 
     if (runtimeState.sharedDsActiveTabId !== tabId) return;
+
+    if (runtimeState.sharedDsIsActive) {
+      finalizeCurrentSession(runtimeState, stats, Date.now());
+    }
 
     runtimeState.sharedDsActiveMs = 0;
     runtimeState.sharedDsNextBreakTargetMs = getNextSharedBreakTargetMs(settings);
@@ -1674,7 +1756,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
     runtimeState.sharedDsState = SHARED_DS_TIMER_STATES.PAUSED;
     runtimeState.sharedDsPauseReason = SHARED_DS_PAUSE_REASONS.INACTIVE;
 
-    safeStorageSet({ runtimeState });
+    safeStorageSet({ stats, runtimeState });
   });
 });
 
