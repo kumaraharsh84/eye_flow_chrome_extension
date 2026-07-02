@@ -272,6 +272,13 @@ export const EyeFlowOverlay = (() => {
       skipBtn.addEventListener('click', () => {
         clearInterval(exerciseTimer);
         clearInterval(dotMoveTimer);
+        try {
+          chrome.runtime.sendMessage({
+            type: 'ADD_AUDIT_LOG',
+            event: 'Break Overlay Skipped',
+            details: 'User clicked skip button during eye exercise',
+          });
+        } catch (_) {}
         hide();
       });
     }
@@ -414,6 +421,13 @@ export const EyeFlowOverlay = (() => {
     const closeBtn = card.querySelector('#eyeflow-close-tab');
     if (closeBtn) {
       closeBtn.addEventListener('click', () => {
+        try {
+          chrome.runtime.sendMessage({
+            type: 'ADD_AUDIT_LOG',
+            event: 'Close Tab Clicked',
+            details: 'User chose to close tab and step away',
+          });
+        } catch (_) {}
         // Try to close the tab via Chrome extension API
         try {
           chrome.runtime.sendMessage({ type: 'CLOSE_TAB' });
@@ -431,7 +445,16 @@ export const EyeFlowOverlay = (() => {
     // Closes the overlay and lets the user continue browsing
     const keepBtn = card.querySelector('#eyeflow-keep-going');
     if (keepBtn) {
-      keepBtn.addEventListener('click', hide);
+      keepBtn.addEventListener('click', () => {
+        try {
+          chrome.runtime.sendMessage({
+            type: 'ADD_AUDIT_LOG',
+            event: 'Continue Browsing Clicked',
+            details: 'User dismissed post-break feedback card',
+          });
+        } catch (_) {}
+        hide();
+      });
     }
 
     const hydrationDoneBtn = card.querySelector('[data-hydration-followup="done"]');
@@ -456,9 +479,6 @@ export const EyeFlowOverlay = (() => {
   // HIDE OVERLAY — Remove the overlay from the page
   // -------------------------------------------------------
   function hide() {
-    const shouldFinalizeBreakCycle = shouldResetBreakCycleOnHide;
-    shouldResetBreakCycleOnHide = false;
-
     // Clear any running timers
     if (exerciseTimer) clearInterval(exerciseTimer);
     if (dotMoveTimer) clearInterval(dotMoveTimer);
@@ -475,12 +495,12 @@ export const EyeFlowOverlay = (() => {
         }
         resumePausedMedia();
         isShowing = false;
-        if (shouldFinalizeBreakCycle) finalizeBreakCycleClose();
+        finalizeBreakCycleClose();
       }, 300);
     } else {
       resumePausedMedia();
       isShowing = false;
-      if (shouldFinalizeBreakCycle) finalizeBreakCycleClose();
+      finalizeBreakCycleClose();
     }
   }
 

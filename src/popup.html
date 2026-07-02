@@ -350,14 +350,22 @@
         <p class="popup-trust-note">
           Only active browsing counts. Chat, login, and settings pages stay quiet.
         </p>
-        <div style="margin-top: 12px; text-align: center">
+        <div style="margin-top: 12px; display: flex; justify-content: center; gap: 8px">
           <button
             class="btn-secondary"
             id="btn-export-stats"
             type="button"
             style="font-size: 11px; padding: 5px 10px; height: auto"
           >
-            Export stats as JSON
+            Export stats
+          </button>
+          <button
+            class="btn-secondary"
+            id="btn-download-audit"
+            type="button"
+            style="font-size: 11px; padding: 5px 10px; height: auto"
+          >
+            Download Debug Logs
           </button>
         </div>
       </div>

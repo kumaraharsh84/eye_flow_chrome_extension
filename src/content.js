@@ -95,7 +95,7 @@ const EyeFlowContent = (() => {
   const HYDRATION_REMIND_SOON_WINDOW_MS = 5 * 60 * 1000;
   const HYDRATION_GENTLE_DELAY_MS = 3 * 60 * 1000;
   const SINGLE_POST_GRACE_MS = 60 * 1000;
-  const BREAK_DUPLICATE_GUARD_MS = 10 * 1000; // min gap between two break overlay showings
+  const BREAK_DUPLICATE_GUARD_MS = 60 * 1000; // min gap between two break overlay showings
   const SESSION_RESET_INACTIVITY_MS = 15 * 60 * 1000;
   const SCROLL_CHECK_INTERVAL_MS = 2000;
 
@@ -715,6 +715,9 @@ const EyeFlowContent = (() => {
       activeTabId: snapshot.activeTabId || 0,
       lastSyncedAt: Date.now(),
     };
+    if (snapshot.lastBreakOverlayShownAt) {
+      lastBreakOverlayShownAt = snapshot.lastBreakOverlayShownAt;
+    }
   }
 
   function resetTrackedSession({ resetTotalTime = true } = {}) {
@@ -1467,6 +1470,11 @@ const EyeFlowContent = (() => {
       const timeWindow = EyeFlowIntelligence.getTimeWindow(hostname);
       const recentScrollCount = scrollEvents.filter((t) => now - t < timeWindow).length;
       if (recentScrollCount >= scrollThreshold && now - lastDoomScrollTime > 5000) {
+        chrome.runtime.sendMessage({
+          type: 'ADD_AUDIT_LOG',
+          event: 'Scroll Limit Reached',
+          details: `Recent scrolls: ${recentScrollCount}, threshold: ${scrollThreshold} (time window: ${timeWindow}ms)`,
+        });
         lastDoomScrollTime = now;
         scrollEvents = [];
         resetBreakCycle();
@@ -1479,6 +1487,11 @@ const EyeFlowContent = (() => {
       const stage = 'break';
       if (now - lastDoomScrollTime < 5000) return;
 
+      chrome.runtime.sendMessage({
+        type: 'ADD_AUDIT_LOG',
+        event: 'Time Limit Reached',
+        details: `Break cycle time: ${Math.round(getBreakCycleMs() / 1000)}s, target: ${Math.round(sharedDsState.nextBreakTargetMs / 1000)}s`,
+      });
       lastDoomScrollTime = now;
       showStageInterruption(stage, hostname);
       return;
@@ -1511,8 +1524,18 @@ const EyeFlowContent = (() => {
 
       case 'break':
         if (!canShowBreakOverlay()) {
+          chrome.runtime.sendMessage({
+            type: 'ADD_AUDIT_LOG',
+            event: 'Break Blocked by Duplicate Guard',
+            details: `Gap since last break: ${Math.round((Date.now() - lastBreakOverlayShownAt) / 1000)}s (guard: ${Math.round(BREAK_DUPLICATE_GUARD_MS / 1000)}s)`,
+          });
           return;
         }
+        chrome.runtime.sendMessage({
+          type: 'ADD_AUDIT_LOG',
+          event: 'Break Overlay Shown',
+          details: `Overlay triggered on ${hostname} (time on site: ${timeOnSite}m)`,
+        });
         lastBreakOverlayShownAt = Date.now();
         removeGentleReminder();
         removeNudge();
@@ -2191,6 +2214,13 @@ const EyeFlowContent = (() => {
   // INITIALIZE — Set everything up when page loads
   // -------------------------------------------------------
   function init() {
+    try {
+      chrome.runtime.sendMessage({
+        type: 'ADD_AUDIT_LOG',
+        event: 'Page Load',
+        details: `Loaded ${window.location.hostname}${window.location.pathname} (visible: ${!document.hidden}, focused: ${document.hasFocus()})`,
+      });
+    } catch (_) {}
     // Get initial settings from background.js
     try {
       chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, (settings) => {

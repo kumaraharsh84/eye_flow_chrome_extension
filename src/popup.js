@@ -223,6 +223,41 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
+    const btnDownloadAudit = document.getElementById('btn-download-audit');
+    if (btnDownloadAudit) {
+      btnDownloadAudit.addEventListener('click', () => {
+        chrome.storage.local.get(['auditLogs', 'settings'], (data) => {
+          if (runtimeCallbackFailed()) return;
+          const logs = data.auditLogs || [];
+          const settings = data.settings || {};
+
+          let content = '=== EYEFLOW DEBUG AUDIT LOG ===\n';
+          content += `Generated: ${new Date().toLocaleString()}\n`;
+          content += `Active: ${settings.enabled !== false}\n`;
+          content += `Timing Mode: ${settings.timingMode || 'fixed'}\n`;
+          content += `Reminder Range: [${settings.reminderIntervalMin || 5}, ${settings.reminderIntervalMax || 5}] min\n`;
+          content += `Sensitivity: ${settings.sensitivity !== undefined ? settings.sensitivity : 50}%\n`;
+          content += '-------------------------------------------------------------\n\n';
+
+          if (logs.length === 0) {
+            content += 'No audit logs recorded yet. Start doom scrolling to generate logs!\n';
+          } else {
+            content += logs.map((l) => `[${l.timeString}] ${l.event}: ${l.details}`).join('\n');
+          }
+
+          const blob = new Blob([content], { type: 'text/plain' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `eyeflow-debug-logs-${new Date().toISOString().slice(0, 10)}.txt`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        });
+      });
+    }
+
     document.querySelectorAll('.popup-snooze-btn[data-hours]').forEach((button) => {
       button.addEventListener('click', () => {
         const hours = parseInt(button.dataset.hours, 10);

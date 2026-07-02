@@ -88,6 +88,7 @@ const DEFAULT_RUNTIME_STATE = {
   sharedDsContextKey: '',
   sharedDsState: 'off',
   sharedDsPauseReason: 'none',
+  lastBreakOverlayShownAt: 0,
 };
 
 const GENTLE_TIMER_STATES = Object.freeze({
@@ -152,6 +153,27 @@ function safeStorageSet(data) {
         console.warn('[EyeFlow] storage write failed:', chrome.runtime.lastError.message);
       }
       resolve();
+    });
+  });
+}
+
+function addAuditLog(event, details) {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(['auditLogs'], (result) => {
+      const logs = Array.isArray(result.auditLogs) ? result.auditLogs : [];
+      const now = Date.now();
+      const timeString = new Date(now).toLocaleTimeString('en-US', { hour12: false });
+      const entry = {
+        timestamp: now,
+        timeString: timeString,
+        event: event,
+        details: details || '',
+      };
+      logs.push(entry);
+      const trimmedLogs = logs.slice(-500);
+      chrome.storage.local.set({ auditLogs: trimmedLogs }, () => {
+        resolve();
+      });
     });
   });
 }
@@ -286,6 +308,13 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 // This handles all messages from content.js and popup.js.
 // Each message has a "type" field that tells us what to do.
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'ADD_AUDIT_LOG') {
+    addAuditLog(message.event, message.details).then(() => {
+      sendResponse({ success: true });
+    });
+    return true;
+  }
+
   // --- GET_SETTINGS: popup or content script wants current settings ---
   if (message.type === 'GET_SETTINGS') {
     chrome.storage.local.get(['settings'], (result) => {
@@ -381,6 +410,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       advanceSharedDsState(runtimeState, now);
 
       if (message.isActive) {
+        if (!runtimeState.sharedDsIsActive) {
+          addAuditLog(
+            'Doom Scroll Session Started',
+            `Site context: ${message.contextKey || 'unknown'} (tab: ${senderTabId})`
+          );
+        }
         runtimeState.sharedDsIsActive = true;
         runtimeState.sharedDsActiveTabId = senderTabId;
         runtimeState.sharedDsContextKey = message.contextKey || '';
@@ -388,6 +423,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         runtimeState.sharedDsState = SHARED_DS_TIMER_STATES.RUNNING;
         runtimeState.sharedDsPauseReason = SHARED_DS_PAUSE_REASONS.NONE;
       } else if (runtimeState.sharedDsActiveTabId === senderTabId || senderTabIsActive) {
+        if (runtimeState.sharedDsIsActive) {
+          addAuditLog('Doom Scroll Session Paused/Ended', `Tab ${senderTabId} reported inactive`);
+        }
         runtimeState.sharedDsIsActive = false;
         runtimeState.sharedDsActiveTabId = 0;
         runtimeState.sharedDsContextKey = '';
@@ -522,6 +560,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       runtimeState.lastPrimaryInterventionAt = 0;
       runtimeState.nextSoundReminderAt = 0;
 
+      if (message.stage === 'break') {
+        runtimeState.lastBreakOverlayShownAt = Date.now();
+        addAuditLog(
+          'Break Interruption Triggered',
+          `Requested break overlay on ${message.site || 'unknown site'}`
+        );
+      } else {
+        addAuditLog(
+          'Nudge/Warning Triggered',
+          `Stage: ${message.stage} on ${message.site || 'unknown site'}`
+        );
+      }
+
       safeStorageSet({ stats, runtimeState });
 
       // Tell the content script what stage of interruption to show.
@@ -561,6 +612,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       runtimeState.sharedDsState = SHARED_DS_TIMER_STATES.PAUSED;
       runtimeState.sharedDsPauseReason = SHARED_DS_PAUSE_REASONS.BREAK_FLOW;
 
+      addAuditLog('Eye Break Completed', `Eye exercise completed successfully`);
+
       safeStorageSet({ stats, runtimeState });
       sendResponse({ success: true });
     });
@@ -581,6 +634,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       runtimeState.sharedDsLastUpdateAt = Date.now();
       runtimeState.sharedDsState = SHARED_DS_TIMER_STATES.PAUSED;
       runtimeState.sharedDsPauseReason = SHARED_DS_PAUSE_REASONS.BREAK_FLOW;
+
+      addAuditLog('Eye Break Closed', `Post-break flow dismissed/closed`);
 
       safeStorageSet({ runtimeState });
       sendResponse({ success: true });
@@ -1168,6 +1223,7 @@ function getSharedDsSnapshot(runtimeState) {
     isActive: Boolean(runtimeState.sharedDsIsActive),
     contextKey: runtimeState.sharedDsContextKey || '',
     activeTabId: runtimeState.sharedDsActiveTabId || 0,
+    lastBreakOverlayShownAt: runtimeState.lastBreakOverlayShownAt || 0,
   };
 }
 
@@ -1184,20 +1240,29 @@ function isSurpriseTiming(settings) {
 }
 
 function getEyeBreakDelayMs(settings) {
-  if (isSurpriseTiming(settings)) {
-    return getRandomDelayMs(
-      settings?.reminderIntervalMin || DEFAULT_SETTINGS.reminderIntervalMin,
-      settings?.reminderIntervalMax || DEFAULT_SETTINGS.reminderIntervalMax
+  const isSurprise = isSurpriseTiming(settings);
+  let delayMs;
+  let detailMsg;
+  if (isSurprise) {
+    const min = settings?.reminderIntervalMin || DEFAULT_SETTINGS.reminderIntervalMin;
+    const max = settings?.reminderIntervalMax || DEFAULT_SETTINGS.reminderIntervalMax;
+    delayMs = getRandomDelayMs(min, max);
+    detailMsg = `Mode: surprise (random), Range: [${min}, ${max}] min, Generated Target: ${(
+      delayMs / 60000
+    ).toFixed(1)} min (${delayMs} ms)`;
+  } else {
+    const exactMinutes = clampNumber(
+      settings?.reminderIntervalMin,
+      TIMER_LIMITS.doomReminderMin.min,
+      TIMER_LIMITS.doomReminderMin.max,
+      TIMER_LIMITS.doomReminderMin.fallback
     );
+    delayMs = exactMinutes * 60 * 1000;
+    detailMsg = `Mode: fixed, Fixed Target: ${exactMinutes} min (${delayMs} ms)`;
   }
 
-  const exactMinutes = clampNumber(
-    settings?.reminderIntervalMin,
-    TIMER_LIMITS.doomReminderMin.min,
-    TIMER_LIMITS.doomReminderMin.max,
-    TIMER_LIMITS.doomReminderMin.fallback
-  );
-  return exactMinutes * 60 * 1000;
+  addAuditLog('Break Target Generated', detailMsg);
+  return delayMs;
 }
 
 function getGentleDelayMs(settings) {
