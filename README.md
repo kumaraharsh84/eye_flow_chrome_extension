@@ -54,10 +54,10 @@ The core workflow is strict and universal: it helps **you** stay focused and hea
 
 ### Monitoring & Syncing
 
-| Feature                 | Description                                                                                   |
-| ----------------------- | --------------------------------------------------------------------------------------------- |
-| 🕵️ Incognito Mode Sync  | Tracks doom scrolling seamlessly even if the user opens an Incognito window                   |
-| 📧 Weekly Email Reports | Automatically emails a weekly breakdown of time spent per site and interruptions via Webhooks |
+| Feature                 | Description                                                                                              |
+| ----------------------- | -------------------------------------------------------------------------------------------------------- |
+| 🕵️ Incognito Mode Sync  | Tracks doom scrolling seamlessly even if the user opens an Incognito window                              |
+| 📧 Weekly Email Reports | Automatically emails a weekly breakdown of time spent, session logs, and feed-hopping swaps via Webhooks |
 
 ### Smart Behavior
 
@@ -103,7 +103,7 @@ EyeFlow can email you a weekly report containing the total minutes spent on each
 3. Open the EyeFlow popup and expand **Advanced Controls**.
 4. Paste the URL into the **Weekly Email Report** box.
 5. Click **Send Test Report** to verify it works.
-   Every Monday at midnight, you will receive a silent email report with their statistics!
+   Every Monday at midnight, you will receive a silent email report containing their statistics, complete session activity log tables (when they opened the site, duration, and exercise completion status), and a feed-hopping summary of tab transitions between social media sites.
 
 ### Sibling Monitor Protection (Safe Toggle Lock)
 
@@ -118,7 +118,7 @@ You open Instagram
     ↓
 EyeFlow detects you are on a doom-scroll surface
     ↓
-You start scrolling rapidly
+Your doom-scrolling time limit is reached
     ↓
 Stage 1 → Small nudge appears at the corner
           "Still here?"
@@ -255,6 +255,10 @@ npm run test:popup
 
 ### Recent Fixes & Improvements
 
+- **Feed-Hopping (Chain-Scrolling) Detection**: Automatically detects direct transitions between different doom-scrolling sites in under 60 seconds. Provides a summary of these "app swaps" in the weekly email report.
+- **Detailed Session Logs**: Logs the exact start time, duration, and exercise completion status of every individual browsing session on social media sites.
+- **Removed Scroll-Density Trigger**: Removed direct popup triggers based on fast scrolling to keep the system simple and reliable. Scrolling now acts solely as an activity checker to keep the countdown active.
+- **Download Debug Logs**: Added a "Download Debug Logs" button in the Advanced section of the popup to export chronological, real-time audit logs of timers, actions, and limits during testing.
 - **Debug Timer HUD**: Restored a floating debug HUD widget in the bottom-left corner of all pages during development/testing, showing live countdowns for all three timers (Eye Break, Gentle Reminder, and Water Reminder).
 - **Stuck Timer & Close Tab Loop Fix**: Configured the Doom Scroll timer to immediately reset in background storage upon eye-break exercise completion, resolving the loop where closing the tab during the post-break screen prevented timer resets.
 - **Continuous Gentle Reminder**: Refactored the Subtle/Gentle Reminder to function as a global continuous countdown clock (similar to the water reminder), removing window focus and idle/inactivity pausing rules so that it doesn't get stuck in `Hold` states.
