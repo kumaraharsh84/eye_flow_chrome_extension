@@ -100,7 +100,6 @@ const EyeFlowContent = (() => {
   const SCROLL_CHECK_INTERVAL_MS = 2000;
 
   // --- Scroll tracking variables ---
-  let scrollEvents = []; // Array of timestamps when scroll events happened
   let lastDoomScrollTime = 0; // When doom scroll was last detected
   let scrollCheckInterval = null; // Interval ID for periodic scroll checking
   let siteEntryTime = Date.now(); // When the user entered this page
@@ -129,7 +128,6 @@ const EyeFlowContent = (() => {
   let singlePostGraceStartedAt = 0;
 
   // --- UI elements (nudge and warning) ---
-  let nudgeElement = null; // The small floating nudge pill
   let warningElement = null; // The larger warning banner
   let subtleReminderElement = null; // The gentle side reminder during normal work
   let debugTimerElement = null; // Temporary live DS countdown while timing behavior is being tuned
@@ -694,16 +692,6 @@ const EyeFlowContent = (() => {
     return baseMinutes * 60 * 1000;
   }
 
-  function getLocalGentleDelayMs() {
-    const minMinutes = Math.max(1, Number(currentSettings?.subtleReminderMin) || 25);
-    const maxMinutes = Math.max(
-      minMinutes,
-      Number(currentSettings?.subtleReminderMax) || minMinutes
-    );
-    const randomMinutes = Math.floor(Math.random() * (maxMinutes - minMinutes + 1)) + minMinutes;
-    return randomMinutes * 60 * 1000;
-  }
-
   function applySharedDsState(snapshot) {
     if (!snapshot) return;
 
@@ -721,7 +709,6 @@ const EyeFlowContent = (() => {
   }
 
   function resetTrackedSession({ resetTotalTime = true } = {}) {
-    scrollEvents = [];
     lastDoomScrollTime = 0;
     lastActivityAt = Date.now();
     pendingHydrationPopup = false;
@@ -782,7 +769,6 @@ const EyeFlowContent = (() => {
     lastGentleReminderFallbackAt = 0;
     lastGentleReminderShownAt = 0;
     removeGentleReminder();
-    removeNudge();
     removeWarning();
   }
 
@@ -805,7 +791,6 @@ const EyeFlowContent = (() => {
       siteEntryTime = Date.now();
       resetTrackedSession();
       removeGentleReminder();
-      removeNudge();
       removeWarning();
     }
 
@@ -1120,7 +1105,6 @@ const EyeFlowContent = (() => {
   }
 
   function resetBreakCycle() {
-    scrollEvents = [];
     sharedDsState.activeMs = 0;
     sharedDsState.nextBreakTargetMs = EyeFlowIntelligence.getNextBreakTargetMs();
     sharedDsState.isActive = false;
@@ -1265,10 +1249,6 @@ const EyeFlowContent = (() => {
     }
   }
 
-  function scheduleHydrationGentleReminder(delayMs = HYDRATION_GENTLE_DELAY_MS) {
-    hydrationGentleReminderAt = Date.now() + delayMs;
-  }
-
   function maybeShowHydrationGentleReminder() {
     if (!hydrationGentleReminderAt) return false;
     if (Date.now() < hydrationGentleReminderAt) return false;
@@ -1297,7 +1277,7 @@ const EyeFlowContent = (() => {
           site: hostname,
           stage: stage,
           duration: duration,
-          scrollCount: scrollEvents.length,
+          scrollCount: 0,
         },
         (response) => {
           handled = true;
@@ -1337,8 +1317,7 @@ const EyeFlowContent = (() => {
   // -------------------------------------------------------
   // HANDLE SCROLL EVENT — Called on every scroll
   // -------------------------------------------------------
-  // We record the timestamp of each scroll event. Later, we
-  // check how many scrolls happened within the detection window.
+  // We record that a scroll happened to detect active usage.
   function handleScroll(event) {
     // Don't track if extension is not active
     if (!isActive) return;
@@ -1352,18 +1331,7 @@ const EyeFlowContent = (() => {
 
     if (!isMeaningfulScrollSignal(event)) return;
 
-    // Record this scroll event's timestamp
-    scrollEvents.push(now);
     recordActivity();
-
-    // Clean up old scroll events (outside the detection window)
-    const timeWindow = EyeFlowIntelligence.getTimeWindow(getHostname());
-    scrollEvents = scrollEvents.filter((t) => now - t < timeWindow);
-
-    // Hard cap to prevent memory leaks from infinite micro-scrolls
-    if (scrollEvents.length > 250) {
-      scrollEvents = scrollEvents.slice(-250);
-    }
   }
 
   function isMeaningfulScrollSignal(event) {
@@ -1388,7 +1356,7 @@ const EyeFlowContent = (() => {
   // CHECK FOR DOOM SCROLL — Periodic check (runs every 2 sec)
   // -------------------------------------------------------
   // This function runs on an interval and checks if the user
-  // is doom scrolling based on scroll count vs threshold.
+  // is doom scrolling based on time limit checks.
   function checkForDoomScroll() {
     syncRouteState();
     syncSessionAndSharedTimer();
@@ -1493,7 +1461,6 @@ const EyeFlowContent = (() => {
 
       case 'warning':
         removeGentleReminder();
-        removeNudge();
         showWarning(timeOnSite);
         break;
 
@@ -1513,7 +1480,6 @@ const EyeFlowContent = (() => {
         });
         lastBreakOverlayShownAt = Date.now();
         removeGentleReminder();
-        removeNudge();
         removeWarning();
         // Tell overlay.js to show the full eye-break overlay
         if (typeof EyeFlowOverlay !== 'undefined') {
@@ -1521,109 +1487,6 @@ const EyeFlowContent = (() => {
         }
         break;
     }
-  }
-
-  // -------------------------------------------------------
-  // SHOW NUDGE — Small floating pill at the bottom of screen
-  // -------------------------------------------------------
-  // This is the gentlest interruption. A small message that says
-  // something like "👁️ You've been scrolling for 5 min".
-  function showNudge(timeOnSite) {
-    // Don't show if already visible
-    if (nudgeElement) return;
-
-    nudgeElement = document.createElement('div');
-    nudgeElement.id = 'eyeflow-nudge';
-    nudgeElement.innerHTML = `
-      <div class="eyeflow-nudge-content">
-        <span class="eyeflow-nudge-icon">◉</span>
-        <span class="eyeflow-nudge-text">Still here? ${timeOnSite} min already. Move your eyes for 15 seconds now.</span>
-        <button class="eyeflow-nudge-dismiss" title="Dismiss">✕</button>
-      </div>
-    `;
-
-    // Style the nudge (inline styles so they work on any site)
-    nudgeElement.style.cssText = `
-      position: fixed;
-      bottom: 24px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 2147483645;
-      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-      animation: eyeflow-slide-up 0.4s ease-out;
-    `;
-
-    // Add CSS animation
-    const style = document.createElement('style');
-    style.id = 'eyeflow-nudge-style';
-    style.textContent = `
-      @keyframes eyeflow-slide-up {
-        from { transform: translateX(-50%) translateY(100px); opacity: 0; }
-        to { transform: translateX(-50%) translateY(0); opacity: 1; }
-      }
-      #eyeflow-nudge .eyeflow-nudge-content {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 13px 18px;
-        max-width: min(92vw, 460px);
-        background: rgba(255, 248, 239, 0.96);
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(118, 92, 64, 0.12);
-        border-radius: 22px;
-        box-shadow: 0 18px 40px rgba(42, 29, 18, 0.15);
-        color: #3f2f24;
-        font-size: 14px;
-      }
-      #eyeflow-nudge .eyeflow-nudge-icon {
-        width: 30px;
-        height: 30px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, #d89c60, #9f6b43);
-        color: #fff8ef;
-        font-size: 13px;
-        flex-shrink: 0;
-      }
-      #eyeflow-nudge .eyeflow-nudge-text {
-        line-height: 1.45;
-      }
-      #eyeflow-nudge .eyeflow-nudge-dismiss {
-        background: none;
-        border: none;
-        color: rgba(63,47,36,0.42);
-        cursor: pointer;
-        font-size: 14px;
-        padding: 0 0 0 6px;
-        transition: color 0.2s;
-      }
-      #eyeflow-nudge .eyeflow-nudge-dismiss:hover { color: #3f2f24; }
-    `;
-
-    document.head.appendChild(style);
-    document.body.appendChild(nudgeElement);
-    nudgeElement.querySelector('.eyeflow-nudge-icon').textContent = 'O';
-    nudgeElement.querySelector('.eyeflow-nudge-dismiss').textContent = 'x';
-
-    // Dismiss button handler
-    nudgeElement.querySelector('.eyeflow-nudge-dismiss').addEventListener('click', removeNudge);
-
-    // Auto-dismiss after 15 seconds
-    setTimeout(removeNudge, 15000);
-  }
-
-  // -------------------------------------------------------
-  // REMOVE NUDGE — Hide the nudge pill
-  // -------------------------------------------------------
-  function removeNudge() {
-    if (nudgeElement) {
-      nudgeElement.remove();
-      nudgeElement = null;
-    }
-    const style = document.getElementById('eyeflow-nudge-style');
-    if (style) style.remove();
   }
 
   // -------------------------------------------------------
@@ -2090,7 +1953,6 @@ const EyeFlowContent = (() => {
           syncActiveSession();
           isActive = Boolean(currentSettings?.enabled);
           removeGentleReminder();
-          removeNudge();
           removeWarning();
         }
 
@@ -2121,7 +1983,6 @@ const EyeFlowContent = (() => {
 
         if (message.type === 'SHOW_EYE_BREAK_NOW') {
           removeGentleReminder();
-          removeNudge();
           removeWarning();
           if (typeof EyeFlowOverlay !== 'undefined') {
             lastBreakOverlayShownAt = Date.now();
@@ -2310,7 +2171,6 @@ const EyeFlowContent = (() => {
   // -------------------------------------------------------
   return {
     getHostname,
-    removeNudge,
     removeWarning,
   };
 })();

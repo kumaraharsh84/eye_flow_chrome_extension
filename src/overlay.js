@@ -32,7 +32,6 @@ export const EyeFlowOverlay = (() => {
   let mediaGuardTimer = null; // Re-pauses autoplaying media while the overlay is visible
   let isShowing = false; // Whether the overlay is currently visible
   let pausedMediaElements = []; // Media paused while overlay is visible
-  let shouldResetBreakCycleOnHide = false; // Delay the next break cycle until the post-break UI is dismissed
 
   function hasLiveOverlayElement() {
     return Boolean(
@@ -257,10 +256,6 @@ export const EyeFlowOverlay = (() => {
         if (typeof EyeFlowIntelligence !== 'undefined') {
           EyeFlowIntelligence.recordBreakCompleted();
         }
-
-        // Do not restart the next break timer yet. Wait until the user fully
-        // dismisses the post-break UI so we do not immediately queue another break.
-        shouldResetBreakCycleOnHide = true;
 
         // Transition to post-break experience
         showPostBreak(site, timeOnSite, settings, options);

@@ -446,7 +446,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const now = Date.now();
       const senderTabId = sender?.tab?.id || 0;
       const senderTabIsActive = Boolean(sender?.tab?.active);
-      const wasDsActive = Boolean(runtimeState.sharedDsIsActive);
       const isSnoozed = settings.snoozedUntil > 0 && now < settings.snoozedUntil;
 
       if (!runtimeState.sharedDsNextBreakTargetMs) {
@@ -456,13 +455,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       advanceSharedDsState(runtimeState, now);
 
       if (message.isActive) {
-        if (!runtimeState.sharedDsIsActive) {
+        const incomingSite = message.contextKey || 'unknown';
+        const siteChanged =
+          runtimeState.sharedDsIsActive &&
+          runtimeState.currentSessionSite &&
+          runtimeState.currentSessionSite !== incomingSite;
+
+        if (!runtimeState.sharedDsIsActive || siteChanged) {
+          if (siteChanged) {
+            finalizeCurrentSession(runtimeState, stats, now);
+          }
           addAuditLog(
             'Doom Scroll Session Started',
-            `Site context: ${message.contextKey || 'unknown'} (tab: ${senderTabId})`
+            `Site context: ${incomingSite} (tab: ${senderTabId})`
           );
           runtimeState.currentSessionStartedAt = now;
-          runtimeState.currentSessionSite = message.contextKey || 'unknown';
+          runtimeState.currentSessionSite = incomingSite;
           runtimeState.currentSessionInterrupted = false;
         }
         runtimeState.sharedDsIsActive = true;
@@ -1646,13 +1654,18 @@ function broadcastRuntimeReset(runtimeState) {
 }
 
 async function resetRuntimeStateForFreshSession(reason = 'manual') {
-  const result = await chrome.storage.local.get(['settings', 'runtimeState']);
+  const result = await chrome.storage.local.get(['settings', 'stats', 'runtimeState']);
   const settings = mergeSettings(result.settings);
+  const stats = mergeStats(result.stats);
   const runtimeState = mergeRuntimeState(result.runtimeState);
   const now = Date.now();
 
+  if (runtimeState.sharedDsIsActive) {
+    finalizeCurrentSession(runtimeState, stats, now);
+  }
+
   resetRuntimeStateFields(runtimeState, settings, now);
-  await safeStorageSet({ runtimeState });
+  await safeStorageSet({ stats, runtimeState });
   broadcastRuntimeReset(runtimeState);
 }
 
