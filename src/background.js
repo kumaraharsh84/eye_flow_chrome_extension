@@ -1244,8 +1244,11 @@ function getEyeBreakDelayMs(settings) {
   let delayMs;
   let detailMsg;
   if (isSurprise) {
-    const min = settings?.reminderIntervalMin || DEFAULT_SETTINGS.reminderIntervalMin;
-    const max = settings?.reminderIntervalMax || DEFAULT_SETTINGS.reminderIntervalMax;
+    const min = Math.max(5, settings?.reminderIntervalMin || DEFAULT_SETTINGS.reminderIntervalMin);
+    const max = Math.max(
+      min,
+      settings?.reminderIntervalMax || DEFAULT_SETTINGS.reminderIntervalMax
+    );
     delayMs = getRandomDelayMs(min, max);
     detailMsg = `Mode: surprise (random), Range: [${min}, ${max}] min, Generated Target: ${(
       delayMs / 60000
@@ -1253,12 +1256,17 @@ function getEyeBreakDelayMs(settings) {
   } else {
     const exactMinutes = clampNumber(
       settings?.reminderIntervalMin,
-      TIMER_LIMITS.doomReminderMin.min,
+      5,
       TIMER_LIMITS.doomReminderMin.max,
       TIMER_LIMITS.doomReminderMin.fallback
     );
     delayMs = exactMinutes * 60 * 1000;
     detailMsg = `Mode: fixed, Fixed Target: ${exactMinutes} min (${delayMs} ms)`;
+  }
+
+  if (delayMs < 5 * 60 * 1000) {
+    delayMs = 5 * 60 * 1000;
+    detailMsg += ` (clamped to 5m minimum)`;
   }
 
   addAuditLog('Break Target Generated', detailMsg);

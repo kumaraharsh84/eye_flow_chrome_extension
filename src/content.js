@@ -1421,6 +1421,13 @@ const EyeFlowContent = (() => {
         }
 
         if (now - lastDoomScrollTime < 5000) return;
+
+        chrome.runtime.sendMessage({
+          type: 'ADD_AUDIT_LOG',
+          event: 'Time Limit Reached',
+          details: `Break cycle time: ${Math.round(getBreakCycleMs() / 1000)}s, target: ${Math.round(sharedDsState.nextBreakTargetMs / 1000)}s`,
+        });
+
         lastDoomScrollTime = now;
         showStageInterruption('break', hostname);
         return;
@@ -1463,38 +1470,6 @@ const EyeFlowContent = (() => {
         resetHydrationTimer();
         return;
       }
-    }
-
-    if (isDoomScrollContext()) {
-      const scrollThreshold = EyeFlowIntelligence.getScrollThreshold(hostname);
-      const timeWindow = EyeFlowIntelligence.getTimeWindow(hostname);
-      const recentScrollCount = scrollEvents.filter((t) => now - t < timeWindow).length;
-      if (recentScrollCount >= scrollThreshold && now - lastDoomScrollTime > 5000) {
-        chrome.runtime.sendMessage({
-          type: 'ADD_AUDIT_LOG',
-          event: 'Scroll Limit Reached',
-          details: `Recent scrolls: ${recentScrollCount}, threshold: ${scrollThreshold} (time window: ${timeWindow}ms)`,
-        });
-        lastDoomScrollTime = now;
-        scrollEvents = [];
-        resetBreakCycle();
-        showStageInterruption('break', hostname);
-        return;
-      }
-
-      if (!sharedDsState.nextBreakTargetMs || getBreakCycleMs() < sharedDsState.nextBreakTargetMs)
-        return;
-      const stage = 'break';
-      if (now - lastDoomScrollTime < 5000) return;
-
-      chrome.runtime.sendMessage({
-        type: 'ADD_AUDIT_LOG',
-        event: 'Time Limit Reached',
-        details: `Break cycle time: ${Math.round(getBreakCycleMs() / 1000)}s, target: ${Math.round(sharedDsState.nextBreakTargetMs / 1000)}s`,
-      });
-      lastDoomScrollTime = now;
-      showStageInterruption(stage, hostname);
-      return;
     }
 
     // Non-DS pages now use only the gentle reminder system.
