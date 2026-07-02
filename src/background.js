@@ -315,6 +315,24 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     stats.lastResetDate = today;
     statsChanged = true;
 
+    // Prune data older than 30 days (1 month)
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
+    if (Array.isArray(stats.doomScrollSessions)) {
+      stats.doomScrollSessions = stats.doomScrollSessions.filter(
+        (s) => s.timestamp >= thirtyDaysAgo
+      );
+    }
+    if (Array.isArray(stats.moodHistory)) {
+      stats.moodHistory = stats.moodHistory.filter((m) => m.timestamp >= thirtyDaysAgo);
+    }
+
+    // Also load and prune auditLogs
+    chrome.storage.local.get(['auditLogs'], (resultLogs) => {
+      const logs = Array.isArray(resultLogs.auditLogs) ? resultLogs.auditLogs : [];
+      const prunedLogs = logs.filter((l) => l.timestamp >= thirtyDaysAgo).slice(-500);
+      chrome.storage.local.set({ auditLogs: prunedLogs });
+    });
+
     if (new Date(now).getDay() === 1) {
       if (settings.webhookUrl) {
         sendWeeklyReport(stats, settings.webhookUrl);
