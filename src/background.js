@@ -1,3 +1,23 @@
+/**
+ * @file background.js
+ * @description Central Manifest V3 Service Worker / Background Script.
+ *
+ * @purpose
+ * This script runs in the extension service worker context. Its primary jobs are:
+ *   1. Initializing and maintaining default configuration preferences and session statistics in local storage.
+ *   2. Scheduling periodic checks using `chrome.alarms` to manage work mode snoozes and reset daily counters at midnight.
+ *   3. Enforcing a 30-day data retention policy by daily cleaning sessions, mood logs, and debug audits.
+ *   4. Coordinating shared timer states across tabs using message-passing APIs.
+ *   5. Listening for inactive states (e.g. system lock/idle) to suspend gentle reminder timers.
+ *   6. Synthesizing chimes by launching background offscreen helper pages.
+ *   7. Posting weekly progress summaries to admin Sibling Monitor webhooks.
+ *
+ * @project-fit
+ *   - Runs persistently in the background as the extension's service worker.
+ *   - Uses `chrome.storage.local` to share parameters across all tabs.
+ *   - Receives events from `content.js` and coordinates with `offscreen.js` for audio synthesis.
+ */
+
 import { clampNumber, TIMER_LIMITS } from './utils.js';
 
 // -------------------------------------------------------
@@ -147,9 +167,10 @@ const DOOM_SCROLL_HOSTS = new Set([
 // -------------------------------------------------------
 
 /**
- * Wraps chrome.storage.local.set with error logging.
- * Silent failures on a full quota or invalidated context are easy to miss;
- * this surfaces them without crashing the extension.
+ * @function safeStorageSet
+ * @description Performs storage sets on local settings with error detection.
+ * @param {Object} data - Key-value pair configuration chunk to update in storage.
+ * @returns {Promise<void>}
  */
 function safeStorageSet(data) {
   return new Promise((resolve) => {
@@ -162,6 +183,13 @@ function safeStorageSet(data) {
   });
 }
 
+/**
+ * @function addAuditLog
+ * @description Writes debug timestamps and audit entries to a circular log buffer.
+ * @param {string} event - Audit event title.
+ * @param {string} details - Log description.
+ * @returns {Promise<void>}
+ */
 function addAuditLog(event, details) {
   return new Promise((resolve) => {
     chrome.storage.local.get(['auditLogs'], (result) => {
@@ -175,6 +203,7 @@ function addAuditLog(event, details) {
         details: details || '',
       };
       logs.push(entry);
+      // Clamp log depth to 500 entries to prevent memory leaks
       const trimmedLogs = logs.slice(-500);
       chrome.storage.local.set({ auditLogs: trimmedLogs }, () => {
         resolve();
@@ -183,13 +212,25 @@ function addAuditLog(event, details) {
   });
 }
 
+/**
+ * @function finalizeCurrentSession
+ * @description Finishes tracking an active scroll session, logs hopping behaviors,
+ * and pushes the result into history lists.
+ *
+ * @param {Object} runtimeState - Persistent runtime tracking metrics.
+ * @param {Object} stats - Stats container dictionary.
+ * @param {number} [now=Date.now()] - Unix timestamp.
+ * @returns {void}
+ */
 function finalizeCurrentSession(runtimeState, stats, now = Date.now()) {
   const start = runtimeState.currentSessionStartedAt;
   const site = runtimeState.currentSessionSite;
   if (start > 0 && site) {
     const durationSec = Math.round((now - start) / 1000);
+    // Ignore sessions shorter than 5 seconds
     if (durationSec >= 5) {
       let swappedFrom = null;
+      // Hop transition detector: Detects if the user immediately jumped from one feed to another
       if (
         runtimeState.lastSessionEndedAt > 0 &&
         now - runtimeState.lastSessionEndedAt < 60 * 1000
@@ -224,9 +265,10 @@ function finalizeCurrentSession(runtimeState, stats, now = Date.now()) {
 }
 
 /**
- * Returns a copy of settings safe to send to a content script.
- * Content scripts run inside arbitrary web pages, so sensitive fields
- * like the webhook URL must be stripped before transmission.
+ * @function buildSafeSettingsForContent
+ * @description Copies preferences while stripping webhook tokens to protect private parameters.
+ * @param {Object} settings - Preferences dictionary.
+ * @returns {Object} Cleaned preferences safe to broadcast.
  */
 function buildSafeSettingsForContent(settings) {
   // eslint-disable-next-line no-unused-vars
@@ -235,34 +277,47 @@ function buildSafeSettingsForContent(settings) {
 }
 
 // -------------------------------------------------------
-// When the extension is installed for the first time,
-// save the default settings and stats to Chrome storage.
+// Chrome Extension Event Hooks
+// -------------------------------------------------------
+
+/**
+ * Extension Installation Hook
+ * @uses
+ *   - chrome.runtime.onInstalled.addListener(): Listens for installation or updates.
+ */
 chrome.runtime.onInstalled.addListener((details) => {
   ensureDefaults({ freshSession: true });
   ensureTickAlarm();
   ensureIdleDetection();
 
-  // Open onboarding only on a fresh install, never on updates.
+  // Launches onboarding walkthrough page when first installed
   if (details.reason === 'install') {
-    chrome.storage.local.get(['onboardingComplete'], (result) => {
-      if (!result.onboardingComplete) {
-        chrome.tabs.create({
-          url: chrome.runtime.getURL('onboarding.html'),
-          active: true,
-        });
-      }
+    chrome.tabs.create({
+      url: chrome.runtime.getURL('onboarding.html'),
+      active: true,
     });
   }
 });
 
+/**
+ * Browser Launch Hook
+ * @uses
+ *   - chrome.runtime.onStartup.addListener(): Runs background bootstrap sequences on browser load.
+ */
 chrome.runtime.onStartup.addListener(() => {
   ensureDefaults({ freshSession: true });
   ensureTickAlarm();
   ensureIdleDetection();
 });
 
+// Setup idle check bounds
 ensureIdleDetection();
 
+/**
+ * Idle State Transitions Listener
+ * @uses
+ *   - chrome.idle.onStateChanged.addListener(): Toggles timers when OS lock is detected.
+ */
 chrome.idle.onStateChanged.addListener((state) => {
   broadcastToAllTabs({ type: 'SYSTEM_IDLE_STATE_CHANGED', state });
 
@@ -271,6 +326,11 @@ chrome.idle.onStateChanged.addListener((state) => {
   }
 });
 
+/**
+ * Preference Storage Modifications Listener
+ * @uses
+ *   - chrome.storage.onChanged.addListener(): Fires when settings are edited, syncing tabs.
+ */
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area !== 'local' || !changes.settings?.newValue) return;
 
@@ -286,6 +346,12 @@ chrome.storage.onChanged.addListener((changes, area) => {
 // Every minute, this alarm fires. We use it to:
 //   1. Check if a snooze period has ended → re-enable the extension
 //   2. Reset daily stats at midnight
+/**
+ * Chrome Alarm Core Loop Hook
+ * @uses
+ *   - chrome.alarms.onAlarm.addListener(): Handles alarms. Periodically audits daily counters,
+ *     removes obsolete entries, and triggers webhook digests on Monday mornings.
+ */
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name !== 'eyeflow-tick') return;
 
@@ -298,24 +364,22 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   let statsChanged = false;
   let runtimeStateChanged = false;
 
-  // Keep snooze expiry and the soft-reminder scheduler on the same clock tick.
+  // Clear snooze automatically when expired
   if (settings.snoozedUntil > 0 && now >= settings.snoozedUntil) {
     settings.snoozedUntil = 0;
     settingsChanged = true;
   }
 
+  // Rollover check for midnight resets
   const today = new Date(now).toDateString();
   if (stats.lastResetDate !== today) {
-    // Daily counters roll over lazily on the first tick of a new day.
-    // This is the only normal reset point for Top DS Sites Today.
-    // Reloading the extension, refreshing a page, or closing/reopening Chrome should not clear it.
     stats.todayDoomScrollsBlocked = 0;
     stats.todayEyeBreaksCompleted = 0;
     stats.todayDsSiteTimeSpent = {};
     stats.lastResetDate = today;
     statsChanged = true;
 
-    // Prune data older than 30 days (1 month)
+    // Data retention policy: Clear historical entries older than 30 days (1 month)
     const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
     if (Array.isArray(stats.doomScrollSessions)) {
       stats.doomScrollSessions = stats.doomScrollSessions.filter(
@@ -326,13 +390,14 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       stats.moodHistory = stats.moodHistory.filter((m) => m.timestamp >= thirtyDaysAgo);
     }
 
-    // Also load and prune auditLogs
+    // Prune audit log documents
     chrome.storage.local.get(['auditLogs'], (resultLogs) => {
       const logs = Array.isArray(resultLogs.auditLogs) ? resultLogs.auditLogs : [];
       const prunedLogs = logs.filter((l) => l.timestamp >= thirtyDaysAgo).slice(-500);
       chrome.storage.local.set({ auditLogs: prunedLogs });
     });
 
+    // Check if today is Monday to dispatch webhook digests
     if (new Date(now).getDay() === 1) {
       if (settings.webhookUrl) {
         sendWeeklyReport(stats, settings.webhookUrl);
@@ -346,6 +411,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     runtimeStateChanged = true;
   }
 
+  // Write changes
   if (settingsChanged || statsChanged || runtimeStateChanged) {
     await chrome.storage.local.set({
       ...(settingsChanged ? { settings } : {}),
@@ -362,6 +428,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     broadcastRuntimeReset(runtimeState);
   }
 
+  // Handle gentle/sound reminder tick processes
   await runAmbientReminderTick(settings, runtimeState, now);
 });
 
@@ -370,6 +437,12 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 // -------------------------------------------------------
 // This handles all messages from content.js and popup.js.
 // Each message has a "type" field that tells us what to do.
+/**
+ * Chrome Message Receiver Hook
+ * @uses
+ *   - chrome.runtime.onMessage.addListener(): Listens for incoming message blocks.
+ *     Routes actions like SNOOZE, SAVE_SETTINGS, and DOOM_SCROLL_DETECTED.
+ */
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'ADD_AUDIT_LOG') {
     addAuditLog(message.event, message.details).then(() => {
@@ -378,12 +451,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // --- GET_SETTINGS: popup or content script wants current settings ---
   if (message.type === 'GET_SETTINGS') {
     chrome.storage.local.get(['settings'], (result) => {
       sendResponse(mergeSettings(result.settings));
     });
-    return true; // Required for async sendResponse
+    return true;
   }
 
   if (message.type === 'GET_SYSTEM_STATE') {
@@ -456,6 +528,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+  // Inter-tab doom scroll state synchronizer
   if (message.type === 'SYNC_SHARED_DS_STATE') {
     chrome.storage.local.get(['settings', 'stats', 'runtimeState'], (result) => {
       const settings = mergeSettings(result.settings);
@@ -510,14 +583,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         runtimeState.sharedDsPauseReason = SHARED_DS_PAUSE_REASONS.INACTIVE;
       }
 
-      // Keep the gentle reminder visually and logically out of the way while the
-      // stronger DS timer owns the experience, instead of waiting for the next
-      // ambient tick to pause or resume it.
+      // Defer gentle work reminders when the stronger doom-scroll blocks are active
       if (runtimeState.sharedDsIsActive) {
         pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.DS_ACTIVE, now);
       } else if (!isSnoozed && settings.subtleReminderEnabled) {
-        // If the gentle reminder is currently paused (e.g. due to inactivity or window blur),
-        // resume it immediately when we receive active user presence from the content script.
         if (runtimeState.gentleState === GENTLE_TIMER_STATES.PAUSED) {
           resumeGentleReminder(runtimeState, now);
         }
@@ -526,8 +595,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         }
       }
 
-      // If the gentle reminder is due and we are active on a normal page, show it immediately
-      // instead of waiting up to 30 seconds for the next ambient alarm tick.
+      // Check if gentle reminders are due on normal pages to show immediately without waiting for alarm ticks
       const runImmediateGentleCheck = async () => {
         if (
           !runtimeState.sharedDsIsActive &&
@@ -542,7 +610,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             scheduleNextGentleReminder(runtimeState, settings, now);
             runtimeState.lastGentleReminderAt = now;
           } else {
-            // Keep the state as DUE so it retries immediately on subsequent scroll/click interactions
             runtimeState.gentleState = GENTLE_TIMER_STATES.DUE;
             runtimeState.gentlePauseReason = GENTLE_PAUSE_REASONS.INACTIVE;
           }
@@ -558,7 +625,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // --- SAVE_SETTINGS: popup changed a setting, save it ---
   if (message.type === 'SAVE_SETTINGS') {
     chrome.storage.local.get(['settings', 'runtimeState'], (result) => {
       const previousSettings = mergeSettings(result.settings);
@@ -587,7 +653,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // --- GET_STATS: popup wants to display stats ---
   if (message.type === 'GET_STATS') {
     chrome.storage.local.get(['stats'], (result) => {
       sendResponse(mergeStats(result.stats));
@@ -595,28 +660,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // --- DOOM_SCROLL_DETECTED: content.js says the user is doom scrolling ---
-  // This is the key event! When content.js detects rapid scrolling,
-  // it sends this message. We update stats and decide what to do.
+  // Doom scroll detected signal from page script
   if (message.type === 'DOOM_SCROLL_DETECTED') {
     chrome.storage.local.get(['settings', 'stats', 'runtimeState'], (result) => {
       const settings = mergeSettings(result.settings);
       const stats = mergeStats(result.stats);
       const runtimeState = mergeRuntimeState(result.runtimeState);
 
-      // Snooze only pauses gentle reminders. Strong DS protection should still run.
       if (!settings.enabled) {
         sendResponse({ action: 'IGNORE' });
         return;
       }
 
-      // Update doom scroll stats
       stats.totalDoomScrollsBlocked++;
       stats.todayDoomScrollsBlocked++;
       stats.weekDoomScrollsBlocked++;
 
-      // Strong DS handling should pause the gentle timeline, not rewrite it.
-      // The pause/resume path is managed separately through the shared DS state.
       runtimeState.lastPrimaryInterventionAt = 0;
       runtimeState.nextSoundReminderAt = 0;
 
@@ -636,21 +695,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       safeStorageSet({ stats, runtimeState });
 
-      // Tell the content script what stage of interruption to show.
-      // Strip sensitive fields (e.g. webhookUrl) before sending settings to
-      // a content script — it runs inside the page and should not receive
-      // server credentials or private config.
+      // Strip webhook keys before content transmission
       const safeSettings = buildSafeSettingsForContent(settings);
       sendResponse({
         action: 'INTERVENE',
-        stage: message.stage || 'nudge', // nudge, warning, or break
+        stage: message.stage || 'nudge',
         settings: safeSettings,
       });
     });
     return true;
   }
 
-  // --- EYE_BREAK_COMPLETED: user finished the eye exercise ---
   if (message.type === 'EYE_BREAK_COMPLETED') {
     chrome.storage.local.get(['settings', 'stats', 'runtimeState'], (result) => {
       const settings = mergeSettings(result.settings);
@@ -662,9 +717,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       stats.weekEyeBreaksCompleted++;
       stats.lastBreakTime = Date.now();
 
-      // Reset active DS scrolling time immediately when the break exercise is completed,
-      // so if the user closes the tab or browser during the post-break screen,
-      // the timer is already reset and won't loop.
       runtimeState.lastPrimaryInterventionAt = 0;
       runtimeState.nextSoundReminderAt = 0;
       runtimeState.sharedDsActiveMs = 0;
@@ -686,8 +738,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const settings = mergeSettings(result.settings);
       const runtimeState = mergeRuntimeState(result.runtimeState);
 
-      // Restart the next DS cycle only after the user actually dismisses the
-      // post-break UI, so the follow-up card cannot overlap with a fresh timer.
       runtimeState.lastPrimaryInterventionAt = 0;
       runtimeState.nextSoundReminderAt = 0;
       runtimeState.sharedDsActiveMs = 0;
@@ -752,18 +802,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // --- MOOD_RECORDED: user tapped a mood emoji after eye break ---
   if (message.type === 'MOOD_RECORDED') {
     chrome.storage.local.get(['stats'], (result) => {
       const stats = mergeStats(result.stats);
 
       stats.moodHistory.push({
-        mood: message.mood, // 'good', 'okay', or 'bad'
+        mood: message.mood,
         timestamp: Date.now(),
         site: message.site || 'unknown',
       });
 
-      // Keep only last 100 mood entries
       if (stats.moodHistory.length > 100) {
         stats.moodHistory = stats.moodHistory.slice(-100);
       }
@@ -774,13 +822,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // --- SNOOZE: user activated work mode snooze from popup ---
   if (message.type === 'SNOOZE') {
     chrome.storage.local.get(['settings'], (result) => {
       const settings = mergeSettings(result.settings);
       const now = Date.now();
 
-      // Set the snooze end time
       settings.snoozedUntil = now + message.hours * 60 * 60 * 1000;
       chrome.storage.local.get(['runtimeState'], (runtimeResult) => {
         const runtimeState = mergeRuntimeState(runtimeResult.runtimeState);
@@ -788,7 +834,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         runtimeState.nextSoundReminderAt = 0;
         safeStorageSet({ settings, runtimeState });
 
-        // Notify all tabs that snooze is active
         broadcastToAllTabs({ type: 'SNOOZE_STARTED', until: settings.snoozedUntil });
         sendResponse({ success: true, until: settings.snoozedUntil });
       });
@@ -796,7 +841,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // --- RESUME: user manually ended snooze ---
   if (message.type === 'RESUME') {
     chrome.storage.local.get(['settings', 'runtimeState'], (result) => {
       const settings = mergeSettings(result.settings);
@@ -826,7 +870,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // --- GET_PATTERN_INSIGHTS: intelligence.js asks for pattern data ---
   if (message.type === 'GET_PATTERN_INSIGHTS') {
     chrome.storage.local.get(['stats'], (result) => {
       const stats = mergeStats(result.stats);
@@ -836,7 +879,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  // --- TEST_REPORT: popup.js triggers a test weekly report ---
   if (message.type === 'TEST_REPORT') {
     chrome.storage.local.get(['stats', 'settings'], (result) => {
       const stats = mergeStats(result.stats);
@@ -857,6 +899,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
+/**
+ * Keyboard shortcuts commands hooks. Allows users to force breaks from outside page overlays.
+ * @uses
+ *   - chrome.commands.onCommand.addListener(): Listens for hotkey inputs.
+ */
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== 'trigger-eye-break') return;
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -866,6 +913,16 @@ chrome.commands.onCommand.addListener(async (command) => {
   } catch (_) {}
 });
 
+/**
+ * @function runAmbientReminderTick
+ * @description Core routine evaluating active timers, water limits, window focusing events,
+ * and dispatching notifications/sounds to relevant tabs.
+ *
+ * @param {Object} settings - Config Preferences dictionary.
+ * @param {Object} runtimeState - Background state trackers.
+ * @param {number} now - Unix milliseconds.
+ * @returns {Promise<void>}
+ */
 async function runAmbientReminderTick(settings, runtimeState, now) {
   if (!settings.enabled) {
     clearRuntimeStateForDisabled(runtimeState);
@@ -925,7 +982,6 @@ async function runAmbientReminderTick(settings, runtimeState, now) {
   } else if (runtimeState.sharedDsIsActive) {
     pauseGentleReminder(runtimeState, GENTLE_PAUSE_REASONS.DS_ACTIVE, now);
   } else {
-    // If it was paused (e.g. from DS_ACTIVE or SNOOZE), resume it
     if (runtimeState.gentleState === GENTLE_TIMER_STATES.PAUSED) {
       resumeGentleReminder(runtimeState, now);
     }
@@ -940,8 +996,6 @@ async function runAmbientReminderTick(settings, runtimeState, now) {
         scheduleNextGentleReminder(runtimeState, settings, now);
         runtimeState.lastGentleReminderAt = now;
       } else {
-        // If it cannot be shown (e.g. user is on sensitive page/typing/tab not focused),
-        // we DO NOT pause/hold or reset the timer. It stays due and will retry on subsequent checks.
         runtimeState.gentleState = GENTLE_TIMER_STATES.DUE;
         runtimeState.gentlePauseReason = GENTLE_PAUSE_REASONS.INACTIVE;
       }
@@ -1016,6 +1070,15 @@ function resumeGentleReminder(runtimeState, now = Date.now()) {
   }
 }
 
+/**
+ * @function sendWeeklyReport
+ * @description Bundles weekly browsing metrics, hopping occurrences, and session histories
+ * and POSTs them as a JSON payload to the configured administrative monitor webhook.
+ *
+ * @param {Object} stats - Stats container dictionary.
+ * @param {string} webhookUrl - HTTP target address endpoint.
+ * @returns {void}
+ */
 function sendWeeklyReport(stats, webhookUrl) {
   if (!webhookUrl) return;
 
@@ -1085,6 +1148,12 @@ function sendWeeklyReport(stats, webhookUrl) {
   }).catch((err) => console.error('Failed to send weekly report:', err));
 }
 
+/**
+ * @function getChromeWindowState
+ * @description Scans windows to determine focus.
+ * @uses
+ *   - chrome.windows.getAll(): Queries browser windows.
+ */
 async function getChromeWindowState() {
   const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
   return {
@@ -1093,18 +1162,20 @@ async function getChromeWindowState() {
   };
 }
 
+/**
+ * @function sendGentleReminderToActiveTab
+ * @description Targets the front-most focus tab and signals a soft toast alert.
+ */
 async function sendGentleReminderToActiveTab() {
   const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   const activeTab = tabs.find((tab) => tab.id && tab.url && !tab.url.startsWith('chrome://'));
   if (!activeTab || !activeTab.id) return false;
 
-  // Skip the gentle work reminder on pages that already need the stronger feed logic.
   if (isLikelyDoomScrollUrl(activeTab.url || '')) {
     return false;
   }
 
   try {
-    // Ask the page if a soft reminder would be inappropriate right now.
     const pageContext = await chrome.tabs.sendMessage(activeTab.id, {
       type: 'CAN_SHOW_GENTLE_REMINDER',
     });
@@ -1115,7 +1186,6 @@ async function sendGentleReminderToActiveTab() {
     await chrome.tabs.sendMessage(activeTab.id, { type: 'SHOW_GENTLE_REMINDER' });
     return true;
   } catch (e) {
-    // Ignore tabs that cannot receive messages.
     return false;
   }
 }
@@ -1137,6 +1207,10 @@ async function getActiveTabReminderContext() {
   }
 }
 
+/**
+ * @function deliverWaterReminder
+ * @description Evaluates active page parameters, dispatching embedded toasts or fallbacks.
+ */
 async function deliverWaterReminder(now = Date.now()) {
   const tabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   const activeTab = tabs.find((tab) => tab.id && tab.url && !tab.url.startsWith('chrome://'));
@@ -1170,7 +1244,7 @@ async function deliverWaterReminder(now = Date.now()) {
       return 'gentle';
     }
   } catch (e) {
-    // Fall through to a normal browser notification when the page cannot respond.
+    // Fallback
   }
 
   await showBasicNotification(
@@ -1211,13 +1285,19 @@ async function reconcilePendingWaterReminder(runtimeState, settings, now = Date.
       return true;
     }
   } catch (e) {
-    // Ignore transient tab messaging issues and let normal recovery handle it.
+    // Ignore
   }
 
   expireStaleWaterPending(runtimeState, settings, now);
   return false;
 }
 
+/**
+ * @function showBasicNotification
+ * @description Launches a native Chrome browser tray alert message.
+ * @uses
+ *   - chrome.notifications.create(): Launches desktop notifications.
+ */
 async function showBasicNotification(id, title, message) {
   await chrome.notifications.create(id, {
     type: 'basic',
@@ -1227,6 +1307,10 @@ async function showBasicNotification(id, title, message) {
   });
 }
 
+/**
+ * @function playReminderSound
+ * @description Requests offscreen audio synthesis from our worker document.
+ */
 async function playReminderSound() {
   try {
     await ensureOffscreenDocument();
@@ -1234,11 +1318,19 @@ async function playReminderSound() {
     await chrome.runtime.sendMessage({ type: 'PLAY_REMINDER_SOUND' });
     return true;
   } catch (e) {
-    // Ignore transient offscreen messaging issues.
     return false;
   }
 }
 
+/**
+ * @function ensureOffscreenDocument
+ * @description Verifies if offscreen synthesized document is open, mounting if missing.
+ * Service workers do not have access to DOM audio APIs, so this helper is critical.
+ *
+ * @uses
+ *   - chrome.runtime.getContexts(): Checks active contexts.
+ *   - chrome.offscreen.createDocument(): Mounts a sound synth page.
+ */
 async function ensureOffscreenDocument() {
   const offscreenUrl = chrome.runtime.getURL('offscreen.html');
   const contexts = await chrome.runtime.getContexts({
@@ -1289,6 +1381,10 @@ function expireStaleWaterPending(runtimeState, settings, now = Date.now()) {
   return true;
 }
 
+/**
+ * @function advanceSharedDsState
+ * @description Evaluates active shared tab states, pausing or updating counters depending on focus.
+ */
 function advanceSharedDsState(runtimeState, now = Date.now()) {
   if (!runtimeState.sharedDsLastUpdateAt) {
     runtimeState.sharedDsLastUpdateAt = now;
@@ -1393,6 +1489,10 @@ function getGentleDelayMs(settings) {
   return exactMinutes * 60 * 1000;
 }
 
+/**
+ * @function isLikelyDoomScrollUrl
+ * @description Matches url components against social media feeds for quick checks.
+ */
 function isLikelyDoomScrollUrl(url) {
   try {
     const parsedUrl = new URL(url);
@@ -1434,7 +1534,6 @@ function isLikelyDoomScrollUrl(url) {
       )
         return true;
       if (pathname.includes('/status/')) return true;
-      // Profile likes and media tabs are DS surfaces
       if (/^\/[^/]+\/likes\/?$/.test(pathname)) return true;
       if (/^\/[^/]+\/media\/?$/.test(pathname)) return true;
       return false;
@@ -1446,6 +1545,10 @@ function isLikelyDoomScrollUrl(url) {
   }
 }
 
+/**
+ * @function mergeSettings
+ * @description Merges custom preferences with the default settings dictionary, clamping ranges.
+ */
 function mergeSettings(...sources) {
   const merged = {
     ...DEFAULT_SETTINGS,
@@ -1460,7 +1563,6 @@ function mergeSettings(...sources) {
     }
   });
 
-  // Clamp user-controlled timers so old saved values or bad input cannot create odd schedules.
   merged.reminderIntervalMin = clampNumber(
     merged.reminderIntervalMin,
     TIMER_LIMITS.doomReminderMin.min,
@@ -1513,6 +1615,10 @@ function mergeSettings(...sources) {
   return merged;
 }
 
+/**
+ * @function mergeStats
+ * @description Safely merges retrieved statistics with fallback structures.
+ */
 function mergeStats(source) {
   return {
     ...DEFAULT_STATS,
@@ -1535,6 +1641,10 @@ function mergeStats(source) {
   };
 }
 
+/**
+ * @function mergeRuntimeState
+ * @description Safely merges runtime tracking states.
+ */
 function mergeRuntimeState(source) {
   const merged = {
     ...DEFAULT_RUNTIME_STATE,
@@ -1548,6 +1658,10 @@ function mergeRuntimeState(source) {
   return merged;
 }
 
+/**
+ * @function resetRuntimeStateFields
+ * @description Normalizes runtime tracking timers when starting fresh.
+ */
 function resetRuntimeStateFields(runtimeState, settings, now = Date.now()) {
   Object.assign(runtimeState, DEFAULT_RUNTIME_STATE, {
     nextGentleReminderAt: settings.enabled ? now + getGentleDelayMs(settings) : 0,
@@ -1633,6 +1747,10 @@ function shouldRestartMainTimers(previousSettings, nextSettings) {
   );
 }
 
+/**
+ * @function ensureDefaults
+ * @description Loads settings and configures defaults if missing in local storage.
+ */
 function ensureDefaults({ freshSession = false } = {}) {
   chrome.storage.local.get(['settings', 'stats', 'runtimeState'], (result) => {
     const settings = mergeSettings(result.settings);
@@ -1692,43 +1810,44 @@ async function resetRuntimeStateForFreshSession(reason = 'manual') {
 // -------------------------------------------------------
 // This function looks at the history of doom-scroll sessions and
 // finds patterns like "user scrolls most on Sundays at 11pm".
+/**
+ * @function analyzePatterns
+ * @description Audits session logs to discover high-risk days of week or peak hour patterns.
+ *
+ * @param {Object[]} sessions - Sessions dataset logs array.
+ * @returns {Object} Analytical insights summary.
+ */
 function analyzePatterns(sessions) {
-  // If not enough data, return empty insights
   if (!sessions || sessions.length < 7) {
     return { hasEnoughData: false, riskTimes: [], topSites: [] };
   }
 
-  // Count doom scrolls by day + hour combination
-  const dayHourCounts = {}; // key: "day-hour", value: count
-  const siteCounts = {}; // key: site domain, value: count
+  const dayHourCounts = {};
+  const siteCounts = {};
 
   sessions.forEach((session) => {
-    // Track day + hour patterns
     const key = `${session.day}-${session.hour}`;
     dayHourCounts[key] = (dayHourCounts[key] || 0) + 1;
 
-    // Track which sites cause the most doom scrolling
     siteCounts[session.site] = (siteCounts[session.site] || 0) + 1;
   });
 
-  // Find the top 3 high-risk day+hour combos
   const riskTimes = Object.entries(dayHourCounts)
-    .sort((a, b) => b[1] - a[1]) // Sort by count, highest first
-    .slice(0, 3) // Take top 3
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
     .map(([key, count]) => {
       const [day, hour] = key.split('-').map(Number);
       return {
-        day, // 0=Sun, 1=Mon, ...
-        hour, // 0-23
-        count, // How many times
+        day,
+        hour,
+        count,
         dayName: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][
           day
         ],
-        timeLabel: formatHour(hour), // "11 PM", "3 AM", etc.
+        timeLabel: formatHour(hour),
       };
     });
 
-  // Find top 3 doom-scroll sites
   const topSites = Object.entries(siteCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 3)
@@ -1753,19 +1872,27 @@ function formatHour(hour) {
 // -------------------------------------------------------
 // Used to notify all content scripts when settings change,
 // snooze starts/ends, etc.
+/**
+ * @function broadcastToAllTabs
+ * @description Iterates across active tabs, signaling a payload message to pages that support it.
+ */
 function broadcastToAllTabs(message) {
   chrome.tabs.query({}, (tabs) => {
     tabs.forEach((tab) => {
-      // Only send to tabs that can receive messages (have URLs)
       if (tab.id && tab.url && !tab.url.startsWith('chrome://')) {
         chrome.tabs.sendMessage(tab.id, message).catch(() => {
-          // Tab might not have content script loaded — ignore the error
+          // Ignore tabs that don't have our content scripts active
         });
       }
     });
   });
 }
 
+/**
+ * Tab Closed Hook
+ * @uses
+ *   - chrome.tabs.onRemoved.addListener(): Wipes shared status variables if the active DS page was shut.
+ */
 chrome.tabs.onRemoved.addListener((tabId) => {
   chrome.storage.local.get(['settings', 'stats', 'runtimeState'], (result) => {
     const settings = mergeSettings(result.settings);
@@ -1791,6 +1918,11 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   });
 });
 
+/**
+ * Window Closed Hook
+ * @uses
+ *   - chrome.windows.onRemoved.addListener(): Resets tracking state if all browser windows are shut.
+ */
 chrome.windows.onRemoved.addListener(async () => {
   const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
   if (windows.length === 0) {

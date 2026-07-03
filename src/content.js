@@ -1,3 +1,22 @@
+/**
+ * @file content.js
+ * @description Injected Content Script for Doom-Scroll & Activity Monitoring.
+ *
+ * @purpose
+ * This script runs in the context of every webpage the user visits. Its primary jobs are:
+ *   1. Identifying if the current page or subroute is a known "doom-scrolling" context.
+ *   2. Listening for user interactions (clicks, keyboard arrows, scrolling) to calculate "presence".
+ *   3. Counting the active minutes spent on social media sites and reporting them to storage.
+ *   4. Interfacing with `overlay.js` to mount fullscreen guided eye breaks or water reminders.
+ *   5. Synchronizing the active state tab duration with other tabs via background script relays.
+ *
+ * @project-fit
+ *   - Instantiated as `EyeFlowContent` wrapper.
+ *   - Runs in the isolated web page DOM context.
+ *   - Uses `chrome.runtime` messaging to communicate configuration queries, log audits,
+ *     and report time rollups back to the central Service Worker (`background.js`).
+ */
+
 import { EyeFlowIntelligence } from './intelligence.js';
 import { EyeFlowOverlay } from './overlay.js';
 import { clampNumber, GENTLE_REMINDER_DUPLICATE_GUARD_MS } from './utils.js';
@@ -17,12 +36,16 @@ import { clampNumber, GENTLE_REMINDER_DUPLICATE_GUARD_MS } from './utils.js';
 // to determine thresholds and interruption stages.
 // ============================================================
 
-// -------------------------------------------------------
-// EYEFLOW CONTENT — Main content script controller
-// -------------------------------------------------------
+// If true, mounts a visible overlay in the bottom left displaying live countdowns for debugging.
 const EYEFLOW_DEBUG_CONTENT = false;
 
+/**
+ * @namespace EyeFlowContent
+ * @description Main content script controller wrapping local variables, context parsers,
+ * active listeners, and renderers in a closure.
+ */
 const EyeFlowContent = (() => {
+  // A Set of hostnames representing targeted doom-scroll surfaces.
   const DOOM_SCROLL_SITES = new Set([
     'instagram.com',
     'tiktok.com',
@@ -31,6 +54,8 @@ const EyeFlowContent = (() => {
     'twitter.com',
     'x.com',
   ]);
+
+  // Sensitive keywords found in hostnames. If matched, reminders are suppressed to avoid interrupting tasks.
   const SENSITIVE_HOST_KEYWORDS = [
     'bank',
     'pay',
@@ -60,7 +85,10 @@ const EyeFlowContent = (() => {
     'zoom',
     'meet',
     'teams',
+    'images',
   ];
+
+  // Sensitive keywords found in URL paths.
   const SENSITIVE_PATH_KEYWORDS = [
     'login',
     'signin',
@@ -78,6 +106,8 @@ const EyeFlowContent = (() => {
     'assessment',
     'proctor',
   ];
+
+  // Platforms containing chat features where reminders are paused during active conversations.
   const COMMUNICATION_HOST_KEYWORDS = [
     'instagram',
     'facebook',
@@ -87,37 +117,55 @@ const EyeFlowContent = (() => {
     'discord',
     'snapchat',
   ];
+
+  // Frequency at which we write cumulative site time to storage (1 minute).
   const SITE_TIME_REPORT_INTERVAL_MS = 60 * 1000;
+
+  // Random variance range added to hydration targets.
   const HYDRATION_JITTER_MINUTES = 3;
+
+  // Keystroke/presence activity window. Users inactive longer than this are considered idle.
   const PRESENCE_WINDOW_MS = 35 * 1000;
+
+  // Idle duration check window for non-social sites (2 minutes).
   const REGULAR_PAGE_INACTIVITY_WINDOW_MS = 2 * 60 * 1000;
+
+  // Window (3 minutes) during which pending water reminders can merge into upcoming eye breaks.
   const HYDRATION_EYE_MERGE_WINDOW_MS = 3 * 60 * 1000;
   const HYDRATION_REMIND_SOON_WINDOW_MS = 5 * 60 * 1000;
   const HYDRATION_GENTLE_DELAY_MS = 3 * 60 * 1000;
+
+  // Temporary grace period (1 minute) granted when visiting individual posts.
   const SINGLE_POST_GRACE_MS = 60 * 1000;
-  const BREAK_DUPLICATE_GUARD_MS = 60 * 1000; // min gap between two break overlay showings
+
+  // Debounce window (1 minute) to prevent duplicate break screen triggers.
+  const BREAK_DUPLICATE_GUARD_MS = 60 * 1000;
+
+  // Session reset timeout after continuous inactivity (15 minutes).
   const SESSION_RESET_INACTIVITY_MS = 15 * 60 * 1000;
+
+  // Timing check loop interval (2 seconds).
   const SCROLL_CHECK_INTERVAL_MS = 2000;
 
-  // --- Scroll tracking variables ---
-  let lastDoomScrollTime = 0; // When doom scroll was last detected
-  let scrollCheckInterval = null; // Interval ID for periodic scroll checking
-  let siteEntryTime = Date.now(); // When the user entered this page
-  let timeTrackingInterval = null; // Interval for tracking time on site
-  let isActive = true; // Whether the extension is currently active
-  let currentSettings = null; // Cached extension settings
-  let lastScrollSignalAt = 0; // Deduplicates scroll-like signals across listeners
-  let lastActivityAt = Date.now(); // Tracks recent feed activity for strict sites
+  // --- Scroll & State Variables ---
+  let lastDoomScrollTime = 0;
+  let scrollCheckInterval = null;
+  let siteEntryTime = Date.now();
+  let timeTrackingInterval = null;
+  let isActive = true;
+  let currentSettings = null;
+  let lastScrollSignalAt = 0;
+  let lastActivityAt = Date.now();
   let lastMeaningfulInputAt = Date.now();
   let lastKnownUrl = window.location.href;
   let pendingHydrationPopup = false;
-  let activeSiteMs = 0; // Counts DS time while this tab is actively visible and present
+  let activeSiteMs = 0;
   let activeSessionStartedAt = 0;
   let lastReportedActiveSiteMs = 0;
   let hydrationTargetMs = 0;
   let lastContextKey = '';
   let isSystemIdle = false;
-  let totalActiveUsageMs = 0; // Counts active usage beyond DS so hydration can follow normal browsing too
+  let totalActiveUsageMs = 0;
   let totalUsageStartedAt = 0;
   let hydrationMergedIntoNextBreak = false;
   let hydrationGentleReminderAt = 0;
@@ -127,10 +175,10 @@ const EyeFlowContent = (() => {
   let singlePostGraceContextKey = '';
   let singlePostGraceStartedAt = 0;
 
-  // --- UI elements (nudge and warning) ---
-  let warningElement = null; // The larger warning banner
-  let subtleReminderElement = null; // The gentle side reminder during normal work
-  let debugTimerElement = null; // Temporary live DS countdown while timing behavior is being tuned
+  // --- UI Elements ---
+  let warningElement = null;
+  let subtleReminderElement = null;
+  let debugTimerElement = null;
   let debugTimerInterval = null;
   let debugTimerMeta = {
     nextGentleReminderAt: 0,
@@ -153,6 +201,10 @@ const EyeFlowContent = (() => {
     lastSyncedAt: 0,
   };
 
+  /**
+   * @function runtimeCallbackFailed
+   * @description Validates if chrome runtime API generated errors.
+   */
   function runtimeCallbackFailed() {
     return Boolean(chrome.runtime?.lastError);
   }
@@ -160,12 +212,19 @@ const EyeFlowContent = (() => {
   // -------------------------------------------------------
   // GET HOSTNAME — Extract clean domain name from URL
   // -------------------------------------------------------
-  // Returns "instagram.com" from "https://www.instagram.com/reels/"
+  /**
+   * @function getHostname
+   * @description Strips leading subdomains like "www" or "m" from location hostname.
+   * @returns {string} Clean hostname (e.g. "instagram.com").
+   */
   function getHostname() {
-    // Treat mobile and www variants as the same site so timers do not fork.
     return window.location.hostname.replace(/^(www|m)\./, '');
   }
 
+  /**
+   * @function getStatsSiteLabel
+   * @description Maps URL contexts to human-readable site labels for stats tables.
+   */
   function getStatsSiteLabel() {
     const hostname = getHostname();
     const contextKey = getDoomScrollContextKey();
@@ -202,9 +261,17 @@ const EyeFlowContent = (() => {
     return siteLabels[hostname] || hostname;
   }
 
+  /**
+   * @function getDoomScrollContextKey
+   * @description Inspects subroutes and page layout to check if the user is on an
+   * infinite doom-scroll feed layout (reels, shorts, main feed) or a passive work zone.
+   *
+   * @returns {string} Context identifier string. Returns empty string if on a non-feed route.
+   */
   function getDoomScrollContextKey() {
     const hostname = getHostname();
 
+    // Do not count time spent entering usernames or passwords
     if (isAuthOrVerificationSurface()) {
       return '';
     }
@@ -248,12 +315,17 @@ const EyeFlowContent = (() => {
     return '';
   }
 
+  /**
+   * @function isDoomScrollContext
+   * @description Checks if doom scroll context is active, taking post grace windows into account.
+   */
   function isDoomScrollContext() {
     const contextKey = getDoomScrollContextKey();
     if (!contextKey) {
       return false;
     }
 
+    // Ignore single post detail pages during their grace period (lets users read an article without breaks)
     if (isSinglePostGraceContextKey(contextKey) && isWithinSinglePostGraceWindow(contextKey)) {
       return false;
     }
@@ -261,10 +333,18 @@ const EyeFlowContent = (() => {
     return true;
   }
 
+  /**
+   * @function isSinglePostGraceContextKey
+   * @description Audits if a key matches detail-view routes.
+   */
   function isSinglePostGraceContextKey(contextKey) {
     return typeof contextKey === 'string' && contextKey.endsWith('/detail');
   }
 
+  /**
+   * @function isWithinSinglePostGraceWindow
+   * @description Audits if the grace period for reading a detailed single post has not expired.
+   */
   function isWithinSinglePostGraceWindow(contextKey = getDoomScrollContextKey()) {
     if (!isSinglePostGraceContextKey(contextKey)) {
       return false;
@@ -277,6 +357,10 @@ const EyeFlowContent = (() => {
     return Date.now() - singlePostGraceStartedAt < SINGLE_POST_GRACE_MS;
   }
 
+  /**
+   * @function getSinglePostGraceRemainingMs
+   * @description Calculates remaining grace period milliseconds.
+   */
   function getSinglePostGraceRemainingMs(contextKey = getDoomScrollContextKey()) {
     if (!isWithinSinglePostGraceWindow(contextKey)) {
       return 0;
@@ -285,6 +369,10 @@ const EyeFlowContent = (() => {
     return Math.max(0, SINGLE_POST_GRACE_MS - (Date.now() - singlePostGraceStartedAt));
   }
 
+  /**
+   * @function isPassiveViewerDoomContext
+   * @description Identifies if user is on short-form video layouts.
+   */
   function isPassiveViewerDoomContext() {
     const contextKey = getDoomScrollContextKey();
     return (
@@ -295,6 +383,10 @@ const EyeFlowContent = (() => {
     );
   }
 
+  /**
+   * @function isStrictBreakSite
+   * @description Identifies if user is browsing platforms that hide skip buttons during breaks.
+   */
   function isStrictBreakSite() {
     const contextKey = getDoomScrollContextKey();
     if (!contextKey) {
@@ -309,28 +401,38 @@ const EyeFlowContent = (() => {
     return contextKey === 'youtube.com/shorts';
   }
 
+  /**
+   * @function recordActivity
+   * @description Refreshes timestamps representing recent active inputs.
+   */
   function recordActivity() {
     const now = Date.now();
     lastActivityAt = now;
     lastMeaningfulInputAt = now;
   }
 
+  /**
+   * @function hasRecentMeaningfulInput
+   * @description Audits keyboard/scroll logs. Returns true if inputs occurred within presence window.
+   */
   function hasRecentMeaningfulInput() {
     return Date.now() - lastMeaningfulInputAt <= PRESENCE_WINDOW_MS;
   }
 
+  /**
+   * @function hasRecentRegularPageInput
+   * @description Audits inputs for general browsing pages.
+   */
   function hasRecentRegularPageInput() {
     return Date.now() - lastMeaningfulInputAt <= REGULAR_PAGE_INACTIVITY_WINDOW_MS;
   }
 
+  // --- Platform-Specific Subroute Detectors ---
+
   function getInstagramDoomSurfaceKey() {
     const path = window.location.pathname || '/';
 
-    if (path.startsWith('/reels')) {
-      return 'instagram.com/reels';
-    }
-
-    if (path.startsWith('/reel/')) {
+    if (path.startsWith('/reels') || path.startsWith('/reel/')) {
       return 'instagram.com/reels';
     }
 
@@ -373,7 +475,6 @@ const EyeFlowContent = (() => {
       path = path.slice(0, -1);
     }
 
-    // Explore is just the chooser surface; actual community feeds entered from there can be strong later.
     if (path.startsWith('/explore')) {
       return '';
     }
@@ -394,7 +495,6 @@ const EyeFlowContent = (() => {
       return '';
     }
 
-    // A plain subreddit path behaves like a feed and should stay in the strong DS bucket.
     if (/^\/r\/[^/]+\/?$/.test(path)) {
       return 'reddit.com/community';
     }
@@ -443,9 +543,6 @@ const EyeFlowContent = (() => {
     }
 
     if (path === '/' || path === '') {
-      // Classify Facebook home as a DS surface immediately — don't wait for
-      // the feed to render in the DOM, which can cause the gentle reminder
-      // timer to fire first on a slow page load.
       return 'facebook.com/home';
     }
 
@@ -500,12 +597,10 @@ const EyeFlowContent = (() => {
       return '';
     }
 
-    // Profile pages with likes or media tabs are strong DS surfaces (user browses liked/saved reels)
     if (/^\/[^/]+\/likes\/?$/.test(path) || /^\/[^/]+\/media\/?$/.test(path)) {
       return 'x.com/profile-feed';
     }
 
-    // Plain profile pages (followers, following, highlights, articles, with_replies) are non-DS
     if (/^\/[^/]+(?:\/(with_replies|highlights|articles|followers|following))?\/?$/.test(path)) {
       return '';
     }
@@ -556,13 +651,7 @@ const EyeFlowContent = (() => {
       return '';
     }
 
-    if (path.includes('/spotlight/')) {
-      // A single spotlight clip URL - treat as strong DS feed (like Instagram Reels)
-      // because Snapchat Spotlight auto-plays the next clip just like a reel feed.
-      return 'snapchat.com/spotlight';
-    }
-
-    if (path.startsWith('/spotlight')) {
+    if (path.includes('/spotlight/') || path.startsWith('/spotlight')) {
       return 'snapchat.com/spotlight';
     }
 
@@ -629,13 +718,13 @@ const EyeFlowContent = (() => {
       return 'twitch.tv/feed';
     }
 
-    if (/^\/[^/]+\/?$/.test(path)) {
-      return '';
-    }
-
     return '';
   }
 
+  /**
+   * @function isAuthOrVerificationSurface
+   * @description Audits if user is currently looking at login page forms.
+   */
   function isAuthOrVerificationSurface() {
     const path = `${window.location.pathname || ''} ${window.location.search || ''}`.toLowerCase();
     const hasAuthPath = [
@@ -658,6 +747,10 @@ const EyeFlowContent = (() => {
     return hasAuthPath || authFieldsVisible;
   }
 
+  /**
+   * @function handleInteraction
+   * @description Log activity triggers on mouse clicks or arrow/scroll keystrokes.
+   */
   function handleInteraction(event) {
     if (!isActive) return;
 
@@ -687,11 +780,19 @@ const EyeFlowContent = (() => {
     }
   }
 
+  /**
+   * @function getHydrationTargetMs
+   * @description Fetches standard hydration reminder thresholds in milliseconds.
+   */
   function getHydrationTargetMs() {
     const baseMinutes = currentSettings?.hydrationReminderMin ?? 80;
     return baseMinutes * 60 * 1000;
   }
 
+  /**
+   * @function applySharedDsState
+   * @description Syncs the page's local timer values with the shared background timer.
+   */
   function applySharedDsState(snapshot) {
     if (!snapshot) return;
 
@@ -708,6 +809,10 @@ const EyeFlowContent = (() => {
     }
   }
 
+  /**
+   * @function resetTrackedSession
+   * @description Resets session variables and recalculates hydration target intervals.
+   */
   function resetTrackedSession({ resetTotalTime = true } = {}) {
     lastDoomScrollTime = 0;
     lastActivityAt = Date.now();
@@ -731,6 +836,10 @@ const EyeFlowContent = (() => {
     }
   }
 
+  /**
+   * @function flushDsSiteTime
+   * @description Flushes accumulated browsing time on this site to local storage.
+   */
   function flushDsSiteTime() {
     const activeMinutesDelta = Math.floor((getActiveSiteMs() - lastReportedActiveSiteMs) / 60000);
     if (activeMinutesDelta <= 0) return;
@@ -763,6 +872,10 @@ const EyeFlowContent = (() => {
     }
   }
 
+  /**
+   * @function resetSessionTimersFromBackground
+   * @description Wipes local countdowns and applies a snapshot from the background script.
+   */
   function resetSessionTimersFromBackground(snapshot) {
     resetTrackedSession();
     applySharedDsState(snapshot);
@@ -772,6 +885,11 @@ const EyeFlowContent = (() => {
     removeWarning();
   }
 
+  /**
+   * @function syncRouteState
+   * @description Checks if the URL has changed since the last check, and resets
+   * timers if the user navigated away from a doom-scroll site.
+   */
   function syncRouteState() {
     const currentUrl = window.location.href;
     const contextKey = getDoomScrollContextKey();
@@ -797,14 +915,9 @@ const EyeFlowContent = (() => {
     if (contextChanged && lastContextKey && lastContextKey !== contextKey) {
       flushDsSiteTime();
 
-      // When navigating BACK into a DS context from a non-DS page, refresh
-      // lastMeaningfulInputAt so the new DS session isn't immediately treated
-      // as inactive, and re-anchor the shared DS state so the stale elapsed
-      // estimation doesn't push the timer past the break target immediately.
       if (contextKey && !lastContextKey) {
         lastMeaningfulInputAt = Date.now();
         lastActivityAt = Date.now();
-        // Re-anchor the sync timestamp so we don't accumulate phantom elapsed time
         sharedDsState.lastSyncedAt = Date.now();
       }
     }
@@ -822,10 +935,19 @@ const EyeFlowContent = (() => {
     lastContextKey = contextKey;
   }
 
+  /**
+   * @function isTabActivelyVisible
+   * @description Checks if tab is active and visible.
+   */
   function isTabActivelyVisible() {
     return !document.hidden && document.hasFocus();
   }
 
+  /**
+   * @function isSensitiveReminderContext
+   * @description Identifies if page has sensitive password, billing, or meeting components
+   * to avoid showing reminders.
+   */
   function isSensitiveReminderContext() {
     const hostname = getHostname();
     const path = `${window.location.pathname || ''} ${window.location.search || ''}`.toLowerCase();
@@ -864,6 +986,10 @@ const EyeFlowContent = (() => {
     return false;
   }
 
+  /**
+   * @function isCommunicationContext
+   * @description Checks if user is currently messaging or calling.
+   */
   function isCommunicationContext() {
     const hostname = getHostname();
     const path = `${window.location.pathname || ''} ${window.location.search || ''}`.toLowerCase();
@@ -897,8 +1023,6 @@ const EyeFlowContent = (() => {
     if (chatUiSignals && communicationHost) {
       return true;
     }
-    // Keep call/live suppression scoped to communication-heavy products so video sites like
-    // YouTube Shorts are not mistaken for an active call just because they contain "video" UI.
     if (communicationHost && (callUiSignals || liveOrSharedWatchSignals)) return true;
     if (path.includes('/direct/') || path.includes('/messages/') || path.includes('/inbox'))
       return true;
@@ -906,6 +1030,10 @@ const EyeFlowContent = (() => {
     return false;
   }
 
+  /**
+   * @function canShowGentleReminder
+   * @description Checks if a gentle reminder notification can be shown on the active page.
+   */
   function canShowGentleReminder() {
     if (isEffectivelySystemIdle() || !isActive || !isTabActivelyVisible()) return false;
     if (isDoomScrollContext() || isWithinSinglePostGraceWindow() || warningElement) return false;
@@ -927,6 +1055,10 @@ const EyeFlowContent = (() => {
     return isSystemIdle && !isWatchingLongVideoPassively() && !isWatchingPassiveDsVideo();
   }
 
+  /**
+   * @function isWatchingLongVideoPassively
+   * @description Validates if user is passively watching a long YouTube video.
+   */
   function isWatchingLongVideoPassively() {
     if (getHostname() !== 'youtube.com') return false;
     if ((window.location.pathname || '') !== '/watch') return false;
@@ -935,6 +1067,10 @@ const EyeFlowContent = (() => {
     return Boolean(findPassiveVideoCandidate({ requireLongDuration: true }));
   }
 
+  /**
+   * @function findPassiveVideoCandidate
+   * @description Finds visible video players on screen.
+   */
   function findPassiveVideoCandidate({ requireLongDuration = false } = {}) {
     const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
     const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
@@ -972,7 +1108,6 @@ const EyeFlowContent = (() => {
       const duration = Number(video.duration);
       if (requireLongDuration && (!Number.isFinite(duration) || duration <= 60)) return;
 
-      // Prefer videos that are actually prominent in the viewport, not tiny ambient media.
       const prominenceScore = visibleArea + Math.min(videoArea, visibleArea);
       if (prominenceScore <= bestScore) return;
 
@@ -987,31 +1122,27 @@ const EyeFlowContent = (() => {
     if (!isDoomScrollContext()) return false;
     if (isWithinSinglePostGraceWindow()) return false;
 
-    // Strong short-form viewers are already covered elsewhere. This helper is for
-    // mixed DS feeds where the user may stop touching the page while clearly
-    // watching a larger in-feed or opened video.
     return Boolean(findPassiveVideoCandidate({ requireLongDuration: true }));
   }
 
+  /**
+   * @function shouldCountUsageTime
+   * @description Determines if active presence time should increment.
+   */
   function shouldCountUsageTime() {
     const overlayShowing = typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing();
     if (!isActive || isEffectivelySystemIdle() || !isTabActivelyVisible() || overlayShowing) {
       return false;
     }
 
-    // Full-screen-ish reels/shorts viewers are often watched passively, so they should
-    // survive a tab-return without forcing an immediate fresh click or scroll.
     if (isPassiveViewerDoomContext()) {
       return true;
     }
 
-    // Long-form YouTube watching should still count as present while the video is actively playing.
     if (isWatchingLongVideoPassively()) {
       return true;
     }
 
-    // Mixed DS feeds across sites can also contain longer videos where the user
-    // is clearly still watching without constant mouse or keyboard input.
     if (isWatchingPassiveDsVideo()) {
       return true;
     }
@@ -1039,6 +1170,10 @@ const EyeFlowContent = (() => {
     return shouldCountUsageTime();
   }
 
+  /**
+   * @function syncActiveSession
+   * @description Tracks session duration deltas when state flips (active vs inactive).
+   */
   function syncActiveSession() {
     const now = Date.now();
     const isUsageActiveNow = shouldCountUsageTime();
@@ -1067,6 +1202,10 @@ const EyeFlowContent = (() => {
     }
   }
 
+  /**
+   * @function getActiveSiteMs
+   * @description Returns accumulated active session milliseconds.
+   */
   function getActiveSiteMs() {
     syncActiveSession();
 
@@ -1077,6 +1216,10 @@ const EyeFlowContent = (() => {
     return activeSiteMs + (Date.now() - activeSessionStartedAt);
   }
 
+  /**
+   * @function getEstimatedSharedDsActiveMs
+   * @description Calculates current estimated shared doom scroll active duration.
+   */
   function getEstimatedSharedDsActiveMs(now = Date.now()) {
     const baseActiveMs = sharedDsState.activeMs || 0;
     if (!shouldCountActiveTime()) {
@@ -1104,6 +1247,10 @@ const EyeFlowContent = (() => {
     return totalActiveUsageMs + (Date.now() - totalUsageStartedAt);
   }
 
+  /**
+   * @function resetBreakCycle
+   * @description Restores timers and resets the active session.
+   */
   function resetBreakCycle() {
     sharedDsState.activeMs = 0;
     sharedDsState.nextBreakTargetMs = EyeFlowIntelligence.getNextBreakTargetMs();
@@ -1113,6 +1260,10 @@ const EyeFlowContent = (() => {
     lastDoomScrollTime = Date.now();
   }
 
+  /**
+   * @function maybeResetSessionAfterLongGap
+   * @description Clears active states if the tab was abandoned for a long time.
+   */
   function maybeResetSessionAfterLongGap() {
     const now = Date.now();
     const lastPresenceAt = Math.max(
@@ -1135,6 +1286,10 @@ const EyeFlowContent = (() => {
     lastDoomScrollTime = now;
   }
 
+  /**
+   * @function resetHydrationTimer
+   * @description Resets hydration variables and updates background stats.
+   */
   function resetHydrationTimer() {
     hydrationMergedIntoNextBreak = false;
     hydrationGentleReminderAt = 0;
@@ -1143,7 +1298,7 @@ const EyeFlowContent = (() => {
     try {
       chrome.runtime.sendMessage({ type: 'HYDRATION_COMPLETED' });
     } catch (e) {
-      // Ignore temporary extension-context issues.
+      // Ignore
     }
   }
 
@@ -1161,6 +1316,10 @@ const EyeFlowContent = (() => {
     return Date.now() - lastBreakOverlayShownAt > BREAK_DUPLICATE_GUARD_MS;
   }
 
+  /**
+   * @function syncSharedDsTimer
+   * @description Sends synchronization signals to background.js.
+   */
   function syncSharedDsTimer() {
     if (sharedDsSyncInFlight) return;
 
@@ -1221,9 +1380,6 @@ const EyeFlowContent = (() => {
     return isHydrationDue() && getMsUntilEyeBreak() <= HYDRATION_EYE_MERGE_WINDOW_MS;
   }
 
-  // Stamps the local dedup timestamps after a gentle reminder is shown.
-  // Called both from the SHOW_GENTLE_REMINDER message handler and from
-  // any local show path so we never show two reminders within the guard window.
   function acknowledgeLocalGentleReminder(now = Date.now()) {
     lastGentleReminderShownAt = now;
     lastGentleReminderFallbackAt = now;
@@ -1234,6 +1390,10 @@ const EyeFlowContent = (() => {
     return getTotalActiveUsageMs() >= hydrationTargetMs;
   }
 
+  /**
+   * @function tryShowHydrationPopup
+   * @description Mounts full-screen hydration popup, postponing if eye break is showing.
+   */
   function tryShowHydrationPopup() {
     if (warningElement || (typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing())) {
       pendingHydrationPopup = true;
@@ -1262,6 +1422,10 @@ const EyeFlowContent = (() => {
     return true;
   }
 
+  /**
+   * @function showStageInterruption
+   * @description Communicates triggers to the background script and shows overlays.
+   */
   function showStageInterruption(stage, hostname) {
     const duration = Math.round(getActiveSiteMs() / 1000);
     let handled = false;
@@ -1293,8 +1457,6 @@ const EyeFlowContent = (() => {
         }
       );
 
-      // Keep the stats/reporting round-trip, but do not let a missed callback block the
-      // actual eye-break UI on fast-moving reels/shorts surfaces during testing.
       setTimeout(() => {
         if (handled) return;
         if (stage === 'break' && !canShowBreakOverlay()) {
@@ -1306,7 +1468,6 @@ const EyeFlowContent = (() => {
         showInterruption(stage, currentSettings || {});
       }, 800);
     } catch (e) {
-      // Extension context may be invalidated - ignore
       if (typeof EyeFlowIntelligence !== 'undefined') {
         EyeFlowIntelligence.markReminderShown();
       }
@@ -1318,14 +1479,15 @@ const EyeFlowContent = (() => {
   // HANDLE SCROLL EVENT — Called on every scroll
   // -------------------------------------------------------
   // We record that a scroll happened to detect active usage.
+  /**
+   * @function handleScroll
+   * @description Debounces scroll triggers and records presence activity.
+   */
   function handleScroll(event) {
-    // Don't track if extension is not active
     if (!isActive) return;
 
     const now = Date.now();
 
-    // Instagram/Reels/Shorts often fire multiple overlapping events
-    // for a single gesture; keep one signal every 120ms.
     if (now - lastScrollSignalAt < 120) return;
     lastScrollSignalAt = now;
 
@@ -1357,11 +1519,15 @@ const EyeFlowContent = (() => {
   // -------------------------------------------------------
   // This function runs on an interval and checks if the user
   // is doom scrolling based on time limit checks.
+  /**
+   * @function checkForDoomScroll
+   * @description Core polling cycle (runs every 2 seconds). Audits active doom scroll durations,
+   * checks if break is due, and handles hydration merges.
+   */
   function checkForDoomScroll() {
     syncRouteState();
     syncSessionAndSharedTimer();
 
-    // Don't check if extension is not active
     if (!isActive) return;
     if (!isTabActivelyVisible()) return;
 
@@ -1370,10 +1536,6 @@ const EyeFlowContent = (() => {
 
     if (EyeFlowIntelligence.isSingleVideoPage()) return;
 
-    // A shared DS break that is already due should not be blocked by older
-    // page heuristics like "single video page", temporary chat detection, or
-    // typing checks. Once the timer reaches zero on a real DS surface, fire the
-    // break flow instead of letting the chip sit at 00:00 forever.
     if (isDoomScrollContext()) {
       const isBreakDue =
         Boolean(sharedDsState.nextBreakTargetMs) &&
@@ -1402,11 +1564,7 @@ const EyeFlowContent = (() => {
       }
     }
 
-    // Don't check if user is typing (they're working)
     if (EyeFlowIntelligence.isUserTyping()) return;
-
-    // Pause the stronger feed reminder while the user is chatting,
-    // on a call, or in a live/shared-watch flow.
     if (isCommunicationContext()) return;
 
     if (maybeShowHydrationGentleReminder()) {
@@ -1440,19 +1598,16 @@ const EyeFlowContent = (() => {
       }
     }
 
-    // Non-DS pages now use only the gentle reminder system.
-    // Keep a hard stop here so legacy generic warning logic cannot
-    // accidentally fire on normal browsing surfaces like long YouTube videos.
     return;
   }
-  // -------------------------------------------------------
-  // SHOW INTERRUPTION — Display nudge, warning, or full break
-  // -------------------------------------------------------
-  // Based on the stage from the intelligence layer, show the
-  // appropriate level of interruption.
+
+  /**
+   * @function showInterruption
+   * @description Triggers warnings or break overlays depending on active stages.
+   */
   function showInterruption(stage, settings) {
     const hostname = getHostname();
-    const timeOnSite = Math.round(getActiveSiteMs() / 60000); // minutes
+    const timeOnSite = Math.round(getActiveSiteMs() / 60000);
     const hydrationPrompt = hydrationMergedIntoNextBreak || shouldMergeHydrationIntoBreak();
 
     switch (stage) {
@@ -1481,7 +1636,6 @@ const EyeFlowContent = (() => {
         lastBreakOverlayShownAt = Date.now();
         removeGentleReminder();
         removeWarning();
-        // Tell overlay.js to show the full eye-break overlay
         if (typeof EyeFlowOverlay !== 'undefined') {
           EyeFlowOverlay.show(settings, hostname, timeOnSite, { hydrationPrompt });
         }
@@ -1492,10 +1646,11 @@ const EyeFlowContent = (() => {
   // -------------------------------------------------------
   // SHOW WARNING — Larger banner at the top of screen
   // -------------------------------------------------------
-  // This is the second stage. A bigger, harder-to-ignore message
-  // with an option to start an eye exercise.
+  /**
+   * @function showWarning
+   * @description Mounts a screen-wide blocking warning panel with blur backdrops.
+   */
   function showWarning(timeOnSite) {
-    // Don't show if already visible
     if (warningElement) return;
 
     warningElement = document.createElement('div');
@@ -1519,7 +1674,6 @@ const EyeFlowContent = (() => {
       </div>
     `;
 
-    // Style the warning
     warningElement.style.cssText = `
       position: fixed;
       inset: 0;
@@ -1534,7 +1688,6 @@ const EyeFlowContent = (() => {
       animation: eyeflow-fade-in 0.25s ease-out;
     `;
 
-    // Add styles
     const style = document.createElement('style');
     style.id = 'eyeflow-warning-style';
     style.textContent = `
@@ -1649,7 +1802,6 @@ const EyeFlowContent = (() => {
     document.body.appendChild(warningElement);
     warningElement.querySelector('.eyeflow-warning-icon').textContent = 'O';
 
-    // "Eye Break Now" button — jump straight to full break
     warningElement.querySelector('.eyeflow-warning-break').addEventListener('click', () => {
       removeWarning();
       if (typeof EyeFlowOverlay !== 'undefined') {
@@ -1657,7 +1809,6 @@ const EyeFlowContent = (() => {
       }
     });
 
-    // "Later" button — dismiss for now
     warningElement
       .querySelector('.eyeflow-warning-dismiss')
       .addEventListener('click', removeWarning);
@@ -1667,6 +1818,10 @@ const EyeFlowContent = (() => {
   // -------------------------------------------------------
   // REMOVE WARNING — Hide the warning banner
   // -------------------------------------------------------
+  /**
+   * @function removeWarning
+   * @description Cleans up warning overlay elements from the active document view.
+   */
   function removeWarning() {
     if (warningElement) {
       warningElement.remove();
@@ -1676,6 +1831,10 @@ const EyeFlowContent = (() => {
     if (style) style.remove();
   }
 
+  /**
+   * @function showGentleReminder
+   * @description Mounts a small floating toast reminder at the top-center of the screen.
+   */
   function showGentleReminder(options = {}) {
     const overlayShowing = typeof EyeFlowOverlay !== 'undefined' && EyeFlowOverlay.isShowing();
     if (!options.force && (!canShowGentleReminderWithPassiveVideoSupport() || overlayShowing)) {
@@ -1752,6 +1911,10 @@ const EyeFlowContent = (() => {
     return true;
   }
 
+  /**
+   * @function removeGentleReminder
+   * @description Cleans up gentle reminders.
+   */
   function removeGentleReminder() {
     if (subtleReminderElement) {
       subtleReminderElement.remove();
@@ -1766,12 +1929,20 @@ const EyeFlowContent = (() => {
   // -------------------------------------------------------
   // Every 5 minutes, tell background.js how long the user
   // has been on this site. Used for stats dashboard.
+  /**
+   * @function startTimeTracking
+   * @description Launches interval loops writing accumulated tab time to local storage.
+   */
   function startTimeTracking() {
     timeTrackingInterval = setInterval(() => {
       flushDsSiteTime();
     }, SITE_TIME_REPORT_INTERVAL_MS);
   }
 
+  /**
+   * @function updateDebugTimerChip
+   * @description Diagnostic UI overlays displaying countdown details.
+   */
   function updateDebugTimerChip() {
     if (!EYEFLOW_DEBUG_CONTENT) {
       removeDebugTimerChip();
@@ -1929,7 +2100,7 @@ const EyeFlowContent = (() => {
         debugTimerMeta.waterQueuedForNextBreak = Boolean(response.waterQueuedForNextBreak);
       });
     } catch (e) {
-      // Ignore temporary debug-only fetch failures.
+      // Ignore
     }
   }
 
@@ -1937,6 +2108,13 @@ const EyeFlowContent = (() => {
   // LISTEN FOR MESSAGES — From background.js
   // -------------------------------------------------------
   // Handle settings updates, snooze start/end, etc.
+  /**
+   * @function setupMessageListener
+   * @description Configures event hooks parsing runtime message payloads from the service worker.
+   *
+   * @uses
+   *   - chrome.runtime.onMessage.addListener(): Listens for incoming extension messages.
+   */
   function setupMessageListener() {
     try {
       chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -1962,6 +2140,7 @@ const EyeFlowContent = (() => {
           syncSessionAndSharedTimer();
         }
 
+        // Handle browser/OS idle transitions
         if (message.type === 'SYSTEM_IDLE_STATE_CHANGED') {
           isSystemIdle = message.state !== 'active';
           if (isSystemIdle) {
@@ -1974,13 +2153,13 @@ const EyeFlowContent = (() => {
           }
         }
 
+        // Reset session timing metrics completely
         if (message.type === 'RESET_SESSION_TIMERS') {
           resetSessionTimersFromBackground(message.snapshot);
-          // Re-anchor the sync timestamp to now so stale elapsed time doesn't
-          // immediately push the fresh shared DS state past the break target.
           sharedDsState.lastSyncedAt = Date.now();
         }
 
+        // Display an immediate eye break bypass
         if (message.type === 'SHOW_EYE_BREAK_NOW') {
           removeGentleReminder();
           removeWarning();
@@ -1997,12 +2176,14 @@ const EyeFlowContent = (() => {
           return true;
         }
 
+        // Trigger gentle reminders
         if (message.type === 'SHOW_GENTLE_REMINDER') {
           if (showGentleReminder(message)) {
             acknowledgeLocalGentleReminder();
           }
         }
 
+        // Trigger water check-in gentle reminders
         if (message.type === 'SHOW_WATER_GENTLE_REMINDER') {
           showGentleReminder({
             title: 'Water check-in',
@@ -2010,20 +2191,24 @@ const EyeFlowContent = (() => {
           });
         }
 
+        // Display full hydration interruption
         if (message.type === 'SHOW_HYDRATION_POPUP') {
           tryShowHydrationPopup();
         }
 
+        // Defer hydration popups to append alongside subsequent eye break overlay mounts
         if (message.type === 'QUEUE_HYDRATION_FOR_NEXT_BREAK') {
           hydrationMergedIntoNextBreak = true;
           pendingHydrationPopup = false;
         }
 
+        // Let background query if gentle reminder toasts can render safely in this tab context
         if (message.type === 'CAN_SHOW_GENTLE_REMINDER') {
           sendResponse({ allow: canShowGentleReminderWithPassiveVideoSupport() });
           return true;
         }
 
+        // Query active state contexts for debugging/verification scripts
         if (message.type === 'GET_PAGE_REMINDER_CONTEXT') {
           sendResponse({
             isDoomScrollContext: isDoomScrollContext(),
@@ -2036,19 +2221,25 @@ const EyeFlowContent = (() => {
           });
           return true;
         }
+
         if (!message.type.startsWith('GET_') && message.type !== 'CAN_SHOW_GENTLE_REMINDER') {
           sendResponse({ success: true });
         }
         return true;
       });
     } catch (e) {
-      // Ignore if extension context is invalid
+      // Ignore
     }
   }
 
   // -------------------------------------------------------
   // INITIALIZE — Set everything up when page loads
   // -------------------------------------------------------
+  /**
+   * @function init
+   * @description Bootstraps click/scroll listeners, registers page load logs,
+   * queries current storage states, and starts timer tick pollers.
+   */
   function init() {
     try {
       chrome.runtime.sendMessage({
@@ -2057,7 +2248,7 @@ const EyeFlowContent = (() => {
         details: `Loaded ${window.location.hostname}${window.location.pathname} (visible: ${!document.hidden}, focused: ${document.hasFocus()})`,
       });
     } catch (_) {}
-    // Get initial settings from background.js
+
     try {
       chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, (settings) => {
         if (runtimeCallbackFailed()) return;
@@ -2083,8 +2274,7 @@ const EyeFlowContent = (() => {
       // Ignore
     }
 
-    // Attach scroll listener
-    // Using { passive: true } for better scroll performance
+    // Attach scroll and gesture activity trackers. Passive listeners optimize frames-per-second
     window.addEventListener('scroll', handleScroll, { passive: true });
     document.addEventListener('scroll', handleScroll, { passive: true, capture: true });
     document.addEventListener('wheel', handleScroll, { passive: true, capture: true });
@@ -2092,6 +2282,8 @@ const EyeFlowContent = (() => {
     document.addEventListener('click', handleInteraction, { passive: true, capture: true });
     document.addEventListener('pointerup', handleInteraction, { passive: true, capture: true });
     document.addEventListener('keydown', handleInteraction, { passive: true, capture: true });
+
+    // Visibility state changes (minimize tab/switch focus)
     document.addEventListener(
       'visibilitychange',
       () => {
@@ -2122,10 +2314,13 @@ const EyeFlowContent = (() => {
       },
       { passive: true }
     );
+
+    // Page unload hooks
     window.addEventListener('pagehide', flushDsSiteTime, { passive: true });
     window.addEventListener('beforeunload', flushDsSiteTime, { passive: true });
+
+    // Guided break overlay feedback responders
     window.addEventListener('eyeflow-break-flow-closed', resetBreakCycle, { passive: true });
-    // Hydration actions are handled in content so the timer state stays in one place.
     window.addEventListener('eyeflow-hydration-completed', resetHydrationTimer, { passive: true });
     window.addEventListener(
       'eyeflow-hydration-remind-soon',
@@ -2135,7 +2330,7 @@ const EyeFlowContent = (() => {
         try {
           chrome.runtime.sendMessage({ type: 'HYDRATION_REMIND_SOON' });
         } catch (e) {
-          // Ignore temporary extension-context issues.
+          // Ignore
         }
       },
       { passive: true }
@@ -2149,21 +2344,18 @@ const EyeFlowContent = (() => {
     resetTrackedSession();
     syncSessionAndSharedTimer();
 
-    // Start the doom-scroll check interval (every 2 seconds)
+    // Start polling loops
     scrollCheckInterval = setInterval(checkForDoomScroll, SCROLL_CHECK_INTERVAL_MS);
     if (EYEFLOW_DEBUG_CONTENT) {
       debugTimerInterval = setInterval(updateDebugTimerChip, 1000);
       updateDebugTimerChip();
     }
 
-    // Start time tracking
     startTimeTracking();
-
-    // Start listening for messages from background.js
     setupMessageListener();
   }
 
-  // Start everything
+  // Self-start initializing content logic
   init();
 
   // -------------------------------------------------------

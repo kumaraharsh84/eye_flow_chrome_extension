@@ -1,3 +1,23 @@
+/**
+ * @file popup.js
+ * @description EyeFlow Extension Popup Page Controller.
+ *
+ * @purpose
+ * This script runs in the extension popup container (opened when a user clicks
+ * the extension icon in the Chrome toolbar). Its responsibilities include:
+ *   1. Loading and displaying current settings (Enabled/Disabled status, Sensitivity, Timers).
+ *   2. Handling user input changes, validating ranges, and updating local storage.
+ *   3. Activating "Work Mode Snooze" (temporarily suspending gentle reminders for 1, 2, or 4 hours).
+ *   4. Querying and rendering statistics (such as today's top doom-scrolled sites).
+ *   5. Requesting host permissions dynamically when a user configures an administrative Sibling Monitor webhook.
+ *   6. Enabling exporting local storage logs or downloading diagnostic logs.
+ *
+ * @project-fit
+ *   - Serves as the UI layer for settings/statistics.
+ *   - Communicates with the background Service Worker (`background.js`) using message-passing
+ *     `chrome.runtime.sendMessage` to trigger system commands (e.g. trigger test report, update state).
+ */
+
 import { clampNumber, TIMER_LIMITS as TIMER_LIMITS_BASE } from './utils.js';
 
 // ============================================================
@@ -12,6 +32,13 @@ import { clampNumber, TIMER_LIMITS as TIMER_LIMITS_BASE } from './utils.js';
 //   - Saved popup theme switching
 // ============================================================
 
+/**
+ * DOMContentLoaded Event Listener
+ * @description Initializes UI hooks, fetches configuration/stats, binds inputs and buttons.
+ *
+ * @uses
+ *   - document.addEventListener(): Browser API to listen for complete page load.
+ */
 document.addEventListener('DOMContentLoaded', () => {
   // TIMER_LIMITS is imported from utils.js (shared with background.js).
   // We extend it locally with hydrationReminderHours, which is a display-unit
@@ -21,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
     hydrationReminderHours: { min: 1, max: 4, fallback: 1 },
   };
 
+  // --- DOM Element Selection References ---
   const toggleEnabled = document.getElementById('toggle-enabled');
   const sensitivitySlider = document.getElementById('sensitivity-slider');
   const sensitivityValue = document.getElementById('sensitivity-value');
@@ -51,12 +79,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnTestReport = document.getElementById('btn-test-report');
   const testReportStatus = document.getElementById('test-report-status');
 
+  // --- UI State Tracking Variables ---
   let themeLightButton = null;
   let themeDarkButton = null;
-  let currentSettings = null;
-  let currentSnoozeUntil = 0;
-  let currentTimingMode = 'fixed';
-  let advancedSettingsDirty = false;
+  let currentSettings = null; // Stored settings dictionary
+  let currentSnoozeUntil = 0; // Expiry timestamp for active snooze
+  let currentTimingMode = 'fixed'; // Active mode: 'fixed' or 'surprise'
+  let advancedSettingsDirty = false; // Flag checks if UI inputs match stored parameters
+
+  // DOM elements mapped to display error messages when validations fail
   const fieldErrorMap = {
     'eye-break-duration-sec': document.querySelector('[data-error-for="eye-break-duration-sec"]'),
     'eye-break-fixed-min': document.querySelector('[data-error-for="eye-break-fixed-min"]'),
@@ -71,22 +102,42 @@ document.addEventListener('DOMContentLoaded', () => {
     'webhook-url-input': document.querySelector('[data-error-for="webhook-url-input"]'),
   };
 
+  /**
+   * @function runtimeCallbackFailed
+   * @description Checks if the latest Chrome API call yielded an error.
+   * @returns {boolean} True if an error occurred.
+   */
   function runtimeCallbackFailed() {
     return Boolean(chrome.runtime?.lastError);
   }
 
+  // --- Initializer sequence calls ---
   injectThemeSwitcher();
   attachPersistentHandlers();
   loadSettings();
   loadStats();
   loadInsights();
 
+  /**
+   * @function checkIncognitoStatus
+   * @description Queries if the extension has permissions to run in Incognito mode.
+   * If a Webhook is configured, incognito access is crucial so that monitoring can't
+   * be bypassed by simply opening an incognito browser tab.
+   *
+   * @returns {void}
+   * @side-effects Updates visibility and options of the Incognito warning card inside the DOM.
+   *
+   * @uses
+   *   - chrome.extension.isAllowedIncognitoAccess(): Chrome Extension API to audit private tab access permission.
+   *   - chrome.tabs.create(): Opens the Chrome extension configuration dashboard.
+   */
   function checkIncognitoStatus() {
     const isWebhookActive =
       currentSettings && currentSettings.webhookUrl && currentSettings.webhookUrl.trim() !== '';
     const incognitoCard = document.getElementById('incognito-card');
     if (!incognitoCard) return;
 
+    // Only force this check if an administrator Sibling Monitor webhook is configured
     if (!isWebhookActive) {
       incognitoCard.style.display = 'none';
       return;
@@ -108,6 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
           statusDesc.textContent = 'Allow in incognito to track time and eye breaks.';
           btnEnable.style.display = 'inline-block';
           btnEnable.onclick = () => {
+            // Direct the user directly to this extension's permission configuration page
             chrome.tabs.create({ url: 'chrome://extensions/?id=' + chrome.runtime.id });
           };
         }
@@ -115,6 +167,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  /**
+   * @function injectThemeSwitcher
+   * @description Dynamically appends the Light/Dark mode toggler in the header region of the popup.
+   * @returns {void}
+   * @side-effects Modifies header HTML structure and caches buttons.
+   */
   function injectThemeSwitcher() {
     const header = document.querySelector('.popup-header');
     const versionBadge = document.querySelector('.popup-version');
@@ -133,6 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
     themeLightButton = headerControls.querySelector('#theme-light');
     themeDarkButton = headerControls.querySelector('#theme-dark');
 
+    // Click handler for theme selections
     headerControls.querySelectorAll('.popup-theme-option').forEach((button) => {
       button.addEventListener('click', () => {
         const nextTheme = button.dataset.theme || 'dark';
@@ -143,19 +202,28 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  /**
+   * @function attachPersistentHandlers
+   * @description Binds standard DOM events (inputs, clicks, slides, state triggers)
+   * to their respective logic engines.
+   * @returns {void}
+   */
   function attachPersistentHandlers() {
+    // Primary enable switch
     toggleEnabled.addEventListener('change', saveSettings);
 
+    // Timing Mode button tabs
     timingModeFixedButton.addEventListener('click', () => setTimingMode('fixed'));
     timingModeSurpriseButton.addEventListener('click', () => setTimingMode('surprise'));
 
+    // Sensitivity slider
     sensitivitySlider.addEventListener('input', () => {
       sensitivityValue.textContent = `${sensitivitySlider.value}%`;
       markAdvancedSettingsDirty();
     });
     sensitivitySlider.addEventListener('change', markAdvancedSettingsDirty);
 
-    // Clamp user-entered values before save so the popup always mirrors the real rules.
+    // Bind clean bounds checking to all numerical inputs
     [
       eyeBreakDurationInput,
       eyeBreakFixedInput,
@@ -170,21 +238,26 @@ document.addEventListener('DOMContentLoaded', () => {
       input.addEventListener('change', markAdvancedSettingsDirty);
     });
 
+    // Mirrors: Adjusting Fixed mode input mirrors to Surprise fields so ranges stay consistent
     eyeBreakFixedInput.addEventListener('input', () => syncModeMirrorValues('fixed'));
     gentleReminderFixedInput.addEventListener('input', () => syncModeMirrorValues('fixed'));
     doomReminderInput.addEventListener('input', () => syncModeMirrorValues('surprise'));
     doomReminderMaxInput.addEventListener('input', () => syncModeMirrorValues('surprise'));
     subtleReminderMinInput.addEventListener('input', () => syncModeMirrorValues('surprise'));
     subtleReminderMaxInput.addEventListener('input', () => syncModeMirrorValues('surprise'));
+
     if (webhookUrlInput) {
       webhookUrlInput.addEventListener('input', markAdvancedSettingsDirty);
       webhookUrlInput.addEventListener('change', markAdvancedSettingsDirty);
     }
 
+    // Webhook Test Dispatch Trigger
     if (btnTestReport) {
       btnTestReport.addEventListener('click', () => {
         btnTestReport.disabled = true;
         testReportStatus.textContent = 'Sending...';
+
+        // Dispatches command message to background worker requesting immediate report push
         chrome.runtime.sendMessage({ type: 'TEST_REPORT' }, (response) => {
           btnTestReport.disabled = false;
           if (runtimeCallbackFailed()) {
@@ -201,11 +274,14 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
+    // Advanced Section save
     saveAdvancedSettingsButton.addEventListener('click', saveAdvancedSettings);
 
+    // JSON Statistics Data Export
     const btnExportStats = document.getElementById('btn-export-stats');
     if (btnExportStats) {
       btnExportStats.addEventListener('click', () => {
+        // Query entire local storage and trigger download attachment
         chrome.storage.local.get(null, (data) => {
           if (runtimeCallbackFailed()) return;
           const blob = new Blob([JSON.stringify(data || {}, null, 2)], {
@@ -223,6 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
+    // TXT Diagnostic Audit Log Download
     const btnDownloadAudit = document.getElementById('btn-download-audit');
     if (btnDownloadAudit) {
       btnDownloadAudit.addEventListener('click', () => {
@@ -258,9 +335,11 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
+    // Snooze Hours Selection click triggers
     document.querySelectorAll('.popup-snooze-btn[data-hours]').forEach((button) => {
       button.addEventListener('click', () => {
         const hours = parseInt(button.dataset.hours, 10);
+        // Message background service worker to update alarms and state
         chrome.runtime.sendMessage({ type: 'SNOOZE', hours }, (response) => {
           if (runtimeCallbackFailed()) return;
           if (!response?.success) return;
@@ -274,6 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
+    // Resume/Cancel Snooze trigger
     btnResume.addEventListener('click', () => {
       chrome.runtime.sendMessage({ type: 'RESUME' }, (response) => {
         if (runtimeCallbackFailed()) return;
@@ -287,6 +367,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
+    // Accordion Toggle Collapse Actions
     document
       .getElementById('toggle-advanced')
       .addEventListener('click', () =>
@@ -304,6 +385,11 @@ document.addEventListener('DOMContentLoaded', () => {
       );
   }
 
+  /**
+   * @function loadSettings
+   * @description Fetches the current preferences dictionary from background context storage.
+   * Maps fields to UI nodes and applies active themes.
+   */
   function loadSettings() {
     chrome.runtime.sendMessage({ type: 'GET_SETTINGS' }, (settings) => {
       if (runtimeCallbackFailed()) return;
@@ -311,6 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
       currentSettings = normalizeSettingsForPopup(settings);
       currentTimingMode = inferTimingMode(currentSettings);
 
+      // Lock main toggle switch disabled if Sibling Monitor webhook is active (prevents unauthorized disabling)
       toggleEnabled.checked = currentSettings.enabled;
       if (currentSettings.webhookUrl && currentSettings.webhookUrl.trim() !== '') {
         toggleEnabled.checked = true;
@@ -320,6 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleEnabled.disabled = false;
         toggleEnabled.title = '';
       }
+
       sensitivitySlider.value = currentSettings.sensitivity;
       sensitivityValue.textContent = `${currentSettings.sensitivity}%`;
 
@@ -331,6 +419,7 @@ document.addEventListener('DOMContentLoaded', () => {
       syncAdvancedUiState();
       clearAdvancedSettingsDirty('Changes apply after you save.');
 
+      // Check if active snooze is pending and render state
       if (currentSettings.snoozedUntil > 0 && Date.now() < currentSettings.snoozedUntil) {
         showSnoozeState(currentSettings.snoozedUntil);
       } else {
@@ -341,12 +430,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  /**
+   * @function loadStats
+   * @description Fetches statistics dictionary from background storage to render today's active sites cards.
+   */
   function loadStats() {
     chrome.runtime.sendMessage({ type: 'GET_STATS' }, (stats) => {
       if (runtimeCallbackFailed()) return;
       if (!stats) return;
 
       if (statsEmptyHelper) {
+        // Toggle empty stats placeholder visual depending on recorded site times
         const hasMeaningfulStats = Object.values(stats.todayDsSiteTimeSpent || {}).some(
           (minutes) => Number(minutes) > 0
         );
@@ -357,6 +451,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  /**
+   * @function loadInsights
+   * @description Fetches time-pattern analytical calculations and presents them on the popup dashboard.
+   */
   function loadInsights() {
     chrome.runtime.sendMessage({ type: 'GET_PATTERN_INSIGHTS' }, (insights) => {
       if (runtimeCallbackFailed()) return;
@@ -372,9 +470,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  /**
+   * @function renderTopDsSites
+   * @description Renders visual bar cards showing usage duration of different target social media platforms.
+   *
+   * @param {Object} siteMinutesMap - Object mapping hostname keys to numerical minutes spent.
+   * @returns {void}
+   */
   function renderTopDsSites(siteMinutesMap) {
     if (!topSitesSection || !topSitesList) return;
 
+    // Filter sites with time > 0 and sort highest-to-lowest duration
     const rankedSites = Object.entries(siteMinutesMap || {})
       .filter(([, minutes]) => Number(minutes) > 0)
       .sort((a, b) => Number(b[1]) - Number(a[1]));
@@ -384,6 +490,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    // Display primary detail cards for top 3 sites, merge any extra sites into a consolidated "Others" card
     const topThree = rankedSites.slice(0, 3);
     const remainingSites = rankedSites.slice(3);
     const cards = topThree.map(([site, minutes], index) =>
@@ -420,6 +527,10 @@ document.addEventListener('DOMContentLoaded', () => {
     topSitesSection.style.display = 'block';
   }
 
+  /**
+   * @function buildTopSiteCard
+   * @description Renders HTML string structure for a single site's statistics card.
+   */
   function buildTopSiteCard({
     rank,
     site,
@@ -440,7 +551,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const nameEl = document.createElement('span');
     nameEl.className = 'popup-top-site-name';
-    nameEl.textContent = site; // textContent — safe, no XSS risk
+    nameEl.textContent = site; // Safe assign avoids DOM XSS injection
 
     const timeEl = document.createElement('span');
     timeEl.className = 'popup-top-site-time';
@@ -458,9 +569,13 @@ document.addEventListener('DOMContentLoaded', () => {
       card.appendChild(subEl);
     }
 
-    return card.outerHTML; // return as string to join with other cards
+    return card.outerHTML;
   }
 
+  /**
+   * @function formatSiteMinutes
+   * @description Formatting helper converting total raw minutes to hours + minutes human string.
+   */
   function formatSiteMinutes(minutes) {
     const totalMinutes = Math.max(0, Math.round(Number(minutes) || 0));
     if (totalMinutes >= 60) {
@@ -472,6 +587,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return `${totalMinutes}m`;
   }
 
+  /**
+   * @function updateStatusBar
+   * @description Dynamically alters the visual status indicator region depending on current states.
+   */
   function updateStatusBar(settings) {
     const isWebhookActive = settings.webhookUrl && settings.webhookUrl.trim() !== '';
     if (!settings.enabled && !isWebhookActive) {
@@ -488,6 +607,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  /**
+   * @function saveSettings
+   * @description Normalizes current local UI states and saves them to local storage,
+   * triggering system events in background.js.
+   */
   function saveSettings(options = {}) {
     const onSuccess = typeof options.onSuccess === 'function' ? options.onSuccess : null;
     const nextSettings = normalizeSettingsForPopup({
@@ -509,8 +633,7 @@ document.addEventListener('DOMContentLoaded', () => {
       soundReminderMin: currentSettings?.soundReminderMin ?? 20,
       soundReminderMax: currentSettings?.soundReminderMax ?? 30,
       snoozedUntil: currentSnoozeUntil || 0,
-      // Site Sensitivity is intentionally hidden from the current product UI.
-      // Keep the saved tiers untouched so we can revive the feature later if needed.
+      // Keep silent sensitive tiers intact
       siteTiers: currentSettings?.siteTiers || {},
     });
 
@@ -525,6 +648,17 @@ document.addEventListener('DOMContentLoaded', () => {
     return nextSettings;
   }
 
+  /**
+   * @function saveAdvancedSettings
+   * @description Parses, validates, and processes inputs inside the advanced collapsed accordion form.
+   * If a new monitor webhook is specified, requests host permissions dynamically first.
+   *
+   * @returns {void}
+   *
+   * @uses
+   *   - chrome.permissions.request(): Chrome Extension permission API required to perform network calls
+   *     to arbitrary third-party endpoints (webhook URL host origins) in Manifest V3.
+   */
   function saveAdvancedSettings() {
     const formState = collectAdvancedFormState();
     const validation = validateAdvancedFormState(formState);
@@ -537,6 +671,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const nextSettings = buildAdvancedSettingsFromForm(formState, validation.normalized);
 
+    // Storage write closure executing after permission request resolution
     const saveSettingsToStorage = () => {
       currentSettings = nextSettings;
       currentTimingMode = formState.timingMode;
@@ -566,11 +701,14 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const newWebhookUrl = nextSettings.webhookUrl;
+    // Check if user set or modified the Sibling Monitor webhook URL
     if (newWebhookUrl && newWebhookUrl !== (currentSettings?.webhookUrl || '')) {
       try {
         const urlObj = new URL(newWebhookUrl);
+        // Build wildcard match origin for the target host endpoint (e.g. "https://discord.com/*")
         const origin = `${urlObj.protocol}//${urlObj.hostname}/*`;
 
+        // Request user approval to access network endpoint
         chrome.permissions.request({ origins: [origin] }, (granted) => {
           if (runtimeCallbackFailed()) {
             applyAdvancedValidation({ 'webhook-url-input': 'Extension permission error.' });
@@ -592,6 +730,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  /**
+   * @function normalizeSettingsForPopup
+   * @description Clamps raw fields to safe ranges before processing.
+   */
   function normalizeSettingsForPopup(settings) {
     const subtleReminderMin = clampNumber(
       settings.subtleReminderMin,
@@ -646,6 +788,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  /**
+   * @function inferTimingMode
+   * @description Deduces if active settings represent a static ('fixed') timing pattern
+   * or a variable ('surprise') range timing pattern.
+   */
   function inferTimingMode(settings) {
     if (settings?.timingMode === 'fixed' || settings?.timingMode === 'surprise') {
       return settings.timingMode;
@@ -662,6 +809,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return 'fixed';
   }
 
+  /**
+   * @function syncAdvancedInputsFromSettings
+   * @description Refreshes advanced form field values to align with settings values.
+   */
   function syncAdvancedInputsFromSettings(settings, timingMode = inferTimingMode(settings)) {
     eyeBreakDurationInput.value = settings.eyeBreakDurationSec;
     eyeBreakFixedInput.value = getRepresentativeSingleValue(
@@ -683,6 +834,10 @@ document.addEventListener('DOMContentLoaded', () => {
     setTimingMode(timingMode, { silent: true });
   }
 
+  /**
+   * @function setTimingMode
+   * @description Toggles CSS layouts showing single inputs (Fixed) or ranges (Surprise/Random).
+   */
   function setTimingMode(mode, options = {}) {
     currentTimingMode = mode === 'surprise' ? 'surprise' : 'fixed';
 
@@ -717,11 +872,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  /**
+   * @function markAdvancedSettingsDirty
+   * @description Sets dirty flag and refreshes button save states.
+   */
   function markAdvancedSettingsDirty() {
     advancedSettingsDirty = true;
     syncAdvancedUiState();
   }
 
+  /**
+   * @function clearAdvancedSettingsDirty
+   * @description Resets status dirty flags.
+   */
   function clearAdvancedSettingsDirty(message) {
     advancedSettingsDirty = false;
     advancedSaveStatus.textContent = message;
@@ -729,10 +892,18 @@ document.addEventListener('DOMContentLoaded', () => {
     advancedSaveStatus.classList.toggle('saved', message === 'Settings saved');
   }
 
+  /**
+   * @function syncModeButtons
+   * @description Updates visual timing buttons.
+   */
   function syncModeButtons() {
     setTimingMode(currentTimingMode, { silent: true });
   }
 
+  /**
+   * @function syncModeMirrorValues
+   * @description Synchronizes and updates mirrored value settings when switching views.
+   */
   function syncModeMirrorValues(mode) {
     if (mode === 'fixed') {
       const fixedEyeValue = clampNumber(
@@ -783,6 +954,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  /**
+   * @function getRepresentativeSingleValue
+   * @description Averages range boundaries to represent a single fallback value.
+   */
   function getRepresentativeSingleValue(minValue, maxValue) {
     const min = Number(minValue);
     const max = Number(maxValue);
@@ -810,6 +985,10 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   }
 
+  /**
+   * @function collectAdvancedFormState
+   * @description Pulls and compiles all values from popup form fields.
+   */
   function collectAdvancedFormState() {
     const state = {
       timingMode: currentTimingMode,
@@ -846,6 +1025,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return state;
   }
 
+  /**
+   * @function buildAdvancedSettingsFromForm
+   * @description Compiles final form values into a validated settings dictionary.
+   */
   function buildAdvancedSettingsFromForm(formState, normalized = {}) {
     const nextSettings = normalizeSettingsForPopup({
       ...(currentSettings || {}),
@@ -880,6 +1063,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return nextSettings;
   }
 
+  /**
+   * @function validateAdvancedFormState
+   * @description Audits inputs against ranges inside `TIMER_LIMITS` and lists error keys.
+   */
   function validateAdvancedFormState(formState) {
     const errors = {};
 
@@ -986,6 +1173,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    // Verify webhook is format-compliant if configured
     if (formState.webhookUrl) {
       try {
         new URL(formState.webhookUrl);
@@ -1008,6 +1196,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  /**
+   * @function applyAdvancedValidation
+   * @description Renders visual error descriptions next to invalid input fields.
+   */
   function applyAdvancedValidation(errors) {
     Object.entries(fieldErrorMap).forEach(([fieldName, el]) => {
       if (!el) return;
@@ -1026,6 +1218,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  /**
+   * @function isAdvancedSettingsDirty
+   * @description Compares current form input states with stored configurations.
+   */
   function isAdvancedSettingsDirty(formState) {
     if (!currentSettings) return true;
     const currentSnapshot = {
@@ -1055,6 +1251,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return JSON.stringify(currentSnapshot) !== JSON.stringify(nextSnapshot);
   }
 
+  /**
+   * @function syncAdvancedUiState
+   * @description Controls active statuses, enabling or disabling the Advanced Save button.
+   */
   function syncAdvancedUiState() {
     const formState = collectAdvancedFormState();
     const validation = validateAdvancedFormState(formState);
@@ -1083,6 +1283,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  /**
+   * @function applyPopupTheme
+   * @description Sets the active dataset attribute on the body tag to toggle CSS visual styling.
+   */
   function applyPopupTheme(theme) {
     const resolvedTheme = theme === 'light' ? 'light' : 'dark';
     document.body.dataset.theme = resolvedTheme;
@@ -1098,6 +1302,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  /**
+   * @function showSnoozeState
+   * @description Renders UI overlays denoting an active Snooze mode, hiding standard buttons.
+   */
   function showSnoozeState(until) {
     currentSnoozeUntil = until;
     const date = new Date(until);
@@ -1111,6 +1319,10 @@ document.addEventListener('DOMContentLoaded', () => {
     openSection('work-mode-content', '#toggle-work-mode .popup-collapse-icon');
   }
 
+  /**
+   * @function hideSnoozeState
+   * @description Cleans up Snooze indicators and reveals standard Snooze option buttons.
+   */
   function hideSnoozeState() {
     snoozeStatus.style.display = 'none';
     btnResume.style.display = 'none';
@@ -1119,6 +1331,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  /**
+   * @function toggleSection
+   * @description Collapses or expands accordion components.
+   */
   function toggleSection(contentId, iconSelector) {
     const content = document.getElementById(contentId);
     const icon = document.querySelector(iconSelector);
@@ -1128,6 +1344,10 @@ document.addEventListener('DOMContentLoaded', () => {
     icon.classList.toggle('open', !isOpen);
   }
 
+  /**
+   * @function collapseSection
+   * @description Shuts accordion components.
+   */
   function collapseSection(contentId, iconSelector) {
     const content = document.getElementById(contentId);
     const icon = document.querySelector(iconSelector);
@@ -1135,6 +1355,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (icon) icon.classList.remove('open');
   }
 
+  /**
+   * @function openSection
+   * @description Launches accordion components.
+   */
   function openSection(contentId, iconSelector) {
     const content = document.getElementById(contentId);
     const icon = document.querySelector(iconSelector);
@@ -1142,6 +1366,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (icon) icon.classList.add('open');
   }
 
+  /**
+   * @function hoursToMinutes
+   * @description Utility translating display hours value into storage minutes.
+   */
   function hoursToMinutes(value) {
     return (
       clampNumber(
@@ -1153,6 +1381,10 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   }
 
+  /**
+   * @function minutesToHours
+   * @description Utility translating storage minutes value into display hours.
+   */
   function minutesToHours(value) {
     const roundedHours = Math.round(Number(value) / 60);
     return clampNumber(
