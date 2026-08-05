@@ -358,15 +358,11 @@
               });
             });
           });
-          document.getElementById('toggle-advanced').addEventListener('click', () => {
-            const isWebhookActive = Boolean(
-              currentSettings?.webhookUrl && currentSettings.webhookUrl.trim() !== ''
+          document
+            .getElementById('toggle-advanced')
+            .addEventListener('click', () =>
+              toggleSection('advanced-content', '#toggle-advanced .popup-collapse-icon')
             );
-            if (isWebhookActive) {
-              return;
-            }
-            toggleSection('advanced-content', '#toggle-advanced .popup-collapse-icon');
-          });
           document
             .getElementById('toggle-work-mode')
             .addEventListener('click', () =>
@@ -741,11 +737,9 @@
           hydrationReminderInput.value = minutesToHours(settings.hydrationReminderMin);
           subtleReminderMinInput.value = settings.subtleReminderMin;
           subtleReminderMaxInput.value = settings.subtleReminderMax;
+          const isWebhookActive = Boolean(settings.webhookUrl && settings.webhookUrl.trim() !== '');
           if (webhookUrlInput) {
             webhookUrlInput.value = settings.webhookUrl || '';
-            const isWebhookActive = Boolean(
-              settings.webhookUrl && settings.webhookUrl.trim() !== ''
-            );
             webhookUrlInput.disabled = isWebhookActive;
             webhookUrlInput.title = isWebhookActive
               ? 'Locked by Sibling Monitor. Enter Removal PIN below to unlock.'
@@ -753,6 +747,18 @@
             if (webhookRemovalBlock)
               webhookRemovalBlock.style.display = isWebhookActive ? 'block' : 'none';
           }
+          if (sensitivitySlider) sensitivitySlider.disabled = isWebhookActive;
+          if (eyeBreakDurationInput) eyeBreakDurationInput.disabled = isWebhookActive;
+          if (eyeBreakFixedInput) eyeBreakFixedInput.disabled = isWebhookActive;
+          if (doomReminderInput) doomReminderInput.disabled = isWebhookActive;
+          if (doomReminderMaxInput) doomReminderMaxInput.disabled = isWebhookActive;
+          if (gentleReminderFixedInput) gentleReminderFixedInput.disabled = isWebhookActive;
+          if (hydrationReminderInput) hydrationReminderInput.disabled = isWebhookActive;
+          if (subtleReminderMinInput) subtleReminderMinInput.disabled = isWebhookActive;
+          if (subtleReminderMaxInput) subtleReminderMaxInput.disabled = isWebhookActive;
+          if (timingModeFixedButton) timingModeFixedButton.disabled = isWebhookActive;
+          if (timingModeSurpriseButton) timingModeSurpriseButton.disabled = isWebhookActive;
+          if (saveAdvancedSettingsButton) saveAdvancedSettingsButton.disabled = isWebhookActive;
           setTimingMode(timingMode, { silent: true });
         }
         function setTimingMode(mode, options = {}) {
