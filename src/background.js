@@ -327,7 +327,6 @@ function finalizeCurrentSession(runtimeState, stats, now = Date.now()) {
  * @returns {Object} Cleaned preferences safe to broadcast.
  */
 function buildSafeSettingsForContent(settings) {
-  // eslint-disable-next-line no-unused-vars
   const {
     webhookUrl,
     webhookRemovalHash,
@@ -821,7 +820,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const safeSettings = buildSafeSettingsForContent(settings);
       sendResponse({
         action: 'INTERVENE',
-        stage: message.stage || 'nudge',
+        stage: 'break',
         settings: safeSettings,
       });
     });

@@ -936,7 +936,7 @@ const EyeFlowContent = (() => {
    * @description Checks if tab is active and visible.
    */
   function isTabActivelyVisible() {
-    return !document.hidden && document.hasFocus();
+    return !document.hidden;
   }
 
   /**
@@ -970,7 +970,7 @@ const EyeFlowContent = (() => {
       )
     );
 
-    if (overlayShowing || document.fullscreenElement) return true;
+    if (overlayShowing) return true;
     if (focusedEditable) return true;
     if (EyeFlowIntelligence.isUserTyping() && !isDoomScrollContext()) return true;
     if (passwordOrOtpField) return true;
@@ -1606,36 +1606,24 @@ const EyeFlowContent = (() => {
     const timeOnSite = Math.round(getActiveSiteMs() / 60000);
     const hydrationPrompt = hydrationMergedIntoNextBreak || shouldMergeHydrationIntoBreak();
 
-    switch (stage) {
-      case 'nudge':
-        break;
-
-      case 'warning':
-        removeGentleReminder();
-        showWarning(timeOnSite);
-        break;
-
-      case 'break':
-        if (!canShowBreakOverlay()) {
-          chrome.runtime.sendMessage({
-            type: 'ADD_AUDIT_LOG',
-            event: 'Break Blocked by Duplicate Guard',
-            details: `Gap since last break: ${Math.round((Date.now() - lastBreakOverlayShownAt) / 1000)}s (guard: ${Math.round(BREAK_DUPLICATE_GUARD_MS / 1000)}s)`,
-          });
-          return;
-        }
-        chrome.runtime.sendMessage({
-          type: 'ADD_AUDIT_LOG',
-          event: 'Break Overlay Shown',
-          details: `Overlay triggered on ${hostname} (time on site: ${timeOnSite}m)`,
-        });
-        lastBreakOverlayShownAt = Date.now();
-        removeGentleReminder();
-        removeWarning();
-        if (typeof EyeFlowOverlay !== 'undefined') {
-          EyeFlowOverlay.show(settings, hostname, timeOnSite, { hydrationPrompt });
-        }
-        break;
+    if (!canShowBreakOverlay()) {
+      chrome.runtime.sendMessage({
+        type: 'ADD_AUDIT_LOG',
+        event: 'Break Blocked by Duplicate Guard',
+        details: `Gap since last break: ${Math.round((Date.now() - lastBreakOverlayShownAt) / 1000)}s`,
+      });
+      return;
+    }
+    chrome.runtime.sendMessage({
+      type: 'ADD_AUDIT_LOG',
+      event: 'Break Overlay Shown',
+      details: `Overlay triggered on ${hostname} (time on site: ${timeOnSite}m)`,
+    });
+    lastBreakOverlayShownAt = Date.now();
+    removeGentleReminder();
+    removeWarning();
+    if (typeof EyeFlowOverlay !== 'undefined') {
+      EyeFlowOverlay.show(settings, hostname, timeOnSite, { hydrationPrompt });
     }
   }
 

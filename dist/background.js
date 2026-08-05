@@ -688,7 +688,7 @@
             const safeSettings = buildSafeSettingsForContent(settings);
             sendResponse({
               action: 'INTERVENE',
-              stage: message.stage || 'nudge',
+              stage: 'break',
               settings: safeSettings,
             });
           });
