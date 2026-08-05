@@ -1,3 +1,17 @@
+<!--
+  OFFSCREEN.HTML - Hidden Audio Host
+
+  Purpose:
+    Hosts offscreen.js inside a DOM-capable hidden extension document so the
+    background service worker can trigger Web Audio reminder sounds in MV3.
+
+  Responsibilities:
+    Load only the audio handler script; this page has no visible UI.
+
+  Dependents:
+    - src/background.js creates this document with chrome.offscreen.createDocument().
+    - src/offscreen.js receives PLAY_REMINDER_SOUND messages here.
+-->
 <!doctype html>
 <html lang="en">
   <head>

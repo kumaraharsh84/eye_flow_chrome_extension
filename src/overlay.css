@@ -1,3 +1,14 @@
+/*
+ * OVERLAY.CSS - Injected Break Overlay Styling
+ *
+ * Purpose: styles the fullscreen eye-break and hydration UI that content.js and
+ * overlay.js inject into third-party pages.
+ * Responsibilities: isolate EyeFlow visuals with high z-index rules, define the
+ * card, progress, dot animation, strict-site behavior, mood buttons, and water
+ * reminder presentation.
+ * Dependents: src/manifest.json injects this CSS with content.js; src/overlay.js
+ * creates the class names and DOM structure styled here.
+ */
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,500;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
 
 :root {

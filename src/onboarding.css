@@ -1,3 +1,13 @@
+/*
+ * ONBOARDING.CSS - First-Run Setup Styling
+ *
+ * Purpose: styles onboarding.html, the first-install setup experience opened by
+ * the background service worker.
+ * Responsibilities: present the three-step card flow, mode selection cards,
+ * progress dots, and completion state in a focused extension page.
+ * Dependents: src/onboarding.html loads this file; src/onboarding.js toggles
+ * active/selected/done classes that drive the visual state.
+ */
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,500;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
 
 :root {

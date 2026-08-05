@@ -1,3 +1,13 @@
+/*
+ * POPUP.CSS - EyeFlow Toolbar Popup Styling
+ *
+ * Purpose: styles popup.html, the extension toolbar interface used for settings,
+ * snooze controls, statistics, webhook setup, export actions, and theme choice.
+ * Responsibilities: define the dark/light theme tokens, compact card layout,
+ * form validation states, accordion sections, and responsive popup dimensions.
+ * Dependents: src/popup.html loads this file; src/popup.js toggles classes and
+ * data-theme attributes that these selectors style.
+ */
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,500;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
 
 :root {

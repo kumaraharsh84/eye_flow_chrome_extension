@@ -203,7 +203,7 @@ export const EyeFlowOverlay = (() => {
       overlayElement.classList.add('eyeflow-strict');
     }
 
-    overlayElement.innerHTML = buildHydrationHTML(duration);
+    overlayElement.innerHTML = buildHydrationHTML(duration, isStrict);
     document.body.appendChild(overlayElement);
     startHydration(duration);
   }
@@ -260,16 +260,29 @@ export const EyeFlowOverlay = (() => {
    * @function buildHydrationHTML
    * @description Creates the initial inner HTML structure for the hydration layout.
    */
-  function buildHydrationHTML(duration) {
+  function buildHydrationHTML(duration, isStrict = false) {
+    const actionButtons = isStrict
+      ? ''
+      : `
+        <div class="eyeflow-hydration-actions">
+          <button class="eyeflow-action-btn eyeflow-action-primary" data-hydration-action="done">Yes, just had some</button>
+          <button class="eyeflow-action-btn eyeflow-action-secondary" data-hydration-action="later">Not right now</button>
+        </div>
+      `;
+
+    const glassNote = isStrict
+      ? 'Take your water sips while the timer resets.'
+      : 'Drink first, then choose what happens next.';
+
     return `
-      <div class="eyeflow-card eyeflow-card-hydration">
+      <div class="eyeflow-card eyeflow-card-hydration${isStrict ? ' eyeflow-strict' : ''}">
         <div class="eyeflow-title">Take a moment to drink some water.</div>
         <div class="eyeflow-subtitle">Pause here for a moment, take a few sips, and let your body reset before the next reel catches you.</div>
 
         <div class="eyeflow-exercise-area eyeflow-hydration-area">
           <div class="eyeflow-hydration-glass">
             <div class="eyeflow-hydration-glass-label">Water break</div>
-            <div class="eyeflow-hydration-glass-note">Drink first, then choose what happens next.</div>
+            <div class="eyeflow-hydration-glass-note">${glassNote}</div>
           </div>
         </div>
 
@@ -281,10 +294,7 @@ export const EyeFlowOverlay = (() => {
           <div class="eyeflow-progress-fill"></div>
         </div>
 
-        <div class="eyeflow-hydration-actions">
-          <button class="eyeflow-action-btn eyeflow-action-primary" data-hydration-action="done">Yes, just had some</button>
-          <button class="eyeflow-action-btn eyeflow-action-secondary" data-hydration-action="later">Not right now</button>
-        </div>
+        ${actionButtons}
       </div>
     `;
   }

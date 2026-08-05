@@ -74,10 +74,13 @@ Object.freeze(DEFAULT_SETTINGS);
 const DEFAULT_STATS = {
   totalDoomScrollsBlocked: 0, // Total interruptions ever
   totalEyeBreaksCompleted: 0, // Total eye exercises done
+  totalHydrationBreaksCompleted: 0, // Total water breaks done
   todayDoomScrollsBlocked: 0, // Interruptions today
   todayEyeBreaksCompleted: 0, // Eye exercises today
+  todayHydrationBreaksCompleted: 0, // Water breaks today
   weekDoomScrollsBlocked: 0, // Interruptions this week
   weekEyeBreaksCompleted: 0, // Eye exercises this week
+  weekHydrationBreaksCompleted: 0, // Water breaks this week
   lastBreakTime: 0, // Timestamp of last eye break
   lastResetDate: '', // The date when daily counters were last reset
   moodHistory: [], // Array of { mood, timestamp, site }
@@ -375,6 +378,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (stats.lastResetDate !== today) {
     stats.todayDoomScrollsBlocked = 0;
     stats.todayEyeBreaksCompleted = 0;
+    stats.todayHydrationBreaksCompleted = 0;
     stats.todayDsSiteTimeSpent = {};
     stats.lastResetDate = today;
     statsChanged = true;
@@ -404,6 +408,7 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
       }
       stats.weekDoomScrollsBlocked = 0;
       stats.weekEyeBreaksCompleted = 0;
+      stats.weekHydrationBreaksCompleted = 0;
       stats.weekDsSiteTimeSpent = {};
     }
 
@@ -755,17 +760,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'HYDRATION_COMPLETED') {
-    chrome.storage.local.get(['settings', 'runtimeState'], (result) => {
+    chrome.storage.local.get(['settings', 'stats', 'runtimeState'], (result) => {
       const settings = mergeSettings(result.settings);
+      const stats = mergeStats(result.stats);
       const runtimeState = mergeRuntimeState(result.runtimeState);
       const now = Date.now();
+
+      stats.totalHydrationBreaksCompleted = (stats.totalHydrationBreaksCompleted || 0) + 1;
+      stats.todayHydrationBreaksCompleted = (stats.todayHydrationBreaksCompleted || 0) + 1;
+      stats.weekHydrationBreaksCompleted = (stats.weekHydrationBreaksCompleted || 0) + 1;
 
       runtimeState.nextWaterReminderAt = now + getWaterDelayMs(settings);
       runtimeState.waterReminderPending = false;
       runtimeState.waterReminderPendingSince = 0;
       runtimeState.waterQueuedForNextBreak = false;
 
-      safeStorageSet({ runtimeState });
+      safeStorageSet({ stats, runtimeState });
       sendResponse({ success: true });
     });
     return true;
@@ -1126,12 +1136,28 @@ function sendWeeklyReport(stats, webhookUrl) {
     })
     .join('\n');
 
+  const complianceRate =
+    stats.weekDoomScrollsBlocked > 0
+      ? `${((stats.weekEyeBreaksCompleted / stats.weekDoomScrollsBlocked) * 100).toFixed(1)}%`
+      : '100%';
+
+  const hydrationCount = stats.weekHydrationBreaksCompleted || 0;
+
+  const patterns = analyzePatterns(stats.doomScrollSessions || recentSessions);
+  const peakWindow =
+    patterns.riskTimes && patterns.riskTimes.length > 0
+      ? `${patterns.riskTimes[0].dayName}s around ${patterns.riskTimes[0].timeLabel}`
+      : 'No clear peak yet';
+
   const reportPayload = {
     subject: 'EyeFlow Weekly Report',
-    message: `Here is the weekly doom-scrolling report:\n\nDoom Scrolls Blocked: ${stats.weekDoomScrollsBlocked}\nEye Breaks Completed: ${stats.weekEyeBreaksCompleted}\n\nTime Spent on Doom Scrolling Sites:\n${totalTimeEntries || 'No doom scrolling time recorded this week!'}\n\n🔄 Feed-Hopping Patterns:\n- Total app-swaps: ${feedHopsCount} times\n- Most common transitions: ${topTransitions || 'None'}\n\n📅 Detailed Session Activity Log (Last 30 Sessions):\n${sessionEntries || 'No individual sessions recorded.'}`,
+    message: `Here is the weekly doom-scrolling report:\n\nDoom Scrolls Blocked: ${stats.weekDoomScrollsBlocked}\nEye Breaks Completed: ${stats.weekEyeBreaksCompleted}\nCompliance Rate: ${complianceRate}\nWater Breaks Taken: ${hydrationCount} times\n⚠️ Peak Doom-Scrolling Window: ${peakWindow}\n\nTime Spent on Doom Scrolling Sites:\n${totalTimeEntries || 'No doom scrolling time recorded this week!'}\n\n🔄 Feed-Hopping Patterns:\n- Total app-swaps: ${feedHopsCount} times\n- Most common transitions: ${topTransitions || 'None'}\n\n📅 Detailed Session Activity Log (Last 30 Sessions):\n${sessionEntries || 'No individual sessions recorded.'}`,
     stats: {
       weekDoomScrollsBlocked: stats.weekDoomScrollsBlocked,
       weekEyeBreaksCompleted: stats.weekEyeBreaksCompleted,
+      complianceRate: complianceRate,
+      weekHydrationBreaksCompleted: hydrationCount,
+      peakWindow: peakWindow,
       weekDsSiteTimeSpent: stats.weekDsSiteTimeSpent,
       feedHopsCount: feedHopsCount,
       topTransitions: topTransitions || '',
