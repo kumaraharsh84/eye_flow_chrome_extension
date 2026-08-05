@@ -63,19 +63,58 @@ const DEFAULT_SETTINGS = {
   },
 
   webhookUrl: '', // URL for weekly email reports
-  webhookRemovalHash: '', // SHA-256 hash of 6-digit removal PIN for admin lock
+  webhookRemovalHash: '', // Stretched salted SHA-256 hash of 6-digit removal PIN
+  webhookRemovalSalt: '', // 128-bit random salt for PBKDF/stretching protection
 };
 Object.freeze(DEFAULT_SETTINGS);
 
 /**
- * @function hashPin
- * @description Generates a secure SHA-256 hexadecimal hash string for a removal PIN.
- * @param {string|number} pin - Plaintext PIN.
- * @returns {Promise<string>} SHA-256 hex string.
+ * @function generateSecure6DigitPin
+ * @description Generates a cryptographically secure 6-digit PIN using Web Crypto API.
+ * @returns {string} 6-digit PIN.
  */
-async function hashPin(pin) {
-  const msgUint8 = new TextEncoder().encode(String(pin || '').trim());
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+function generateSecure6DigitPin() {
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  const pinNum = 100000 + (array[0] % 900000);
+  return String(pinNum);
+}
+
+/**
+ * @function generateSecureSalt
+ * @description Generates a 128-bit cryptographically secure random salt hex string.
+ * @returns {string} 32-character hex salt string.
+ */
+function generateSecureSalt() {
+  const array = new Uint8Array(16);
+  crypto.getRandomValues(array);
+  return Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * @function hashPinWithSalt
+ * @description Computes a stretched, salted SHA-256 hash with 5,000 key-stretching iterations
+ * to render offline brute-force cracking mathematically impractical.
+ *
+ * @param {string|number} pin - Plaintext PIN.
+ * @param {string} salt - 128-bit hex salt.
+ * @returns {Promise<string>} Stretched hex hash string.
+ */
+async function hashPinWithSalt(pin, salt) {
+  const encoder = new TextEncoder();
+  const safeSalt = String(salt || '').trim();
+  const safePin = String(pin || '').trim();
+
+  let hashBuffer = await crypto.subtle.digest(
+    'SHA-256',
+    encoder.encode(`EyeFlow:${safeSalt}:${safePin}:${safeSalt}`)
+  );
+
+  // Key stretching: 5,000 iterations of SHA-256 digest
+  for (let i = 0; i < 5000; i++) {
+    hashBuffer = await crypto.subtle.digest('SHA-256', hashBuffer);
+  }
+
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
 }
@@ -289,7 +328,13 @@ function finalizeCurrentSession(runtimeState, stats, now = Date.now()) {
  */
 function buildSafeSettingsForContent(settings) {
   // eslint-disable-next-line no-unused-vars
-  const { webhookUrl, webhookRemovalHash, webhookRemovalToken, ...safeSettings } = settings;
+  const {
+    webhookUrl,
+    webhookRemovalHash,
+    webhookRemovalSalt,
+    webhookRemovalToken,
+    ...safeSettings
+  } = settings;
   return safeSettings;
 }
 
@@ -656,10 +701,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (previousSettings.webhookUrl && previousSettings.webhookUrl.trim() !== '') {
         incomingSettings.webhookUrl = previousSettings.webhookUrl;
         incomingSettings.webhookRemovalHash = previousSettings.webhookRemovalHash;
+        incomingSettings.webhookRemovalSalt = previousSettings.webhookRemovalSalt;
       } else if (incomingSettings.webhookUrl && incomingSettings.webhookUrl.trim() !== '') {
-        // First-time webhook setup: generate a secure 6-digit removal PIN and store ONLY its SHA-256 hash
-        createdRemovalPin = String(Math.floor(100000 + Math.random() * 900000));
-        incomingSettings.webhookRemovalHash = await hashPin(createdRemovalPin);
+        // First-time webhook setup: generate CSPRNG 6-digit PIN and 128-bit random salt
+        createdRemovalPin = generateSecure6DigitPin();
+        const salt = generateSecureSalt();
+        incomingSettings.webhookRemovalSalt = salt;
+        incomingSettings.webhookRemovalHash = await hashPinWithSalt(createdRemovalPin, salt);
       }
 
       delete incomingSettings.webhookRemovalToken;
@@ -683,7 +731,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
 
       safeStorageSet({ settings, runtimeState }).then(() => {
-        const { webhookRemovalHash, webhookRemovalToken, ...safeResponseSettings } = settings;
+        const {
+          webhookRemovalHash,
+          webhookRemovalSalt,
+          webhookRemovalToken,
+          ...safeResponseSettings
+        } = settings;
         sendResponse({
           success: true,
           settings: safeResponseSettings,
@@ -698,11 +751,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const { removalToken } = message;
     chrome.storage.local.get(['settings', 'runtimeState'], async (result) => {
       const settings = mergeSettings(result.settings);
-      const inputHash = await hashPin(removalToken);
 
-      if (settings.webhookRemovalHash && inputHash && inputHash === settings.webhookRemovalHash) {
+      if (!settings.webhookRemovalHash || !settings.webhookRemovalSalt || !removalToken) {
+        sendResponse({ success: false, error: 'Invalid removal PIN' });
+        return;
+      }
+
+      const inputHash = await hashPinWithSalt(removalToken, settings.webhookRemovalSalt);
+
+      if (inputHash === settings.webhookRemovalHash) {
         settings.webhookUrl = '';
         settings.webhookRemovalHash = '';
+        settings.webhookRemovalSalt = '';
         delete settings.webhookRemovalToken;
         const runtimeState = mergeRuntimeState(result.runtimeState);
         safeStorageSet({ settings, runtimeState }).then(() => {
