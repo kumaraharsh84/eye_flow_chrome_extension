@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EyeFlow Test Report</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f5efe5;
+        --panel: #fffaf3;
+        --ink: #2f2418;
+        --muted: #6f6457;
+        --border: #dbcab4;
+        --pass: #2d7d46;
+        --fail: #b63c3c;
+        --skip: #8a6d1f;
+        --accent: #b45c2f;
+      }
+      body {
+        margin: 0;
+        font-family: Georgia, 'Times New Roman', serif;
+        background: linear-gradient(180deg, #f6efe6 0%, #f1e7d9 100%);
+        color: var(--ink);
+      }
+      main {
+        max-width: 980px;
+        margin: 0 auto;
+        padding: 32px 20px 48px;
+      }
+      .hero,
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        box-shadow: 0 14px 30px rgba(77, 54, 27, 0.08);
+      }
+      .hero {
+        padding: 24px;
+        margin-bottom: 20px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 32px;
+      }
+      .meta {
+        color: var(--muted);
+        font-size: 14px;
+      }
+      .summary {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-top: 18px;
+      }
+      .pill {
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: #f2e6d5;
+        border: 1px solid var(--border);
+        font-size: 14px;
+      }
+      .panel {
+        overflow: hidden;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        padding: 14px 16px;
+        border-bottom: 1px solid #eadfce;
+        text-align: left;
+        vertical-align: top;
+        font-size: 14px;
+      }
+      th {
+        background: #fcf6ee;
+        font-size: 13px;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      .status {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .status-passed {
+        background: rgba(45, 125, 70, 0.12);
+        color: var(--pass);
+      }
+      .status-failed {
+        background: rgba(182, 60, 60, 0.12);
+        color: var(--fail);
+      }
+      .status-skipped {
+        background: rgba(138, 109, 31, 0.12);
+        color: var(--skip);
+      }
+      .message {
+        white-space: pre-wrap;
+        color: var(--muted);
+        line-height: 1.45;
+      }
+      .footer {
+        margin-top: 14px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <h1>EyeFlow Test Report</h1>
+        <div class="meta">Generated at 2026-08-05T06:48:35.887Z for suite: all</div>
+        <div class="summary">
+          <div class="pill">Passed: 5</div>
+          <div class="pill">Failed: 0</div>
+          <div class="pill">Skipped: 1</div>
+          <div class="pill">Total: 6</div>
+        </div>
+      </section>
+      <section class="panel">
+        <table>
+          <thead>
+            <tr>
+              <th>Suite</th>
+              <th>Test</th>
+              <th>Status</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>onboarding</td>
+              <td>Onboarding presets save the expected values</td>
+              <td><span class="status status-passed">passed</span></td>
+              <td></td>
+            </tr>
+
+            <tr>
+              <td>popup</td>
+              <td>Popup toggle and snooze controls update saved state</td>
+              <td><span class="status status-passed">passed</span></td>
+              <td></td>
+            </tr>
+
+            <tr>
+              <td>popup</td>
+              <td>Popup advanced controls save, persist, and validate</td>
+              <td><span class="status status-passed">passed</span></td>
+              <td></td>
+            </tr>
+
+            <tr>
+              <td>sites</td>
+              <td>Content script responds on YouTube Shorts</td>
+              <td><span class="status status-skipped">skipped</span></td>
+              <td>
+                <div class="message">
+                  Content script did not respond: Could not establish connection. Receiving end does
+                  not exist.
+                </div>
+              </td>
+            </tr>
+
+            <tr>
+              <td>sites</td>
+              <td>Content script responds on Instagram Reels</td>
+              <td><span class="status status-passed">passed</span></td>
+              <td></td>
+            </tr>
+
+            <tr>
+              <td>sites</td>
+              <td>Content script responds on Reddit Popular</td>
+              <td><span class="status status-passed">passed</span></td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+      <div class="footer">
+        Saved to C:\Users\kumar\OneDrive\Desktop\project\eyeflow chorme
+        extension\dist\tests\artifacts\eyeflow-test-report.html
+      </div>
+    </main>
+  </body>
+</html>
