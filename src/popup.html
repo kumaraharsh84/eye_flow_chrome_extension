@@ -281,6 +281,39 @@
               data-error-for="webhook-url-input"
               style="display: none"
             ></span>
+            <div
+              id="webhook-token-notice"
+              style="
+                display: none;
+                margin-top: 8px;
+                font-size: 11px;
+                color: var(--accent-color);
+                word-break: break-all;
+              "
+            ></div>
+            <div id="webhook-removal-block" style="display: none; margin-top: 8px">
+              <div style="display: flex; gap: 6px; align-items: center">
+                <input
+                  type="text"
+                  id="webhook-removal-token-input"
+                  class="popup-input"
+                  placeholder="Enter Removal PIN"
+                  style="width: 130px; font-size: 11px; padding: 4px 8px"
+                />
+                <button
+                  class="btn-secondary"
+                  id="btn-remove-webhook"
+                  type="button"
+                  style="font-size: 11px; padding: 4px 8px; height: auto"
+                >
+                  Remove Webhook
+                </button>
+              </div>
+              <span
+                id="webhook-removal-status"
+                style="font-size: 11px; color: var(--text-muted); display: block; margin-top: 4px"
+              ></span>
+            </div>
             <button
               class="btn-secondary"
               id="btn-test-report"

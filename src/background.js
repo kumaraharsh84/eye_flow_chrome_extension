@@ -63,6 +63,7 @@ const DEFAULT_SETTINGS = {
   },
 
   webhookUrl: '', // URL for weekly email reports
+  webhookRemovalToken: '', // 6-digit removal PIN for admin lock
 };
 Object.freeze(DEFAULT_SETTINGS);
 
@@ -275,7 +276,7 @@ function finalizeCurrentSession(runtimeState, stats, now = Date.now()) {
  */
 function buildSafeSettingsForContent(settings) {
   // eslint-disable-next-line no-unused-vars
-  const { webhookUrl, ...safeSettings } = settings;
+  const { webhookUrl, webhookRemovalToken, ...safeSettings } = settings;
   return safeSettings;
 }
 
@@ -339,7 +340,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
   broadcastToAllTabs({
     type: 'SETTINGS_UPDATED',
-    settings: changes.settings.newValue,
+    settings: buildSafeSettingsForContent(changes.settings.newValue),
   });
 });
 
@@ -458,7 +459,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === 'GET_SETTINGS') {
     chrome.storage.local.get(['settings'], (result) => {
-      sendResponse(mergeSettings(result.settings));
+      const full = mergeSettings(result.settings);
+      const isContentScript = Boolean(sender?.tab);
+      sendResponse(isContentScript ? buildSafeSettingsForContent(full) : full);
     });
     return true;
   }
@@ -633,7 +636,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'SAVE_SETTINGS') {
     chrome.storage.local.get(['settings', 'runtimeState'], (result) => {
       const previousSettings = mergeSettings(result.settings);
-      const settings = mergeSettings(result.settings, message.settings);
+      const incomingSettings = { ...message.settings };
+
+      // Webhook lock protection: if a webhookUrl was already set, prevent clearing or modifying it
+      if (previousSettings.webhookUrl && previousSettings.webhookUrl.trim() !== '') {
+        incomingSettings.webhookUrl = previousSettings.webhookUrl;
+        incomingSettings.webhookRemovalToken = previousSettings.webhookRemovalToken;
+      } else if (incomingSettings.webhookUrl && incomingSettings.webhookUrl.trim() !== '') {
+        // First-time webhook setup: generate a secure 6-digit removal PIN
+        incomingSettings.webhookRemovalToken = String(Math.floor(100000 + Math.random() * 900000));
+      }
+
+      const settings = mergeSettings(result.settings, incomingSettings);
       const runtimeState = mergeRuntimeState(result.runtimeState);
       const now = Date.now();
       const isSnoozed = settings.snoozedUntil > 0 && now < settings.snoozedUntil;
@@ -652,8 +666,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
 
       safeStorageSet({ settings, runtimeState }).then(() => {
-        sendResponse({ success: true });
+        sendResponse({ success: true, settings });
       });
+    });
+    return true;
+  }
+
+  if (message.type === 'REMOVE_WEBHOOK') {
+    const { removalToken } = message;
+    chrome.storage.local.get(['settings', 'runtimeState'], (result) => {
+      const settings = mergeSettings(result.settings);
+      if (
+        settings.webhookRemovalToken &&
+        removalToken &&
+        String(removalToken).trim() === String(settings.webhookRemovalToken).trim()
+      ) {
+        settings.webhookUrl = '';
+        settings.webhookRemovalToken = '';
+        const runtimeState = mergeRuntimeState(result.runtimeState);
+        safeStorageSet({ settings, runtimeState }).then(() => {
+          sendResponse({ success: true });
+        });
+      } else {
+        sendResponse({ success: false, error: 'Invalid removal PIN' });
+      }
     });
     return true;
   }

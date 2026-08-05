@@ -78,6 +78,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const webhookUrlInput = document.getElementById('webhook-url-input');
   const btnTestReport = document.getElementById('btn-test-report');
   const testReportStatus = document.getElementById('test-report-status');
+  const webhookTokenNotice = document.getElementById('webhook-token-notice');
+  const webhookRemovalBlock = document.getElementById('webhook-removal-block');
+  const webhookRemovalTokenInput = document.getElementById('webhook-removal-token-input');
+  const btnRemoveWebhook = document.getElementById('btn-remove-webhook');
+  const webhookRemovalStatus = document.getElementById('webhook-removal-status');
 
   // --- UI State Tracking Variables ---
   let themeLightButton = null;
@@ -274,15 +279,60 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
+    // Webhook Removal Handler
+    if (btnRemoveWebhook) {
+      btnRemoveWebhook.addEventListener('click', () => {
+        const token = webhookRemovalTokenInput ? webhookRemovalTokenInput.value.trim() : '';
+        if (!token) {
+          if (webhookRemovalStatus) webhookRemovalStatus.textContent = 'Please enter PIN.';
+          return;
+        }
+        if (webhookRemovalStatus) webhookRemovalStatus.textContent = 'Verifying...';
+
+        chrome.runtime.sendMessage({ type: 'REMOVE_WEBHOOK', removalToken: token }, (response) => {
+          if (runtimeCallbackFailed()) {
+            if (webhookRemovalStatus) webhookRemovalStatus.textContent = 'Extension error.';
+            return;
+          }
+          if (response?.success) {
+            if (webhookRemovalStatus) webhookRemovalStatus.textContent = 'Webhook removed!';
+            if (webhookUrlInput) {
+              webhookUrlInput.value = '';
+              webhookUrlInput.disabled = false;
+              webhookUrlInput.title = '';
+            }
+            if (webhookRemovalTokenInput) webhookRemovalTokenInput.value = '';
+            if (webhookRemovalBlock) webhookRemovalBlock.style.display = 'none';
+            if (webhookTokenNotice) webhookTokenNotice.style.display = 'none';
+
+            toggleEnabled.disabled = false;
+            toggleEnabled.title = '';
+
+            if (currentSettings) {
+              currentSettings.webhookUrl = '';
+              currentSettings.webhookRemovalToken = '';
+            }
+            updateStatusBar(currentSettings);
+            checkIncognitoStatus();
+            clearAdvancedSettingsDirty('Webhook removed.');
+          } else {
+            if (webhookRemovalStatus) {
+              webhookRemovalStatus.textContent = response?.error || 'Invalid Removal PIN.';
+            }
+          }
+        });
+      });
+    }
+
     // Advanced Section save
     saveAdvancedSettingsButton.addEventListener('click', saveAdvancedSettings);
 
-    // JSON Statistics Data Export
+    // JSON Statistics Data Export (Scoped strictly to safe non-credential metrics)
     const btnExportStats = document.getElementById('btn-export-stats');
     if (btnExportStats) {
       btnExportStats.addEventListener('click', () => {
-        // Query entire local storage and trigger download attachment
-        chrome.storage.local.get(null, (data) => {
+        // Query safe metrics (stats, runtimeState, auditLogs) — excluding settings/webhook credentials
+        chrome.storage.local.get(['stats', 'runtimeState', 'auditLogs'], (data) => {
           if (runtimeCallbackFailed()) return;
           const blob = new Blob([JSON.stringify(data || {}, null, 2)], {
             type: 'application/json',
@@ -403,9 +453,19 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleEnabled.checked = true;
         toggleEnabled.disabled = true;
         toggleEnabled.title = 'Locked by Sibling Monitor / Admin webhook';
+        if (webhookUrlInput) {
+          webhookUrlInput.disabled = true;
+          webhookUrlInput.title = 'Locked by Sibling Monitor. Enter Removal PIN below to unlock.';
+        }
+        if (webhookRemovalBlock) webhookRemovalBlock.style.display = 'block';
       } else {
         toggleEnabled.disabled = false;
         toggleEnabled.title = '';
+        if (webhookUrlInput) {
+          webhookUrlInput.disabled = false;
+          webhookUrlInput.title = '';
+        }
+        if (webhookRemovalBlock) webhookRemovalBlock.style.display = 'none';
       }
 
       sensitivitySlider.value = currentSettings.sensitivity;
@@ -693,6 +753,17 @@ document.addEventListener('DOMContentLoaded', () => {
       chrome.runtime.sendMessage({ type: 'SAVE_SETTINGS', settings: nextSettings }, (response) => {
         if (runtimeCallbackFailed()) return;
         if (!response?.success) return;
+
+        if (response.settings) {
+          currentSettings = normalizeSettingsForPopup(response.settings);
+          if (response.settings.webhookRemovalToken && response.settings.webhookUrl) {
+            if (webhookTokenNotice) {
+              webhookTokenNotice.style.display = 'block';
+              webhookTokenNotice.innerHTML = `🔒 Webhook active! Removal PIN: <b>${response.settings.webhookRemovalToken}</b> (Save this PIN to unlock/remove)`;
+            }
+          }
+        }
+        syncAdvancedInputsFromSettings(currentSettings, currentTimingMode);
         clearAdvancedSettingsDirty('Settings saved');
         window.setTimeout(() => {
           collapseSection('advanced-content', '#toggle-advanced .popup-collapse-icon');
@@ -830,6 +901,13 @@ document.addEventListener('DOMContentLoaded', () => {
     subtleReminderMaxInput.value = settings.subtleReminderMax;
     if (webhookUrlInput) {
       webhookUrlInput.value = settings.webhookUrl || '';
+      const isWebhookActive = Boolean(settings.webhookUrl && settings.webhookUrl.trim() !== '');
+      webhookUrlInput.disabled = isWebhookActive;
+      webhookUrlInput.title = isWebhookActive
+        ? 'Locked by Sibling Monitor. Enter Removal PIN below to unlock.'
+        : '';
+      if (webhookRemovalBlock)
+        webhookRemovalBlock.style.display = isWebhookActive ? 'block' : 'none';
     }
     setTimingMode(timingMode, { silent: true });
   }
@@ -1234,6 +1312,7 @@ document.addEventListener('DOMContentLoaded', () => {
       hydrationReminderMin: currentSettings.hydrationReminderMin,
       subtleReminderMin: currentSettings.subtleReminderMin,
       subtleReminderMax: currentSettings.subtleReminderMax,
+      webhookUrl: currentSettings.webhookUrl || '',
     };
 
     const nextSnapshot = {
@@ -1246,6 +1325,7 @@ document.addEventListener('DOMContentLoaded', () => {
       hydrationReminderMin: formState.hydrationReminderMin,
       subtleReminderMin: Number(formState.subtleReminderMin),
       subtleReminderMax: Number(formState.subtleReminderMax),
+      webhookUrl: formState.webhookUrl || '',
     };
 
     return JSON.stringify(currentSnapshot) !== JSON.stringify(nextSnapshot);

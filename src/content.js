@@ -436,10 +436,6 @@ const EyeFlowContent = (() => {
       return 'instagram.com/reels';
     }
 
-    if (path.startsWith('/direct')) {
-      return 'instagram.com/direct';
-    }
-
     if (path.startsWith('/p/')) {
       const modalReelVisible = Boolean(
         document.querySelector(
