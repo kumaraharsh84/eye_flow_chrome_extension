@@ -63,9 +63,22 @@ const DEFAULT_SETTINGS = {
   },
 
   webhookUrl: '', // URL for weekly email reports
-  webhookRemovalToken: '', // 6-digit removal PIN for admin lock
+  webhookRemovalHash: '', // SHA-256 hash of 6-digit removal PIN for admin lock
 };
 Object.freeze(DEFAULT_SETTINGS);
+
+/**
+ * @function hashPin
+ * @description Generates a secure SHA-256 hexadecimal hash string for a removal PIN.
+ * @param {string|number} pin - Plaintext PIN.
+ * @returns {Promise<string>} SHA-256 hex string.
+ */
+async function hashPin(pin) {
+  const msgUint8 = new TextEncoder().encode(String(pin || '').trim());
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 // -------------------------------------------------------
 // DEFAULT STATS (tracked data)
@@ -276,7 +289,7 @@ function finalizeCurrentSession(runtimeState, stats, now = Date.now()) {
  */
 function buildSafeSettingsForContent(settings) {
   // eslint-disable-next-line no-unused-vars
-  const { webhookUrl, webhookRemovalToken, ...safeSettings } = settings;
+  const { webhookUrl, webhookRemovalHash, webhookRemovalToken, ...safeSettings } = settings;
   return safeSettings;
 }
 
@@ -634,18 +647,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === 'SAVE_SETTINGS') {
-    chrome.storage.local.get(['settings', 'runtimeState'], (result) => {
+    chrome.storage.local.get(['settings', 'runtimeState'], async (result) => {
       const previousSettings = mergeSettings(result.settings);
       const incomingSettings = { ...message.settings };
+      let createdRemovalPin = null;
 
       // Webhook lock protection: if a webhookUrl was already set, prevent clearing or modifying it
       if (previousSettings.webhookUrl && previousSettings.webhookUrl.trim() !== '') {
         incomingSettings.webhookUrl = previousSettings.webhookUrl;
-        incomingSettings.webhookRemovalToken = previousSettings.webhookRemovalToken;
+        incomingSettings.webhookRemovalHash = previousSettings.webhookRemovalHash;
       } else if (incomingSettings.webhookUrl && incomingSettings.webhookUrl.trim() !== '') {
-        // First-time webhook setup: generate a secure 6-digit removal PIN
-        incomingSettings.webhookRemovalToken = String(Math.floor(100000 + Math.random() * 900000));
+        // First-time webhook setup: generate a secure 6-digit removal PIN and store ONLY its SHA-256 hash
+        createdRemovalPin = String(Math.floor(100000 + Math.random() * 900000));
+        incomingSettings.webhookRemovalHash = await hashPin(createdRemovalPin);
       }
+
+      delete incomingSettings.webhookRemovalToken;
 
       const settings = mergeSettings(result.settings, incomingSettings);
       const runtimeState = mergeRuntimeState(result.runtimeState);
@@ -666,7 +683,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
 
       safeStorageSet({ settings, runtimeState }).then(() => {
-        sendResponse({ success: true, settings });
+        const { webhookRemovalHash, webhookRemovalToken, ...safeResponseSettings } = settings;
+        sendResponse({
+          success: true,
+          settings: safeResponseSettings,
+          createdRemovalPin, // Transmitted ONCE to popup upon creation
+        });
       });
     });
     return true;
@@ -674,15 +696,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === 'REMOVE_WEBHOOK') {
     const { removalToken } = message;
-    chrome.storage.local.get(['settings', 'runtimeState'], (result) => {
+    chrome.storage.local.get(['settings', 'runtimeState'], async (result) => {
       const settings = mergeSettings(result.settings);
-      if (
-        settings.webhookRemovalToken &&
-        removalToken &&
-        String(removalToken).trim() === String(settings.webhookRemovalToken).trim()
-      ) {
+      const inputHash = await hashPin(removalToken);
+
+      if (settings.webhookRemovalHash && inputHash && inputHash === settings.webhookRemovalHash) {
         settings.webhookUrl = '';
-        settings.webhookRemovalToken = '';
+        settings.webhookRemovalHash = '';
+        delete settings.webhookRemovalToken;
         const runtimeState = mergeRuntimeState(result.runtimeState);
         safeStorageSet({ settings, runtimeState }).then(() => {
           sendResponse({ success: true });

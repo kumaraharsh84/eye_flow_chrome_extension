@@ -754,14 +754,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (runtimeCallbackFailed()) return;
         if (!response?.success) return;
 
+        if (response.createdRemovalPin) {
+          if (webhookTokenNotice) {
+            webhookTokenNotice.style.display = 'block';
+            webhookTokenNotice.innerHTML = `🔒 Webhook activated! Your Removal PIN: <b>${response.createdRemovalPin}</b><br><span style="font-size: 10px; color: var(--text-muted);">Write this PIN down! It is shown ONCE and never stored in readable format.</span>`;
+          }
+        }
         if (response.settings) {
           currentSettings = normalizeSettingsForPopup(response.settings);
-          if (response.settings.webhookRemovalToken && response.settings.webhookUrl) {
-            if (webhookTokenNotice) {
-              webhookTokenNotice.style.display = 'block';
-              webhookTokenNotice.innerHTML = `🔒 Webhook active! Removal PIN: <b>${response.settings.webhookRemovalToken}</b> (Save this PIN to unlock/remove)`;
-            }
-          }
         }
         syncAdvancedInputsFromSettings(currentSettings, currentTimingMode);
         clearAdvancedSettingsDirty('Settings saved');
