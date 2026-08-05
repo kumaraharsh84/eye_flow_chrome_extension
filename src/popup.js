@@ -308,6 +308,9 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleEnabled.disabled = false;
             toggleEnabled.title = '';
 
+            const toggleAdvancedHeader = document.getElementById('toggle-advanced');
+            if (toggleAdvancedHeader) toggleAdvancedHeader.title = '';
+
             if (currentSettings) {
               currentSettings.webhookUrl = '';
               currentSettings.webhookRemovalToken = '';
@@ -418,11 +421,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Accordion Toggle Collapse Actions
-    document
-      .getElementById('toggle-advanced')
-      .addEventListener('click', () =>
-        toggleSection('advanced-content', '#toggle-advanced .popup-collapse-icon')
+    document.getElementById('toggle-advanced').addEventListener('click', () => {
+      const isWebhookActive = Boolean(
+        currentSettings?.webhookUrl && currentSettings.webhookUrl.trim() !== ''
       );
+      if (isWebhookActive) {
+        // Advanced Settings remains locked while Sibling Monitor webhook is active
+        return;
+      }
+      toggleSection('advanced-content', '#toggle-advanced .popup-collapse-icon');
+    });
     document
       .getElementById('toggle-work-mode')
       .addEventListener('click', () =>
@@ -449,10 +457,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // Lock main toggle switch disabled if Sibling Monitor webhook is active (prevents unauthorized disabling)
       toggleEnabled.checked = currentSettings.enabled;
+      const toggleAdvancedHeader = document.getElementById('toggle-advanced');
       if (currentSettings.webhookUrl && currentSettings.webhookUrl.trim() !== '') {
         toggleEnabled.checked = true;
         toggleEnabled.disabled = true;
         toggleEnabled.title = 'Locked by Sibling Monitor / Admin webhook';
+        collapseSection('advanced-content', '#toggle-advanced .popup-collapse-icon');
+        if (toggleAdvancedHeader) {
+          toggleAdvancedHeader.title = 'Advanced Settings locked while Sibling Monitor is active';
+        }
         if (webhookUrlInput) {
           webhookUrlInput.disabled = true;
           webhookUrlInput.title = 'Locked by Sibling Monitor. Enter Removal PIN below to unlock.';
@@ -461,6 +474,9 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         toggleEnabled.disabled = false;
         toggleEnabled.title = '';
+        if (toggleAdvancedHeader) {
+          toggleAdvancedHeader.title = '';
+        }
         if (webhookUrlInput) {
           webhookUrlInput.disabled = false;
           webhookUrlInput.title = '';
