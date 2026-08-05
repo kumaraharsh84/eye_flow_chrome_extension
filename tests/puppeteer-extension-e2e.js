@@ -1,3 +1,22 @@
+/**
+ * @file puppeteer-extension-e2e.js
+ * @description End-to-end browser tests for EyeFlow extension workflows.
+ *
+ * @purpose
+ * Exercises the built extension in a real Chromium session. These tests validate
+ * popup controls, onboarding persistence, content-script behavior on target
+ * sites, and extension messaging/storage flows that cannot be trusted from unit
+ * tests alone.
+ *
+ * @responsibilities
+ *   - Launch the unpacked dist/ extension in Puppeteer.
+ *   - Interact with extension pages and online doom-scroll surfaces.
+ *   - Read/write chrome.storage from extension pages for setup and assertions.
+ *   - Generate an HTML test report for review.
+ *
+ * @dependents
+ *   - package.json test:e2e, test:online, test:onboarding, test:popup, and test:sites scripts.
+ */
 const fs = require('fs');
 const os = require('os');
 const path = require('path');

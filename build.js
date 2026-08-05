@@ -1,3 +1,22 @@
+/**
+ * @file build.js
+ * @description Build pipeline for packaging the Manifest V3 extension into dist/.
+ *
+ * @purpose
+ * This Node.js script copies static extension assets and uses esbuild to bundle
+ * JavaScript entry points into browser-loadable files. Chrome loads files from
+ * dist/ during local testing and store packaging, so this script is the bridge
+ * between readable source modules and the final extension artifact.
+ *
+ * @responsibilities
+ *   - Copy manifest, HTML, CSS, and icon assets into dist/.
+ *   - Bundle background, content, popup, onboarding, and offscreen scripts.
+ *   - Support watch mode for iterative local development.
+ *
+ * @dependents
+ *   - package.json scripts: build, watch, pretest, and pretest:extension.
+ *   - Puppeteer tests load the generated dist/ extension.
+ */
 const esbuild = require('esbuild');
 const fs = require('fs');
 const path = require('path');
@@ -52,6 +71,10 @@ async function build() {
   copyAssets();
 
   const ctx = await esbuild.context({
+    // esbuild bundles ES module source into IIFEs because extension pages and
+    // content scripts are loaded as plain browser scripts from dist/. Keeping
+    // the source modular while emitting IIFEs preserves developer ergonomics
+    // without requiring Chrome to resolve source-time imports at runtime.
     entryPoints: [
       path.join(SRC_DIR, 'background.js'),
       path.join(SRC_DIR, 'content.js'),

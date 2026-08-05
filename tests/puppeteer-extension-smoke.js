@@ -1,3 +1,21 @@
+/**
+ * @file puppeteer-extension-smoke.js
+ * @description Browser smoke test that loads the built extension and verifies the popup can render.
+ *
+ * @purpose
+ * Launches Chrome or Edge with dist/ installed as an unpacked extension. This
+ * checks that the build artifact is loadable, the Manifest V3 service worker
+ * starts, and the popup HTML/JS can execute in a real extension context.
+ *
+ * @responsibilities
+ *   - Resolve an installed Chromium browser path.
+ *   - Launch Puppeteer with extension support.
+ *   - Discover the generated extension ID from its service worker target.
+ *   - Open popup.html and one online target page for a basic integration check.
+ *
+ * @dependents
+ *   - package.json test and test:extension scripts.
+ */
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
