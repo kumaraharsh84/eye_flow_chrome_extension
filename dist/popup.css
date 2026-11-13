@@ -8,7 +8,6 @@
  * Dependents: src/popup.html loads this file; src/popup.js toggles classes and
  * data-theme attributes that these selectors style.
  */
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,500;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
 
 :root {
   --bg: #0f1117;
@@ -81,7 +80,12 @@ body {
     radial-gradient(circle at bottom left, rgba(10, 158, 138, 0.12), transparent 32%),
     linear-gradient(180deg, var(--bg) 0%, #141823 100%);
   color: var(--text);
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
   font-size: 14px;
   padding-bottom: 20px;
 }
@@ -134,7 +138,7 @@ body[data-theme='light'] .popup-header {
 }
 
 .popup-logo-text {
-  font-family: 'Fraunces', serif;
+  font-family: Georgia, 'Times New Roman', serif;
   font-size: 22px;
   font-weight: 700;
   color: var(--text);
@@ -253,7 +257,7 @@ body[data-theme='light'] .popup-header {
 
 .popup-card-title,
 .popup-subsection-title {
-  font-family: 'Fraunces', serif;
+  font-family: Georgia, 'Times New Roman', serif;
   font-size: 16px;
   line-height: 1.2;
   color: var(--text);
@@ -453,15 +457,19 @@ body[data-theme='light'] .popup-header {
 }
 
 .popup-number-input,
-.popup-input,
-.popup-select {
+.popup-input {
   width: 100%;
   border: none;
   background: transparent;
   color: var(--text);
   font-size: 13px;
   outline: none;
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
 }
 
 .popup-number-input {
@@ -661,7 +669,14 @@ body[data-theme='light'] .popup-header {
 .popup-top-site-time {
   flex-shrink: 0;
   color: var(--streak);
-  font-family: 'Fraunces', serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
   font-size: clamp(19px, 4vw, 24px);
   line-height: 1;
   text-align: right;
@@ -700,13 +715,7 @@ body[data-theme='light'] .popup-header {
   opacity: 0.7;
 }
 
-.popup-add-site {
-  display: flex;
-  gap: 8px;
-  margin-top: 10px;
-}
-.popup-input,
-.popup-select {
+.popup-input {
   padding: 11px 12px;
   border-radius: 12px;
   border: 1px solid var(--border);
@@ -714,18 +723,6 @@ body[data-theme='light'] .popup-header {
 }
 .popup-input::placeholder {
   color: var(--text-dim);
-}
-
-.popup-add-btn {
-  width: 40px;
-  height: 40px;
-  border: none;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--eye), #ff8a5d);
-  color: #fff;
-  font-size: 18px;
-  cursor: pointer;
-  box-shadow: 0 10px 20px var(--eye-glow);
 }
 
 .popup-footer {
@@ -752,4 +749,141 @@ body[data-theme='light'] .popup-header {
   .popup-mode-option {
     min-width: 78px;
   }
+}
+
+/* Small secondary buttons (webhook, export, incognito) */
+.popup-btn {
+  padding: 7px 12px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.popup-btn:hover:not(:disabled) {
+  background: var(--eye-soft);
+  border-color: rgba(232, 98, 42, 0.25);
+}
+
+.popup-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.popup-btn-primary {
+  border-color: transparent;
+  background: linear-gradient(135deg, var(--eye), #ff8a5d);
+  color: #fff;
+}
+
+.popup-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--eye), #ff8a5d);
+  filter: brightness(1.05);
+}
+
+.popup-option-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.popup-option-title {
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.popup-webhook-block {
+  margin-top: 16px;
+}
+
+.popup-webhook-input {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.popup-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.popup-pin-notice {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(232, 98, 42, 0.25);
+  background: var(--eye-soft);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.popup-pin-notice b {
+  color: var(--eye);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+}
+
+.popup-pin-hint {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.popup-webhook-removal,
+.popup-webhook-test-row {
+  margin-top: 8px;
+}
+
+.popup-webhook-removal-row,
+.popup-webhook-test-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.popup-pin-input {
+  width: 130px;
+  padding: 7px 10px;
+  font-size: 12px;
+}
+
+.popup-inline-status {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.popup-webhook-removal .popup-inline-status {
+  display: block;
+  margin-top: 4px;
+}
+
+.popup-stats-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.popup-collapse-toggle:focus-visible,
+.popup-btn:focus-visible {
+  outline: 2px solid var(--eye);
+  outline-offset: 2px;
+}
+
+.popup-control-block + .popup-control-block {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
 }
