@@ -2,9 +2,10 @@
   "manifest_version": 3,
   "name": "EyeFlow - Doom Scroll Blocker & Eye Care",
   "version": "1.0.2",
-  "description": "Detects doom scrolling on Instagram, YouTube & Reddit. Triggers guided eye breaks, gentle reminders, and hydration nudges. Smart enough to stay silent while you work.",
+  "description": "Spots doom scrolling and guides a short eye break. Gentle eye and water reminders that stay quiet while you work.",
+  "minimum_chrome_version": "116",
 
-  "permissions": ["storage", "alarms", "notifications", "tabs", "idle", "offscreen"],
+  "permissions": ["storage", "alarms", "notifications", "idle", "offscreen"],
 
   "host_permissions": [
     "*://*.instagram.com/*",
@@ -14,10 +15,12 @@
     "*://*.twitter.com/*",
     "*://*.facebook.com/*",
     "*://*.tiktok.com/*",
-    "*://*.snapchat.com/*"
+    "*://*.snapchat.com/*",
+    "*://*.linkedin.com/*",
+    "*://*.twitch.tv/*"
   ],
 
-  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "optional_host_permissions": ["https://*/*"],
 
   "background": {
     "service_worker": "background.js"
@@ -27,7 +30,7 @@
 
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
+      "matches": ["http://*/*", "https://*/*"],
       "js": ["content.js"],
       "css": ["overlay.css"],
       "run_at": "document_idle"
@@ -35,6 +38,7 @@
   ],
 
   "action": {
+    "default_title": "EyeFlow",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
@@ -49,14 +53,14 @@
         "default": "Ctrl+Shift+Y",
         "mac": "Command+Shift+Y"
       },
-      "description": "Open EyeFlow Extension"
+      "description": "Open EyeFlow"
     },
     "trigger-eye-break": {
       "suggested_key": {
         "default": "Ctrl+Shift+E",
         "mac": "Command+Shift+E"
       },
-      "description": "Trigger an eye break right now"
+      "description": "Start an eye break right now"
     }
   },
 

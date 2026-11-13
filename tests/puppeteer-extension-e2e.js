@@ -27,7 +27,8 @@ const args = process.argv.slice(2);
 const holdOpen = args.includes('--hold-open');
 const suiteArg = args.find((arg) => arg.startsWith('--suite='));
 const selectedSuite = suiteArg ? suiteArg.split('=')[1] : 'all';
-const reportPath = path.join(extensionPath, 'tests', 'artifacts', 'eyeflow-test-report.html');
+// Written next to the tests, never into dist/ (which is what ships to the store).
+const reportPath = path.join(__dirname, 'artifacts', 'eyeflow-test-report.html');
 
 const SITE_CASES = [
   {
@@ -323,9 +324,9 @@ async function resetPopupState(page) {
     subtleReminderMin: 25,
     subtleReminderMax: 25,
     timingMode: 'fixed',
-    customTimingEnabled: false,
+    subtleReminderEnabled: true,
+    soundReminderEnabled: false,
   });
-  await storageSet(page, { onboardingComplete: false });
 }
 
 async function sendMessageToActiveTab(worker, page, message) {
@@ -521,7 +522,7 @@ async function main() {
     if (selectedSuite === 'all' || selectedSuite === 'onboarding') {
       await runTest(
         'onboarding',
-        'Onboarding presets save the expected values',
+        'Onboarding saves the recommended setup',
         async () => {
           const onboardingPage = await openExtensionPage(browser, extensionId, 'onboarding.html');
           await onboardingPage.click('#btn-start-onboarding');
@@ -558,15 +559,8 @@ async function main() {
           );
 
           await onboardingPage.click('#btn-finish-onboarding');
-          await delay(600);
-          const completed = await storageGet(controlPage, ['onboardingComplete']);
-          expect(
-            completed.onboardingComplete === true,
-            'Expected onboardingComplete to be true after finishing.'
-          );
-          if (!onboardingPage.isClosed()) {
-            await onboardingPage.close();
-          }
+          await delay(1000);
+          expect(onboardingPage.isClosed(), 'Expected the onboarding tab to close on finish.');
         },
         results
       );
@@ -807,11 +801,9 @@ async function main() {
             const initialUi = await sitePage.evaluate(() => ({
               overlay: Boolean(document.getElementById('eyeflow-overlay')),
               gentle: Boolean(document.getElementById('eyeflow-gentle-reminder')),
-              nudge: Boolean(document.getElementById('eyeflow-nudge')),
-              warning: Boolean(document.getElementById('eyeflow-warning')),
             }));
             expect(
-              !initialUi.overlay && !initialUi.gentle && !initialUi.nudge && !initialUi.warning,
+              !initialUi.overlay && !initialUi.gentle,
               'Expected no EyeFlow UI to be shown immediately on page load.'
             );
 

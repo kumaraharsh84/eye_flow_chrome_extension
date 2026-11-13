@@ -1,731 +1,490 @@
 /**
  * @file overlay.js
- * @description Renders and manages the full-screen Eye-Break and Hydration overlay interface.
+ * @description Fullscreen eye-break and water-break UI injected into the page.
  *
- * @purpose
- * This script is injected as a content script to build the distraction-blocking
- * user interface directly on top of host doom-scrolling sites. It:
- *   1. Synthesizes a guided eye exercise screen (moving dot animation) promoting the 20-20-20 rule.
- *   2. Displays a timer countdown that blocks keyboard/mouse scrolling during the break cycle.
- *   3. Prompts the user with post-break mood check-ins and session details (time spent on site).
- *   4. Controls HTML5 media elements (`<video>`/`<audio>`) on the page, pausing autoplaying feeds
- *      (like reels or shorts) while the overlay is mounted, then resuming them when closed.
+ * This module is pure UI. It builds the overlay with DOM APIs (never innerHTML),
+ * pauses page media while it is up, keeps keyboard and wheel input away from the
+ * feed underneath, and reports what the user did through callbacks. content.js
+ * owns all messaging with the service worker.
  *
- * @project-fit
- *   - Instantiated as a namespace singleton `EyeFlowOverlay`.
- *   - Driven directly by events and conditions tracked in `content.js`.
- *   - Communicates user feedback (e.g. logged moods) to the background worker (`background.js`).
+ * Styles live in overlay.css, scoped under #eyeflow-overlay.
  */
 
-import { EyeFlowIntelligence } from './intelligence.js';
-
-// ============================================================
-// OVERLAY.JS — EyeFlow Eye-Break Overlay + Post-Break Experience
-// ============================================================
-// This file creates and manages the fullscreen eye-break overlay.
-// It handles:
-//   1. The eye exercise — animated dot that moves around the screen
-//   2. Countdown timer — shows remaining time
-//   3. Post-break mood check — "How are you feeling?" (😌 🙂 😤)
-//   4. Time-on-site alert — "You've been on Instagram for 34 min"
-//   5. Redirect suggestions — "Instead of scrolling, how about..."
-//   6. Strict enforcement - hides the skip button on high-risk sites
-// ============================================================
-
-// -------------------------------------------------------
-// EYEFLOW OVERLAY — Main overlay controller
-// -------------------------------------------------------
-/**
- * @namespace EyeFlowOverlay
- * @description IIFE managing the overlay mount state, animations, media control,
- * and user interactions during eye break exercises.
- */
 export const EyeFlowOverlay = (() => {
-  // A set of domains where we hide the "Skip" button to prevent impulsive bypasses.
-  const ENFORCED_STRICT_SITES = new Set([
-    'instagram.com',
-    'tiktok.com',
-    'reddit.com',
-    'facebook.com',
-    'twitter.com',
-    'x.com',
-  ]);
+  // Positions (percent of the exercise area) the dot visits, one every 1.5 seconds.
+  const DOT_POSITIONS = [
+    ['50%', '50%'],
+    ['10%', '10%'],
+    ['10%', '90%'],
+    ['90%', '90%'],
+    ['90%', '10%'],
+    ['10%', '50%'],
+    ['90%', '50%'],
+    ['50%', '10%'],
+    ['50%', '90%'],
+    ['22%', '24%'],
+    ['22%', '76%'],
+    ['78%', '24%'],
+    ['78%', '76%'],
+    ['18%', '50%'],
+    ['82%', '50%'],
+    ['50%', '50%'],
+  ];
+  const DOT_MOVE_INTERVAL_MS = 1500;
+  const GUARD_INTERVAL_MS = 500;
+  const FADE_OUT_MS = 300;
 
-  // Reference to the main overlay root element appended to the host document's body.
+  const EXERCISE_INSTRUCTIONS = [
+    'Follow the point slowly...',
+    'Keep your head still and move only your eyes',
+    'Reach the wider edges without rushing',
+    'Stay soft and steady',
+    'Almost done, let your eyes settle',
+  ];
+  const HYDRATION_INSTRUCTIONS = [
+    'Take a slow sip and breathe.',
+    'Relax your jaw and shoulders.',
+    'Let your eyes rest away from the feed.',
+    'A little water and a little pause help a lot.',
+  ];
+  const BLOCKED_EVENTS = ['keydown', 'keyup', 'keypress', 'wheel', 'touchmove'];
+
   let overlayElement = null;
+  let countdownTimer = null;
+  let dotTimer = null;
+  let guardTimer = null;
+  let pausedMedia = [];
+  let closeHandler = null;
+  let isClosing = false;
 
-  // Timer ID for the countdown clock.
-  let exerciseTimer = null;
+  // -------------------------------------------------------
+  // DOM HELPERS
+  // -------------------------------------------------------
 
-  // Timer ID for updating the eye-tracking dot's position.
-  let dotMoveTimer = null;
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text !== undefined) node.textContent = text;
+    return node;
+  }
 
-  // Timer ID for repeating video pauses (protects against pages that try to auto-play under the overlay).
-  let mediaGuardTimer = null;
+  function button(className, text, onClick) {
+    const node = el('button', className, text);
+    node.type = 'button';
+    node.addEventListener('click', onClick);
+    return node;
+  }
 
-  // Toggle describing if the overlay UI is currently shown to the user.
-  let isShowing = false;
+  function append(parent, ...children) {
+    children.filter(Boolean).forEach((child) => parent.appendChild(child));
+    return parent;
+  }
 
-  // Cache of paused video/audio elements and their initial playback settings, used for restorations.
-  let pausedMediaElements = [];
+  function callSafely(callback, ...args) {
+    try {
+      if (typeof callback === 'function') callback(...args);
+    } catch (error) {
+      // A failing callback must never leave the overlay stuck on screen
+    }
+  }
+
+  // -------------------------------------------------------
+  // MOUNT / UNMOUNT
+  // -------------------------------------------------------
+
+  function mount(card, { strict, label, onClosed }) {
+    overlayElement = el('div', strict ? 'eyeflow-strict' : '');
+    overlayElement.id = 'eyeflow-overlay';
+    overlayElement.tabIndex = -1;
+    overlayElement.setAttribute('role', 'dialog');
+    overlayElement.setAttribute('aria-modal', 'true');
+    overlayElement.setAttribute('aria-label', label);
+    overlayElement.appendChild(card);
+
+    closeHandler = onClosed;
+    isClosing = false;
+
+    attachOverlay();
+    pausedMedia = [];
+    runGuard();
+    guardTimer = setInterval(runGuard, GUARD_INTERVAL_MS);
+    BLOCKED_EVENTS.forEach((type) =>
+      window.addEventListener(type, handleBlockedEvent, { capture: true, passive: false })
+    );
+    overlayElement.focus({ preventScroll: true });
+  }
+
+  function attachOverlay() {
+    (document.body || document.documentElement).appendChild(overlayElement);
+  }
+
+  /** Keeps media paused and puts the overlay back if the page removed it. */
+  function runGuard() {
+    if (!overlayElement) return;
+    if (!overlayElement.isConnected) attachOverlay();
+
+    document.querySelectorAll('video, audio').forEach((media) => {
+      if (!pausedMedia.some((entry) => entry.element === media)) {
+        pausedMedia.push({ element: media, wasPlaying: !media.paused, wasMuted: media.muted });
+      }
+      media.muted = true;
+      if (!media.paused) media.pause();
+    });
+  }
+
+  function resumeMedia() {
+    pausedMedia.forEach(({ element, wasPlaying, wasMuted }) => {
+      if (!element.isConnected) return;
+      element.muted = wasMuted;
+      if (wasPlaying) element.play().catch(() => {});
+    });
+    pausedMedia = [];
+  }
+
+  function clearTimers() {
+    clearInterval(countdownTimer);
+    clearInterval(dotTimer);
+    countdownTimer = null;
+    dotTimer = null;
+  }
+
+  /** Fades the overlay out, restores the page, then reports `result` to the opener. */
+  function hide(result = {}) {
+    if (!overlayElement || isClosing) return;
+    isClosing = true;
+    clearTimers();
+    overlayElement.classList.add('eyeflow-closing');
+
+    setTimeout(() => {
+      clearInterval(guardTimer);
+      guardTimer = null;
+      BLOCKED_EVENTS.forEach((type) =>
+        window.removeEventListener(type, handleBlockedEvent, { capture: true })
+      );
+      if (overlayElement) overlayElement.remove();
+      overlayElement = null;
+      isClosing = false;
+      resumeMedia();
+
+      const onClosed = closeHandler;
+      closeHandler = null;
+      callSafely(onClosed, result);
+    }, FADE_OUT_MS);
+  }
+
+  // -------------------------------------------------------
+  // INPUT BLOCKING
+  // -------------------------------------------------------
 
   /**
-   * @function hasLiveOverlayElement
-   * @description Validates if our custom overlay element is actively attached to the browser's DOM tree.
-   * @returns {boolean} True if the overlay element exists and is connected.
+   * While a break is up, the feed underneath must not scroll or react to hotkeys.
+   * Browser shortcuts (Ctrl/Cmd/Alt combos, function keys) are left alone.
    */
-  function hasLiveOverlayElement() {
-    return Boolean(
-      overlayElement && overlayElement.isConnected && document.contains(overlayElement)
+  function handleBlockedEvent(event) {
+    if (!overlayElement) return;
+    const target = event.target instanceof Element ? event.target : null;
+    const insideOverlay = Boolean(target && overlayElement.contains(target));
+
+    if (event.type === 'wheel' || event.type === 'touchmove') {
+      // Allow scrolling a tall card on small screens, never the page behind it.
+      const card = insideOverlay ? target.closest('.eyeflow-card') : null;
+      const cardCanScroll = Boolean(card && card.scrollHeight > card.clientHeight);
+      if (!cardCanScroll && event.cancelable) event.preventDefault();
+      return;
+    }
+
+    if (event.ctrlKey || event.metaKey || event.altKey || /^F\d{1,2}$/.test(event.key)) return;
+    event.stopImmediatePropagation();
+
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      if (event.type === 'keydown') moveFocus(event.shiftKey ? -1 : 1);
+      return;
+    }
+
+    const activatesButton =
+      insideOverlay && target.tagName === 'BUTTON' && (event.key === 'Enter' || event.key === ' ');
+    if (!activatesButton) event.preventDefault();
+  }
+
+  /** Simple focus trap: Tab cycles through the overlay's own buttons. */
+  function moveFocus(direction) {
+    const buttons = Array.from(overlayElement.querySelectorAll('button:not(:disabled)'));
+    if (buttons.length === 0) {
+      overlayElement.focus({ preventScroll: true });
+      return;
+    }
+    const currentIndex = buttons.indexOf(document.activeElement);
+    const nextIndex =
+      currentIndex === -1
+        ? direction > 0
+          ? 0
+          : buttons.length - 1
+        : (currentIndex + direction + buttons.length) % buttons.length;
+    buttons[nextIndex].focus({ preventScroll: true });
+  }
+
+  // -------------------------------------------------------
+  // COUNTDOWN
+  // -------------------------------------------------------
+
+  function buildCountdownParts(duration, instruction) {
+    const progressFill = el('div', 'eyeflow-progress-fill');
+    return {
+      instruction: el('div', 'eyeflow-instruction', instruction),
+      countdown: el('div', 'eyeflow-countdown', String(duration)),
+      progressBar: append(el('div', 'eyeflow-progress-bar'), progressFill),
+      progressFill,
+    };
+  }
+
+  /** Counts down once per second. Time only passes while the tab is visible. */
+  function startCountdown(duration, parts, instructions, onDone) {
+    let timeLeft = duration;
+
+    countdownTimer = setInterval(() => {
+      if (document.hidden) return;
+      timeLeft--;
+
+      const elapsedShare = (duration - timeLeft) / duration;
+      parts.countdown.textContent = String(Math.max(0, timeLeft));
+      parts.progressFill.style.width = `${Math.min(100, elapsedShare * 100)}%`;
+      parts.instruction.textContent =
+        instructions[
+          Math.min(instructions.length - 1, Math.floor(elapsedShare * instructions.length))
+        ];
+
+      if (timeLeft <= 0) {
+        clearTimers();
+        onDone();
+      }
+    }, 1000);
+  }
+
+  // -------------------------------------------------------
+  // EYE BREAK
+  // -------------------------------------------------------
+
+  /**
+   * Shows the guided eye exercise, then the post-break card.
+   *
+   * @param {Object} settings - Uses eyeBreakDurationSec.
+   * @param {Object} options
+   * @param {string} options.site - Site name shown on the post-break card.
+   * @param {number} options.timeOnSite - Minutes of active time on the site.
+   * @param {boolean} options.strict - Hide the skip button.
+   * @param {boolean} options.hydrationPrompt - Add the water follow-up to the post-break card.
+   * @param {Function} options.onCompleted - The exercise ran to the end.
+   * @param {Function} options.onMood - (mood) The user tapped a mood button.
+   * @param {Function} options.onHydration - ('done' | 'later') Water follow-up answer.
+   * @param {Function} options.onCloseTab - The user chose to close the tab.
+   * @param {Function} options.onClosed - ({ completed }) The overlay is gone.
+   * @returns {boolean} False when an overlay is already showing.
+   */
+  function show(settings, options = {}) {
+    if (overlayElement) return false;
+
+    const duration = Number(settings?.eyeBreakDurationSec) || 20;
+    const parts = buildCountdownParts(
+      duration,
+      `Follow the dot with your eyes - ${duration} seconds.`
+    );
+    const dot = el('div', 'eyeflow-dot');
+    const card = append(
+      el('div', 'eyeflow-card eyeflow-card-exercise'),
+      append(el('div', 'eyeflow-exercise-area'), dot),
+      parts.instruction,
+      parts.countdown,
+      parts.progressBar,
+      options.strict
+        ? null
+        : button('eyeflow-skip-btn', 'Not right now', () => hide({ completed: false }))
+    );
+
+    mount(card, { strict: options.strict, label: 'EyeFlow eye break', onClosed: options.onClosed });
+
+    let dotIndex = 0;
+    dotTimer = setInterval(() => {
+      dotIndex = (dotIndex + 1) % DOT_POSITIONS.length;
+      [dot.style.top, dot.style.left] = DOT_POSITIONS[dotIndex];
+    }, DOT_MOVE_INTERVAL_MS);
+
+    startCountdown(duration, parts, EXERCISE_INSTRUCTIONS, () => {
+      callSafely(options.onCompleted);
+      showPostBreak(card, options);
+    });
+    return true;
+  }
+
+  function showPostBreak(card, options) {
+    if (!overlayElement) return;
+    card.className = 'eyeflow-card eyeflow-card-postbreak';
+
+    const moodOptions = el('div', 'eyeflow-mood-options');
+    [
+      ['good', 'Good'],
+      ['okay', 'Okay'],
+      ['bad', 'Strained'],
+    ].forEach(([mood, label]) => {
+      const moodButton = button('eyeflow-mood-btn', label, () => {
+        moodOptions
+          .querySelectorAll('.eyeflow-mood-btn')
+          .forEach((other) => other.classList.toggle('selected', other === moodButton));
+        callSafely(options.onMood, mood);
+      });
+      moodOptions.appendChild(moodButton);
+    });
+
+    const minutes = Math.max(0, Math.round(Number(options.timeOnSite) || 0));
+    const timeAlert = el('div', 'eyeflow-time-alert');
+    if (minutes > 0 && options.site) {
+      append(
+        timeAlert,
+        document.createTextNode('You have been on '),
+        el('strong', '', options.site),
+        document.createTextNode(' for '),
+        el('strong', '', `${minutes} ${minutes === 1 ? 'minute' : 'minutes'}`),
+        document.createTextNode('.')
+      );
+    } else {
+      timeAlert.textContent = 'A short pause like this keeps your eyes fresh.';
+    }
+
+    const content = append(
+      el('div', 'eyeflow-postbreak'),
+      el('div', 'eyeflow-kicker', 'Break complete'),
+      el('div', 'eyeflow-title', 'Your eyes got a moment to breathe.'),
+      el('div', 'eyeflow-mood-title', 'How do your eyes feel?'),
+      moodOptions,
+      timeAlert,
+      options.hydrationPrompt ? buildHydrationFollowUp(options) : null,
+      append(
+        el('div', 'eyeflow-action-btns'),
+        button('eyeflow-action-btn eyeflow-action-primary', 'Close tab and step away', () => {
+          callSafely(options.onCloseTab);
+          hide({ completed: true });
+        }),
+        button('eyeflow-action-btn eyeflow-action-secondary', 'Continue browsing', () =>
+          hide({ completed: true })
+        )
+      )
+    );
+
+    card.replaceChildren(content);
+    overlayElement.focus({ preventScroll: true });
+  }
+
+  function buildHydrationFollowUp(options) {
+    const actions = el('div', 'eyeflow-hydration-actions');
+    const answer = (result, label) => {
+      actions.querySelectorAll('button').forEach((node) => {
+        node.disabled = true;
+      });
+      actions.replaceChildren(el('div', 'eyeflow-done-msg', label));
+      callSafely(options.onHydration, result);
+    };
+
+    append(
+      actions,
+      button('eyeflow-action-btn eyeflow-action-primary', 'Already drank water', () =>
+        answer('done', 'Nice. Water timer reset.')
+      ),
+      button('eyeflow-action-btn eyeflow-action-secondary', 'Remind me soon', () =>
+        answer('later', 'Okay, we will check in again in a few minutes.')
+      )
+    );
+
+    return append(
+      el('div', 'eyeflow-hydration-followup'),
+      el(
+        'div',
+        'eyeflow-hydration-followup-title',
+        'Before you jump back in, take a few sips of water.'
+      ),
+      el(
+        'div',
+        'eyeflow-hydration-followup-text',
+        'Hydration is also due, so this is a good moment to reset both your eyes and your body.'
+      ),
+      actions
     );
   }
 
-  /**
-   * @function ensureOverlayStateIsFresh
-   * @description Checks if the overlay element was accidentally destroyed or detached by host page scripts.
-   * Resets local flags if the element is missing.
-   * @returns {boolean} True if the overlay is healthy and attached, false if it had to be cleaned up.
-   */
-  function ensureOverlayStateIsFresh() {
-    if (hasLiveOverlayElement()) {
-      return true;
-    }
+  // -------------------------------------------------------
+  // WATER BREAK
+  // -------------------------------------------------------
 
-    overlayElement = null;
-    isShowing = false;
-    return false;
-  }
-
-  // -------------------------------------------------------
-  // DOT POSITIONS — Where the eye dot moves to
-  // -------------------------------------------------------
-  // These positions guide the eye movement exercise.
-  // The dot moves to each position in sequence, and the user
-  // follows it with their eyes. Uses percentages of the area.
   /**
-   * @constant {Object[]} DOT_POSITIONS
-   * @description Screen coordinate percentages (relative to the viewport) that the eye-focus dot
-   * will cycle through to encourage eye muscle stretches during the break exercise.
-   */
-  const DOT_POSITIONS = [
-    { top: '50%', left: '50%' }, // Center
-    { top: '10%', left: '10%' }, // Top-left
-    { top: '10%', left: '90%' }, // Top-right
-    { top: '90%', left: '90%' }, // Bottom-right
-    { top: '90%', left: '10%' }, // Bottom-left
-    { top: '10%', left: '50%' }, // Top-center
-    { top: '90%', left: '50%' }, // Bottom-center
-    { top: '50%', left: '10%' }, // Left-center
-    { top: '50%', left: '90%' }, // Right-center
-    { top: '22%', left: '24%' }, // Upper-left area
-    { top: '22%', left: '76%' }, // Upper-right area
-    { top: '78%', left: '24%' }, // Lower-left area
-    { top: '78%', left: '76%' }, // Lower-right area
-    { top: '18%', left: '50%' }, // Higher center
-    { top: '82%', left: '50%' }, // Lower center
-    { top: '50%', left: '50%' }, // Back to center
-  ];
-
-  // -------------------------------------------------------
-  // SHOW OVERLAY — Display the fullscreen eye-break overlay
-  // -------------------------------------------------------
-  /**
-   * @function show
-   * @description Mounts the fullscreen guided eye exercise overlay onto the page, pauses background audio/video,
-   * and starts the countdown/animation loops.
+   * Shows the fullscreen water break used on doom-scroll surfaces.
    *
-   * @param {Object} settings - Extension settings dictionary.
-   * @param {string} site - Hostname of the site we are blocking.
-   * @param {number} timeOnSite - Time spent on this site in minutes.
-   * @param {Object} [options={}] - Secondary display options (e.g. hydrationPrompt toggle).
-   * @returns {void}
-   *
-   * @side-effects
-   *   - Injects #eyeflow-overlay HTML element into document.body.
-   *   - Pauses all site media playing in the tab.
-   *   - Sets interval loops for animations.
-   *
-   * @called-by
-   *   - content.js when an eye-break is triggered.
+   * @param {Object} settings - Uses hydrationBreakDurationSec.
+   * @param {Object} options
+   * @param {boolean} options.strict - No buttons; the countdown must run out.
+   * @param {Function} options.onHydration - ('done' | 'later') How the break ended.
+   * @param {Function} options.onClosed - The overlay is gone.
+   * @returns {boolean} False when an overlay is already showing.
    */
-  function show(settings, site, timeOnSite, options = {}) {
-    // If the overlay is already showing and active in the DOM, do not duplicate it
-    if (isShowing && ensureOverlayStateIsFresh()) return;
-    isShowing = true;
+  function showHydration(settings, options = {}) {
+    if (overlayElement) return false;
 
-    const duration = (settings && settings.eyeBreakDurationSec) || 20;
-    const isStrict = isEnforcedStrictSite(site);
+    const duration = Number(settings?.hydrationBreakDurationSec) || 40;
+    const parts = buildCountdownParts(duration, HYDRATION_INSTRUCTIONS[0]);
+    const finish = (result) => {
+      callSafely(options.onHydration, result);
+      hide();
+    };
 
-    // Create the overlay container
-    overlayElement = document.createElement('div');
-    overlayElement.id = 'eyeflow-overlay';
+    const card = append(
+      el('div', 'eyeflow-card eyeflow-card-hydration'),
+      el('div', 'eyeflow-title', 'Take a moment to drink some water.'),
+      el(
+        'div',
+        'eyeflow-subtitle',
+        'Pause here for a moment, take a few sips, and let your body reset before the next reel catches you.'
+      ),
+      append(
+        el('div', 'eyeflow-exercise-area eyeflow-hydration-area'),
+        append(
+          el('div', 'eyeflow-hydration-glass'),
+          el('div', 'eyeflow-hydration-glass-label', 'Water break'),
+          el(
+            'div',
+            'eyeflow-hydration-glass-note',
+            options.strict
+              ? 'Take your water sips while the timer runs.'
+              : 'Drink first, then choose what happens next.'
+          )
+        )
+      ),
+      parts.instruction,
+      parts.countdown,
+      parts.progressBar,
+      options.strict
+        ? null
+        : append(
+            el('div', 'eyeflow-hydration-actions'),
+            button('eyeflow-action-btn eyeflow-action-primary', 'Already drank water', () =>
+              finish('done')
+            ),
+            button('eyeflow-action-btn eyeflow-action-secondary', 'Remind me soon', () =>
+              finish('later')
+            )
+          )
+    );
 
-    // Pause background scroll loops and mute/pause video players
-    pausePageMedia();
-
-    // High-risk sites get extra CSS styles (like hiding scrollbars and forcing position overrides)
-    if (isStrict) {
-      overlayElement.classList.add('eyeflow-strict');
-    }
-
-    // Build the visual skeleton of the dot tracker
-    overlayElement.innerHTML = buildExerciseHTML(duration, isStrict, site, timeOnSite);
-
-    // Append to document root
-    document.body.appendChild(overlayElement);
-
-    // Bootstrap timers for countdown and dot movement
-    startExercise(duration, site, timeOnSite, settings, options);
-  }
-
-  /**
-   * @function showHydration
-   * @description Mounts the dedicated full-screen Hydration reminder overlay.
-   * Similar to the eye break, but displays instructions encouraging drinking water.
-   *
-   * @param {Object} settings - Extension settings dictionary.
-   * @param {string} site - Hostname of the active page.
-   * @param {number} timeOnSite - Unused parameter preserved for signature matching.
-   * @returns {void}
-   */
-  function showHydration(settings, site, timeOnSite) {
-    if (isShowing && ensureOverlayStateIsFresh()) return;
-    isShowing = true;
-
-    const duration = (settings && settings.hydrationBreakDurationSec) || 40;
-    const isStrict = isEnforcedStrictSite(site);
-
-    overlayElement = document.createElement('div');
-    overlayElement.id = 'eyeflow-overlay';
-    pausePageMedia();
-
-    if (isStrict) {
-      overlayElement.classList.add('eyeflow-strict');
-    }
-
-    overlayElement.innerHTML = buildHydrationHTML(duration, isStrict);
-    document.body.appendChild(overlayElement);
-    startHydration(duration);
-  }
-
-  /**
-   * @function isEnforcedStrictSite
-   * @description Helper to identify if the current URL fits strict block constraints.
-   *
-   * @param {string} site - HOST domain representation.
-   * @returns {boolean} True if strict rules are active.
-   */
-  function isEnforcedStrictSite(site) {
-    if (ENFORCED_STRICT_SITES.has(site)) {
-      return true;
-    }
-
-    // Treat YouTube Shorts specifically as a strict doom-scroll site
-    return site === 'youtube.com' && window.location.pathname.startsWith('/shorts');
-  }
-
-  // -------------------------------------------------------
-  // BUILD EXERCISE HTML — Create the exercise screen HTML
-  // -------------------------------------------------------
-  /**
-   * @function buildExerciseHTML
-   * @description Creates the initial inner HTML structure for the eye exercise layout.
-   */
-  function buildExerciseHTML(duration, isStrict, site, timeOnSite) {
-    return `
-      <div class="eyeflow-card eyeflow-card-exercise">
-        <!-- Eye exercise area — the dot moves here -->
-        <div class="eyeflow-exercise-area">
-          <div class="eyeflow-dot"></div>
-        </div>
-
-        <!-- Instruction text (changes during exercise) -->
-        <div class="eyeflow-instruction">Follow the dot with your eyes — ${duration} seconds.</div>
-
-        <!-- Countdown timer -->
-        <div class="eyeflow-countdown">${duration}</div>
-
-        <!-- Progress bar -->
-        <div class="eyeflow-progress-bar">
-          <div class="eyeflow-progress-fill"></div>
-        </div>
-
-        <!-- Skip button - hidden by strict enforcement on high-risk sites -->
-        <button class="eyeflow-skip-btn">Not right now</button>
-      </div>
-    `;
-  }
-
-  /**
-   * @function buildHydrationHTML
-   * @description Creates the initial inner HTML structure for the hydration layout.
-   */
-  function buildHydrationHTML(duration, isStrict = false) {
-    const actionButtons = isStrict
-      ? ''
-      : `
-        <div class="eyeflow-hydration-actions">
-          <button class="eyeflow-action-btn eyeflow-action-primary" data-hydration-action="done">Yes, just had some</button>
-          <button class="eyeflow-action-btn eyeflow-action-secondary" data-hydration-action="later">Not right now</button>
-        </div>
-      `;
-
-    const glassNote = isStrict
-      ? 'Take your water sips while the timer resets.'
-      : 'Drink first, then choose what happens next.';
-
-    return `
-      <div class="eyeflow-card eyeflow-card-hydration${isStrict ? ' eyeflow-strict' : ''}">
-        <div class="eyeflow-title">Take a moment to drink some water.</div>
-        <div class="eyeflow-subtitle">Pause here for a moment, take a few sips, and let your body reset before the next reel catches you.</div>
-
-        <div class="eyeflow-exercise-area eyeflow-hydration-area">
-          <div class="eyeflow-hydration-glass">
-            <div class="eyeflow-hydration-glass-label">Water break</div>
-            <div class="eyeflow-hydration-glass-note">${glassNote}</div>
-          </div>
-        </div>
-
-        <div class="eyeflow-instruction">Take a slow sip and breathe.</div>
-
-        <div class="eyeflow-countdown">${duration}</div>
-
-        <div class="eyeflow-progress-bar">
-          <div class="eyeflow-progress-fill"></div>
-        </div>
-
-        ${actionButtons}
-      </div>
-    `;
-  }
-
-  // -------------------------------------------------------
-  // START EXERCISE — Begin the eye movement exercise
-  // -------------------------------------------------------
-  /**
-   * @function startExercise
-   * @description Sets up interval hooks to move the eye tracking dot, count down remaining time,
-   * trigger compliance updates, and handle user exit clicks.
-   */
-  function startExercise(duration, site, timeOnSite, settings, options = {}) {
-    let timeLeft = duration;
-    let dotIndex = 0;
-
-    // Retrieve visual nodes from the newly built overlay
-    const dot = overlayElement.querySelector('.eyeflow-dot');
-    const countdown = overlayElement.querySelector('.eyeflow-countdown');
-    const progressFill = overlayElement.querySelector('.eyeflow-progress-fill');
-    const instruction = overlayElement.querySelector('.eyeflow-instruction');
-    const skipBtn = overlayElement.querySelector('.eyeflow-skip-btn');
-
-    // Instructions displayed to guide the user's focus during exercise phases
-    const instructions = [
-      'Follow the point slowly...',
-      'Keep your head still and move only your eyes',
-      'Reach the wider edges without rushing',
-      'Stay soft and steady',
-      'Almost done, let your eyes settle',
-    ];
-
-    // Position the dot at initial coordinate
-    if (dot) {
-      const pos = DOT_POSITIONS[0];
-      dot.style.top = pos.top;
-      dot.style.left = pos.left;
-    }
-
-    // Dot motion loop: Moves the target dot to a new coordinate every 1.5 seconds
-    dotMoveTimer = setInterval(() => {
-      if (!dot) return;
-      dotIndex = (dotIndex + 1) % DOT_POSITIONS.length;
-      const pos = DOT_POSITIONS[dotIndex];
-      dot.style.top = pos.top;
-      dot.style.left = pos.left;
-    }, 1500);
-
-    // Countdown loop: Updates remaining time every 1 second
-    exerciseTimer = setInterval(() => {
-      timeLeft--;
-
-      if (countdown) countdown.textContent = timeLeft;
-
-      // Update linear progress bar fill width
-      if (progressFill) {
-        const progress = ((duration - timeLeft) / duration) * 100;
-        progressFill.style.width = `${progress}%`;
-      }
-
-      // Rotate text instruction relative to remaining time segment
-      if (instruction) {
-        const instrIndex = Math.floor(((duration - timeLeft) / duration) * instructions.length);
-        instruction.textContent = instructions[Math.min(instrIndex, instructions.length - 1)];
-      }
-
-      // Once time runs out, stop timers and transition to post-break screen
-      if (timeLeft <= 0) {
-        clearInterval(exerciseTimer);
-        clearInterval(dotMoveTimer);
-
-        // Tell background to register a successful break in the user statistics
-        try {
-          chrome.runtime.sendMessage({ type: 'EYE_BREAK_COMPLETED' });
-        } catch (e) {
-          // Ignored (fails when context is lost, but we fall back on local heuristics)
-        }
-
-        if (typeof EyeFlowIntelligence !== 'undefined') {
-          EyeFlowIntelligence.recordBreakCompleted();
-        }
-
-        // Show feedback screen
-        showPostBreak(site, timeOnSite, settings, options);
-      }
-    }, 1000);
-
-    // Handle optional Skip interaction
-    if (skipBtn) {
-      skipBtn.addEventListener('click', () => {
-        clearInterval(exerciseTimer);
-        clearInterval(dotMoveTimer);
-        try {
-          // Log bypass decision
-          chrome.runtime.sendMessage({
-            type: 'ADD_AUDIT_LOG',
-            event: 'Break Overlay Skipped',
-            details: 'User clicked skip button during eye exercise',
-          });
-        } catch (_) {}
-        hide();
-      });
-    }
-  }
-
-  /**
-   * @function startHydration
-   * @description Sets up timers and click events for the water reminder dialog.
-   */
-  function startHydration(duration) {
-    let timeLeft = duration;
-    const countdown = overlayElement.querySelector('.eyeflow-countdown');
-    const progressFill = overlayElement.querySelector('.eyeflow-progress-fill');
-    const instruction = overlayElement.querySelector('.eyeflow-instruction');
-    const doneBtn = overlayElement.querySelector('[data-hydration-action="done"]');
-    const laterBtn = overlayElement.querySelector('[data-hydration-action="later"]');
-
-    const instructions = [
-      'Take a slow sip and breathe.',
-      'Relax your jaw and shoulders.',
-      'Let your eyes rest away from the feed.',
-      'A little water and a little pause help a lot.',
-    ];
-
-    exerciseTimer = setInterval(() => {
-      timeLeft--;
-      if (countdown) countdown.textContent = timeLeft;
-
-      if (progressFill) {
-        const progress = ((duration - timeLeft) / duration) * 100;
-        progressFill.style.width = `${progress}%`;
-      }
-
-      if (instruction) {
-        const instrIndex = Math.floor(((duration - timeLeft) / duration) * instructions.length);
-        instruction.textContent = instructions[Math.min(instrIndex, instructions.length - 1)];
-      }
-
-      if (timeLeft <= 0) {
-        clearInterval(exerciseTimer);
-        window.dispatchEvent(new CustomEvent('eyeflow-hydration-completed'));
-        hide();
-      }
-    }, 1000);
-
-    if (doneBtn) {
-      doneBtn.addEventListener('click', () => {
-        window.dispatchEvent(new CustomEvent('eyeflow-hydration-completed'));
-        hide();
-      });
-    }
-
-    if (laterBtn) {
-      laterBtn.addEventListener('click', () => {
-        window.dispatchEvent(new CustomEvent('eyeflow-hydration-remind-soon'));
-        hide();
-      });
-    }
-  }
-
-  // -------------------------------------------------------
-  // SHOW POST-BREAK — The experience after the eye exercise
-  // -------------------------------------------------------
-  // Instead of just closing, we show:
-  //   1. Mood check (one tap)
-  //   2. Time-on-site alert
-  //   3. Redirect suggestions
-  /**
-   * @function showPostBreak
-   * @description Replaces the active exercise animation screen with a summary feedback card.
-   * Prompts the user to log eye strain level, tells them their usage time on the current site,
-   * and gives options to step away (close tab) or stay.
-   */
-  function showPostBreak(site, timeOnSite, settings, options = {}) {
-    if (!overlayElement) return;
-
-    const card = overlayElement.querySelector('.eyeflow-card');
-    if (!card) return;
-    card.classList.add('eyeflow-card-postbreak');
-
-    // Build sub-prompt if hydration needs check in alongside eye break completion
-    const hydrationSection = options.hydrationPrompt
-      ? `
-        <div class="eyeflow-hydration-followup">
-          <div class="eyeflow-hydration-followup-title">Before you jump back in, take a few sips of water.</div>
-          <div class="eyeflow-hydration-followup-text">Hydration is also due, so this is a good moment to reset both your eyes and your body.</div>
-          <div class="eyeflow-hydration-actions">
-            <button class="eyeflow-action-btn eyeflow-action-primary" data-hydration-followup="done">Yes, just had some</button>
-            <button class="eyeflow-action-btn eyeflow-action-secondary" data-hydration-followup="later">Not right now</button>
-          </div>
-        </div>
-    `
-      : '';
-
-    // Swap content of screen card to input/feedback view
-    card.innerHTML = `
-      <div class="eyeflow-postbreak">
-        <!-- Title -->
-        <div class="eyeflow-kicker">Break complete</div>
-        <div class="eyeflow-title">Your eyes got a moment to breathe.</div>
-
-        <!-- MOOD CHECK — How are you feeling? -->
-        <div class="eyeflow-mood-title">How do your eyes feel?</div>
-        <div class="eyeflow-mood-options">
-          <button class="eyeflow-mood-btn" data-mood="good" title="Feeling good">Good</button>
-          <button class="eyeflow-mood-btn" data-mood="okay" title="Feeling okay">Okay</button>
-          <button class="eyeflow-mood-btn" data-mood="bad" title="Feeling stressed">Strained</button>
-        </div>
-
-        <!-- TIME-ON-SITE ALERT — How long you've been scrolling -->
-        <div class="eyeflow-time-alert">
-          You have been on <strong>${site}</strong> for <strong>${timeOnSite} minutes</strong>.
-        </div>
-
-        ${hydrationSection}
-
-        <!-- ACTION BUTTONS — Close tab or keep going -->
-        <div class="eyeflow-action-btns">
-          <button class="eyeflow-action-btn eyeflow-action-primary" id="eyeflow-close-tab">
-            Close tab and step away
-          </button>
-          <button class="eyeflow-action-btn eyeflow-action-secondary" id="eyeflow-keep-going">
-            Continue browsing
-          </button>
-        </div>
-
-        </div>
-      </div>
-    `;
-
-    // --- Mood button handlers ---
-    const moodBtns = card.querySelectorAll('.eyeflow-mood-btn');
-    moodBtns.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        moodBtns.forEach((b) => b.classList.remove('selected'));
-        btn.classList.add('selected');
-
-        const mood = btn.dataset.mood;
-        try {
-          // Log mood feedback to background worker
-          chrome.runtime.sendMessage({
-            type: 'MOOD_RECORDED',
-            mood: mood,
-            site: site,
-          });
-        } catch (e) {
-          /* ignore */
-        }
-      });
+    mount(card, {
+      strict: options.strict,
+      label: 'EyeFlow water break',
+      onClosed: options.onClosed,
     });
-
-    // --- Close tab button ---
-    const closeBtn = card.querySelector('#eyeflow-close-tab');
-    if (closeBtn) {
-      closeBtn.addEventListener('click', () => {
-        try {
-          chrome.runtime.sendMessage({
-            type: 'ADD_AUDIT_LOG',
-            event: 'Close Tab Clicked',
-            details: 'User chose to close tab and step away',
-          });
-        } catch (_) {}
-
-        try {
-          // Instruct background script to perform tab removal (content scripts cannot close tabs themselves)
-          chrome.runtime.sendMessage({ type: 'CLOSE_TAB' });
-        } catch (e) {
-          /* ignore */
-        }
-        window.close();
-        hide();
-      });
-    }
-
-    // --- Keep going button ---
-    const keepBtn = card.querySelector('#eyeflow-keep-going');
-    if (keepBtn) {
-      keepBtn.addEventListener('click', () => {
-        try {
-          chrome.runtime.sendMessage({
-            type: 'ADD_AUDIT_LOG',
-            event: 'Continue Browsing Clicked',
-            details: 'User dismissed post-break feedback card',
-          });
-        } catch (_) {}
-        hide();
-      });
-    }
-
-    // --- Hydration actions inside follow up prompt ---
-    const hydrationDoneBtn = card.querySelector('[data-hydration-followup="done"]');
-    const hydrationLaterBtn = card.querySelector('[data-hydration-followup="later"]');
-
-    if (hydrationDoneBtn) {
-      hydrationDoneBtn.addEventListener('click', () => {
-        // Dispatch custom events locally to let content.js know water has been consumed
-        window.dispatchEvent(new CustomEvent('eyeflow-hydration-completed'));
-        hydrationDoneBtn.disabled = true;
-        hydrationDoneBtn.textContent = 'Done - back to it';
-      });
-    }
-
-    if (hydrationLaterBtn) {
-      hydrationLaterBtn.addEventListener('click', () => {
-        window.dispatchEvent(new CustomEvent('eyeflow-hydration-remind-soon'));
-        hydrationLaterBtn.disabled = true;
-        hydrationLaterBtn.textContent = 'Not right now';
-      });
-    }
+    startCountdown(duration, parts, HYDRATION_INSTRUCTIONS, () => finish('done'));
+    return true;
   }
 
-  // -------------------------------------------------------
-  // HIDE OVERLAY — Remove the overlay from the page
-  // -------------------------------------------------------
-  /**
-   * @function hide
-   * @description Cleans up timers, triggers removal transition animations, deletes the overlay
-   * DOM elements, resumes background audio/video, and triggers cleanup dispatch handlers.
-   */
-  function hide() {
-    // Clear animation and counting intervals
-    if (exerciseTimer) clearInterval(exerciseTimer);
-    if (dotMoveTimer) clearInterval(dotMoveTimer);
-    exerciseTimer = null;
-    dotMoveTimer = null;
-
-    if (overlayElement) {
-      // Set reverse animation class for fade-out styling
-      overlayElement.style.animation = 'eyeflow-overlay-fadein 0.3s ease-in reverse';
-
-      // Wait for the fade-out CSS animation (300ms) to complete before removing the element
-      setTimeout(() => {
-        if (overlayElement) {
-          overlayElement.remove();
-          overlayElement = null;
-        }
-        resumePausedMedia();
-        isShowing = false;
-        finalizeBreakCycleClose();
-      }, 300);
-    } else {
-      resumePausedMedia();
-      isShowing = false;
-      finalizeBreakCycleClose();
-    }
-  }
-
-  /**
-   * @function finalizeBreakCycleClose
-   * @description Dispatches standard events notifying surrounding content scripts and background script
-   * that the break view is closed and the countdown timeline can resume.
-   */
-  function finalizeBreakCycleClose() {
-    window.dispatchEvent(new CustomEvent('eyeflow-break-flow-closed'));
-    try {
-      chrome.runtime.sendMessage({ type: 'EYE_BREAK_FLOW_CLOSED' });
-    } catch (e) {
-      /* ignore */
-    }
-  }
-
-  /**
-   * @function pausePageMedia
-   * @description Scans the active page for HTML5 audio and video tags, pauses them,
-   * and sets up a periodic loop checker.
-   * Reels and Shorts pages frequently try to auto-play tracks or slide to next tracks
-   * when overlays are appended; a loop checker defends against this.
-   */
-  function pausePageMedia() {
-    pausedMediaElements = [];
-    enforceMediaPause();
-
-    if (mediaGuardTimer) clearInterval(mediaGuardTimer);
-    mediaGuardTimer = setInterval(enforceMediaPause, 500);
-  }
-
-  /**
-   * @function resumePausedMedia
-   * @description Clears repeating media check timers and restores muted/paused states
-   * on all video/audio tags to their states prior to the overlay block.
-   */
-  function resumePausedMedia() {
-    if (mediaGuardTimer) {
-      clearInterval(mediaGuardTimer);
-      mediaGuardTimer = null;
-    }
-
-    pausedMediaElements.forEach((media) => {
-      // Confirm the element still exists in the page structure
-      if (!document.contains(media.element)) return;
-
-      media.element.muted = media.wasMuted;
-      if (media.wasPlaying) {
-        media.element.play().catch(() => {});
-      }
-    });
-    pausedMediaElements = [];
-  }
-
-  /**
-   * @function enforceMediaPause
-   * @description Query and force muting and pausing on all document-level audio and video media.
-   */
-  function enforceMediaPause() {
-    document.querySelectorAll('video, audio').forEach((media) => {
-      // Cache original states of the elements before we mute or pause them
-      if (!pausedMediaElements.some((entry) => entry.element === media)) {
-        pausedMediaElements.push({
-          element: media,
-          wasPlaying: !media.paused,
-          wasMuted: media.muted,
-        });
-      }
-
-      media.muted = true;
-      if (!media.paused) {
-        media.pause();
-      }
-    });
-  }
-
-  // -------------------------------------------------------
-  // PUBLIC API — What content.js can call
-  // -------------------------------------------------------
   return {
     show,
     showHydration,
     hide,
-    isShowing: () => {
-      if (!isShowing) return false;
-      return ensureOverlayStateIsFresh();
-    },
+    isShowing: () => Boolean(overlayElement),
   };
 })();

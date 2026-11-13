@@ -1,233 +1,96 @@
 /**
  * @file onboarding.js
- * @description Handles user interaction, screen transition, and preset selection for the onboarding flow.
+ * @description First-run page: welcome, one recommended setup, and a summary.
  *
- * @purpose
- * The onboarding screen introduces a new user to the extension's presets (Balanced, Strict, Gentle).
- * Instead of overwhelming beginners with multiple micro-settings, it provides high-level preset packages,
- * writes them to Chrome Local Storage, and updates the onboarding status so they aren't asked to complete
- * it again on subsequent launches.
- *
- * @project-fit
- *   - Runs in the onboarding.html view context (opened on first run or via settings link).
- *   - Directly modifies the chrome.storage.local values for 'settings' and 'onboardingComplete'.
+ * Opened by background.js when the extension is installed. The setup is saved
+ * through the service worker (SAVE_SETTINGS) so it is validated like any other
+ * settings change, and the summary shows the values that were actually stored.
  */
 
-// Track the active slider screen index (0 = welcome, 1 = preset selection, 2 = summary/finish)
+// The single "Balanced" starting point offered on the setup screen.
+const RECOMMENDED_SETUP = Object.freeze({
+  sensitivity: 50,
+  timingMode: 'fixed',
+  reminderIntervalMin: 5,
+  reminderIntervalMax: 5,
+  subtleReminderMin: 25,
+  subtleReminderMax: 25,
+});
+
 let currentScreen = 0;
 
-// The user-selected mode (defaults to 'balanced')
-let selectedMode = 'balanced';
+function send(message) {
+  return new Promise((resolve) => {
+    try {
+      chrome.runtime.sendMessage(message, (response) => {
+        resolve(chrome.runtime.lastError ? null : (response ?? null));
+      });
+    } catch (error) {
+      resolve(null);
+    }
+  });
+}
 
-// -------------------------------------------------------
-// PRESET VALUES DEFINITION
-// -------------------------------------------------------
-/**
- * @constant {Object} MODE_SETTINGS
- * @description Preconfigured settings mappings representing different levels of monitoring strictness.
- * Selecting a mode copies these values directly to user settings.
- */
-const MODE_SETTINGS = {
-  // Moderate defaults suitable for most users
-  balanced: {
-    sensitivity: 50,
-    reminderIntervalMin: 5,
-    reminderIntervalMax: 5,
-    subtleReminderMin: 25,
-    subtleReminderMax: 25,
-  },
-  // Higher sensitivity and shorter trigger intervals for severe doom-scrollers
-  strict: {
-    sensitivity: 80,
-    reminderIntervalMin: 3,
-    reminderIntervalMax: 3,
-    subtleReminderMin: 15,
-    subtleReminderMax: 15,
-  },
-  // Longer intervals and lower sensitivity for lighter reminders
-  gentle: {
-    sensitivity: 25,
-    reminderIntervalMin: 10,
-    reminderIntervalMax: 10,
-    subtleReminderMin: 40,
-    subtleReminderMax: 40,
-  },
-};
-
-// -------------------------------------------------------
-// NAVIGATION FUNCTIONS
-// -------------------------------------------------------
-/**
- * @function goToScreen
- * @description Transitions the user interface from the current screen slide to the next one
- * by manipulating CSS classes ('active' and 'done') for screens and timeline dots.
- *
- * @param {number} nextScreen - The index (0-indexed) of the destination screen.
- * @returns {void}
- *
- * @side-effects
- *   - Modifies DOM element class lists to animate transitions.
- *   - Updates the global `currentScreen` tracking variable.
- *
- * @called-by
- *   - Start onboarding button ('btn-start-onboarding') click -> screen 1
- *   - Skip onboarding button ('btn-skip-onboarding') click -> screen 2
- *   - Successful saveMode() response -> screen 2
- */
+/** Moves to another screen and updates the step dots. */
 function goToScreen(nextScreen) {
-  // Retrieve DOM nodes for both current and target screens/dots
   const currentScreenElement = document.getElementById(`screen-${currentScreen}`);
-  const currentDotElement = document.getElementById(`dot-${currentScreen}`);
+  const currentDot = document.getElementById(`dot-${currentScreen}`);
   const nextScreenElement = document.getElementById(`screen-${nextScreen}`);
-  const nextDotElement = document.getElementById(`dot-${nextScreen}`);
+  const nextDot = document.getElementById(`dot-${nextScreen}`);
+  if (!currentScreenElement || !currentDot || !nextScreenElement || !nextDot) return;
 
-  // Safe check to avoid null pointer crashes if the developer named an ID incorrectly
-  if (!currentScreenElement || !currentDotElement || !nextScreenElement || !nextDotElement) return;
-
-  // Deactivate the old screen to trigger fade-out transition
   currentScreenElement.classList.remove('active');
-  currentDotElement.classList.remove('active');
+  currentDot.classList.remove('active');
+  if (nextScreen > currentScreen) currentDot.classList.add('done');
 
-  // If moving forward in the timeline, mark the previous step dot as completed ('done')
-  if (nextScreen > currentScreen) {
-    currentDotElement.classList.add('done');
-  }
-
-  // Update global state and activate target screen elements
   currentScreen = nextScreen;
   nextScreenElement.classList.add('active');
-  nextDotElement.classList.add('active');
+  nextDot.classList.add('active');
 }
 
-// -------------------------------------------------------
-// DATA ACTIONS
-// -------------------------------------------------------
-/**
- * @function saveMode
- * @description Saves the selected preset metrics to chrome.storage.local settings,
- * then forwards the user to the final summary screen.
- *
- * @returns {void}
- *
- * @side-effects
- *   - Asynchronously reads and writes settings in Chrome Local Storage.
- *   - Modifies DOM elements to show errors if Chrome storage writing fails.
- *
- * @uses
- *   - chrome.storage.local.get(): Extension API to retrieve storage values.
- *   - chrome.storage.local.set(): Extension API to store value changes.
- *   - Object.assign(): JavaScript method to perform a shallow merge of settings objects.
- */
-function saveMode() {
-  // Retrieve the appropriate settings package for the selected mode
-  const patch = MODE_SETTINGS[selectedMode] || MODE_SETTINGS.balanced;
-
-  // Retrieve current settings first so we do not overwrite other unrelated settings (e.g. webhookUrl)
-  chrome.storage.local.get(['settings'], (result) => {
-    // Merge existing settings with our mode patch (patch values override existing fields)
-    const settings = Object.assign({}, result.settings || {}, patch);
-
-    // Save the merged configuration dictionary back to storage
-    chrome.storage.local.set({ settings }, () => {
-      // Check if Chrome failed to save (e.g. storage limit exceeded or context invalid)
-      if (chrome.runtime.lastError) {
-        const saveButton = document.getElementById('btn-save-mode');
-        if (saveButton) {
-          saveButton.textContent = 'Save failed - try again';
-        }
-        return;
-      }
-
-      // Update final screen text to display selected metrics, then transition screen
-      updateFinalSummary(selectedMode);
-      goToScreen(2);
-    });
-  });
+/** Shows the intervals that are really in effect on the final screen. */
+function showSummary(settings) {
+  const values = settings || RECOMMENDED_SETUP;
+  document.getElementById('summary-eye-break').textContent = String(values.reminderIntervalMin);
+  document.getElementById('summary-gentle').textContent = String(values.subtleReminderMin);
 }
 
-/**
- * @function finish
- * @description Marks onboarding complete in local storage and closes the tab.
- *
- * @returns {void}
- *
- * @uses
- *   - chrome.storage.local.set(): Extension API to register completion.
- *   - window.close(): Standard browser API to close the current tab.
- */
+async function saveSetup(button) {
+  button.disabled = true;
+  const response = await send({ type: 'SAVE_SETTINGS', settings: RECOMMENDED_SETUP });
+  button.disabled = false;
+
+  if (!response?.success) {
+    button.textContent = 'Save failed - try again';
+    return;
+  }
+  showSummary(response.settings);
+  goToScreen(2);
+}
+
+/** Skipping keeps whatever is stored; the summary still has to tell the truth. */
+async function skipSetup() {
+  showSummary(await send({ type: 'GET_SETTINGS' }));
+  goToScreen(2);
+}
+
 function finish() {
-  chrome.storage.local.set({ onboardingComplete: true }, () => {
-    if (chrome.runtime.lastError) {
-      // If closing fails or storage throws an error, close anyway to release the user
+  chrome.tabs.getCurrent((tab) => {
+    if (!chrome.runtime.lastError && tab?.id) {
+      chrome.tabs.remove(tab.id);
+    } else {
       window.close();
-      return;
     }
-
-    window.close();
   });
 }
 
-/**
- * @function updateFinalSummary
- * @description Updates the textual text summary inside the last onboarding screen
- * based on the chosen mode details.
- *
- * @param {string} mode - Mode name ('balanced', 'strict', 'gentle').
- * @returns {void}
- *
- * @side-effects
- *   - Modifies DOM text content inside 'summary-eye-break' and 'summary-gentle'.
- */
-function updateFinalSummary(mode) {
-  const values = MODE_SETTINGS[mode] || MODE_SETTINGS.balanced;
-  const eyeEl = document.getElementById('summary-eye-break');
-  const gentleEl = document.getElementById('summary-gentle');
-
-  if (eyeEl) {
-    eyeEl.textContent = String(values.reminderIntervalMin);
-  }
-
-  if (gentleEl) {
-    gentleEl.textContent = String(values.subtleReminderMin);
-  }
-}
-
-// -------------------------------------------------------
-// EVENT LISTENERS & INITS
-// -------------------------------------------------------
-/**
- * DOMContentLoaded Event Listener
- * @description Attaches click handlers to the UI control buttons and setup choices on window load.
- *
- * @uses
- *   - document.addEventListener(): Listens for DOM load.
- *   - querySelector() / getElementById(): Fetches nodes.
- */
 document.addEventListener('DOMContentLoaded', () => {
-  const startButton = document.getElementById('btn-start-onboarding');
   const saveButton = document.getElementById('btn-save-mode');
-  const skipButton = document.getElementById('btn-skip-onboarding');
-  const finishButton = document.getElementById('btn-finish-onboarding');
 
-  // Attach button triggers
-  startButton?.addEventListener('click', () => goToScreen(1));
-  saveButton?.addEventListener('click', saveMode);
-  skipButton?.addEventListener('click', () => goToScreen(2));
-  finishButton?.addEventListener('click', finish);
+  document.getElementById('btn-start-onboarding').addEventListener('click', () => goToScreen(1));
+  saveButton.addEventListener('click', () => saveSetup(saveButton));
+  document.getElementById('btn-skip-onboarding').addEventListener('click', skipSetup);
+  document.getElementById('btn-finish-onboarding').addEventListener('click', finish);
 
-  // Setup mode cards click choices
-  const cards = document.querySelectorAll('.mode-card');
-  cards.forEach((card) => {
-    card.addEventListener('click', () => {
-      // Remove selected border style from all mode cards
-      cards.forEach((c) => c.classList.remove('selected'));
-
-      // Select this card and update global variable
-      card.classList.add('selected');
-      selectedMode = card.getAttribute('data-mode') || 'balanced';
-    });
-  });
-
-  // Pre-load summary screen metrics with initial defaults
-  updateFinalSummary(selectedMode);
+  showSummary(RECOMMENDED_SETUP);
 });

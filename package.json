@@ -1,7 +1,7 @@
 {
   "name": "eyeflow-chrome-extension",
   "version": "1.0.2",
-  "description": "EyeFlow Chrome extension with Puppeteer-based test automation.",
+  "description": "EyeFlow: a Chrome extension that spots doom scrolling and guides short eye breaks.",
   "repository": {
     "type": "git",
     "url": "https://github.com/kumaraharsh84/eye_flow_chrome_extension.git"
@@ -10,21 +10,22 @@
     "url": "https://github.com/kumaraharsh84/eye_flow_chrome_extension/issues"
   },
   "homepage": "https://github.com/kumaraharsh84/eye_flow_chrome_extension#readme",
-  "main": "background.js",
   "scripts": {
-    "pretest": "npm run build",
-    "test": "node tests/intelligence.test.js && node tests/puppeteer-extension-smoke.js",
-    "pretest:extension": "npm run build",
-    "test:extension": "node tests/puppeteer-extension-smoke.js",
-    "test:e2e": "node tests/puppeteer-extension-e2e.js",
-    "test:online": "node tests/puppeteer-extension-e2e.js --suite=sites",
-    "test:onboarding": "node tests/puppeteer-extension-e2e.js --suite=onboarding",
-    "test:popup": "node tests/puppeteer-extension-e2e.js --suite=popup",
-    "test:sites": "node tests/puppeteer-extension-e2e.js --suite=sites",
     "build": "node build.js",
     "watch": "node build.js --watch",
+    "package": "npm run build && node scripts/package.js",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "test:unit": "node tests/unit.test.js",
+    "pretest": "npm run build",
+    "test": "node tests/unit.test.js && node tests/puppeteer-extension-smoke.js",
+    "pretest:extension": "npm run build",
+    "test:extension": "node tests/puppeteer-extension-smoke.js",
+    "pretest:e2e": "npm run build",
+    "test:e2e": "node tests/puppeteer-extension-e2e.js",
+    "test:onboarding": "npm run build && node tests/puppeteer-extension-e2e.js --suite=onboarding",
+    "test:popup": "npm run build && node tests/puppeteer-extension-e2e.js --suite=popup",
+    "test:sites": "npm run build && node tests/puppeteer-extension-e2e.js --suite=sites",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -54,8 +55,8 @@
     "globals": "^17.6.0",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.7",
-    "npm-run-all": "^4.1.5",
     "prettier": "^3.8.4",
     "puppeteer": "^24.40.0"
-  }
+  },
+  "private": true
 }

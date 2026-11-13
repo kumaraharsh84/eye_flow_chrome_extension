@@ -8,7 +8,7 @@
  * code.
  *
  * @responsibilities
- *   - Ignore generated dist/, docs, and tests during regular lint runs.
+ *   - Ignore generated dist/ and release/ output and the static docs site.
  *   - Enable recommended JavaScript checks.
  *   - Register globals used by Chrome extension APIs and Node build scripts.
  *
@@ -20,12 +20,12 @@ const globals = require('globals');
 
 module.exports = [
   {
-    ignores: ['dist/**', 'tests/**', 'docs/**'],
+    ignores: ['dist/**', 'release/**', 'docs/**', 'tests/artifacts/**'],
   },
   js.configs.recommended,
   {
     languageOptions: {
-      ecmaVersion: 2021,
+      ecmaVersion: 'latest',
       sourceType: 'module',
       globals: {
         ...globals.browser,
@@ -34,10 +34,15 @@ module.exports = [
       },
     },
     rules: {
-      'no-unused-vars': 'warn',
+      'no-unused-vars': ['warn', { caughtErrors: 'none' }],
       'no-console': 'off',
       'no-empty': 'warn',
       'no-undef': 'error',
     },
+  },
+  {
+    // Node scripts and tests are CommonJS
+    files: ['build.js', 'eslint.config.js', 'scripts/**/*.js', 'tests/**/*.js'],
+    languageOptions: { sourceType: 'commonjs' },
   },
 ];

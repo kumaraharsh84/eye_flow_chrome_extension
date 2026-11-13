@@ -1,0 +1,7 @@
+# Generated output: formatting it would undo the build's minification
+dist/
+release/
+tests/artifacts/
+
+# Managed by npm
+package-lock.json

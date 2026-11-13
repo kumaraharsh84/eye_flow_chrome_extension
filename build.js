@@ -1,21 +1,12 @@
 /**
  * @file build.js
- * @description Build pipeline for packaging the Manifest V3 extension into dist/.
+ * @description Builds the loadable extension into dist/.
  *
- * @purpose
- * This Node.js script copies static extension assets and uses esbuild to bundle
- * JavaScript entry points into browser-loadable files. Chrome loads files from
- * dist/ during local testing and store packaging, so this script is the bridge
- * between readable source modules and the final extension artifact.
+ * Source files are ES modules; Chrome loads the bundled IIFE files from dist/.
+ * dist/ is wiped first so nothing stale ever ships in a store package.
  *
- * @responsibilities
- *   - Copy manifest, HTML, CSS, and icon assets into dist/.
- *   - Bundle background, content, popup, onboarding, and offscreen scripts.
- *   - Support watch mode for iterative local development.
- *
- * @dependents
- *   - package.json scripts: build, watch, pretest, and pretest:extension.
- *   - Puppeteer tests load the generated dist/ extension.
+ *   node build.js            one-off build (minified)
+ *   node build.js --watch    rebuild on change (unminified, for debugging)
  */
 const esbuild = require('esbuild');
 const fs = require('fs');
@@ -23,80 +14,63 @@ const path = require('path');
 
 const isWatch = process.argv.includes('--watch');
 
-const DIST_DIR = path.join(__dirname, 'dist');
 const SRC_DIR = path.join(__dirname, 'src');
+const DIST_DIR = path.join(__dirname, 'dist');
 
-// Ensure dist directory exists
-if (!fs.existsSync(DIST_DIR)) {
-  fs.mkdirSync(DIST_DIR, { recursive: true });
-}
+const STATIC_FILES = [
+  'manifest.json',
+  'popup.html',
+  'popup.css',
+  'onboarding.html',
+  'onboarding.css',
+  'overlay.css',
+  'offscreen.html',
+];
+const ENTRY_POINTS = ['background.js', 'content.js', 'popup.js', 'onboarding.js', 'offscreen.js'];
 
-// Copy static assets
 function copyAssets() {
-  console.log('Copying static assets...');
+  fs.rmSync(DIST_DIR, { recursive: true, force: true });
+  fs.mkdirSync(path.join(DIST_DIR, 'icons'), { recursive: true });
 
-  // Files to copy directly
-  const staticFiles = [
-    'manifest.json',
-    'popup.html',
-    'popup.css',
-    'onboarding.html',
-    'onboarding.css',
-    'overlay.css',
-    'offscreen.html',
-  ];
+  for (const file of STATIC_FILES) {
+    fs.copyFileSync(path.join(SRC_DIR, file), path.join(DIST_DIR, file));
+  }
 
-  staticFiles.forEach((file) => {
-    const src = path.join(SRC_DIR, file);
-    const dest = path.join(DIST_DIR, file);
-    if (fs.existsSync(src)) {
-      fs.copyFileSync(src, dest);
+  // Only the icons themselves ship; helper files in src/icons stay out of the package.
+  for (const file of fs.readdirSync(path.join(SRC_DIR, 'icons'))) {
+    if (file.endsWith('.png')) {
+      fs.copyFileSync(path.join(SRC_DIR, 'icons', file), path.join(DIST_DIR, 'icons', file));
     }
-  });
-
-  // Copy icons folder
-  const iconsSrc = path.join(SRC_DIR, 'icons');
-  const iconsDest = path.join(DIST_DIR, 'icons');
-  if (fs.existsSync(iconsSrc)) {
-    if (!fs.existsSync(iconsDest)) {
-      fs.mkdirSync(iconsDest, { recursive: true });
-    }
-    fs.readdirSync(iconsSrc).forEach((file) => {
-      fs.copyFileSync(path.join(iconsSrc, file), path.join(iconsDest, file));
-    });
   }
 }
 
 async function build() {
   copyAssets();
 
-  const ctx = await esbuild.context({
-    // esbuild bundles ES module source into IIFEs because extension pages and
-    // content scripts are loaded as plain browser scripts from dist/. Keeping
-    // the source modular while emitting IIFEs preserves developer ergonomics
-    // without requiring Chrome to resolve source-time imports at runtime.
-    entryPoints: [
-      path.join(SRC_DIR, 'background.js'),
-      path.join(SRC_DIR, 'content.js'),
-      path.join(SRC_DIR, 'popup.js'),
-      path.join(SRC_DIR, 'onboarding.js'),
-      path.join(SRC_DIR, 'offscreen.js'),
-    ],
+  const context = await esbuild.context({
+    entryPoints: ENTRY_POINTS.map((file) => path.join(SRC_DIR, file)),
     bundle: true,
     outdir: DIST_DIR,
-    target: ['es2020'],
-    format: 'iife', // Immediately invoked function expression is standard for content scripts
+    target: ['chrome116'],
+    format: 'iife',
+    // Whitespace and syntax only: identifiers stay readable for store review.
+    minifyWhitespace: !isWatch,
+    minifySyntax: !isWatch,
+    legalComments: 'none',
     logLevel: 'info',
   });
 
   if (isWatch) {
-    await ctx.watch();
+    await context.watch();
     console.log('Watching for changes...');
   } else {
-    await ctx.rebuild();
-    await ctx.dispose();
+    await context.rebuild();
+    await context.dispose();
     console.log('Build complete.');
   }
 }
 
-build().catch(() => process.exit(1));
+build().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});
