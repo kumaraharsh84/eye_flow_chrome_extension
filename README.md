@@ -7,7 +7,6 @@
 [![Version](https://img.shields.io/badge/version-1.0.2-orange?style=flat-square)](https://github.com/kumaraharsh84/eye_flow_chrome_extension)
 [![Manifest](https://img.shields.io/badge/Manifest-V3-blue?style=flat-square)](https://developer.chrome.com/docs/extensions/mv3/)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
-[![Status](https://img.shields.io/badge/status-stable-success?style=flat-square)](https://github.com/kumaraharsh84/eye_flow_chrome_extension)
 
 <br/>
 
@@ -22,19 +21,19 @@
 
 ## What Is This?
 
-EyeFlow is a Chrome extension that detects doom scrolling on high-risk sites like **Instagram Reels, YouTube Shorts, Reddit, Facebook, and X** — and responds with:
+EyeFlow is a Chrome extension that detects doom scrolling on feeds like **Instagram Reels, YouTube Shorts, Reddit, Facebook, and X**, and responds with:
 
-- **Guided eye-break exercises** — a moving dot you follow with your eyes, proven to reduce screen strain
-- **Gentle reminders** during normal browsing, when you have been staring at a screen too long
-- **Hydration nudges** because we all forget to drink water when we are deep in a scroll loop
+- **Guided eye-break exercises**: a moving dot you follow with your eyes for 20 seconds
+- **Gentle reminders** during normal browsing, when you have been looking at a screen for a while
+- **Water reminders**, because nobody remembers to drink while deep in a scroll loop
 
-The core workflow is strict and universal: it helps **you** stay focused and healthy while working, but it can also be used to **monitor and manage a younger sibling's** screen time perfectly.
+It works for your own habits, and it can also send a weekly report so you can keep an eye on a younger sibling's scrolling time.
 
 ---
 
 ## Screenshots
 
-| Popup                                | Eye Break Overlay                        | Onboarding Mode Picker                         |
+| Popup                                | Eye Break Overlay                        | Onboarding                                     |
 | ------------------------------------ | ---------------------------------------- | ---------------------------------------------- |
 | ![Popup](docs/screenshots/popup.png) | ![Overlay](docs/screenshots/overlay.png) | ![Onboarding](docs/screenshots/onboarding.png) |
 
@@ -44,70 +43,37 @@ The core workflow is strict and universal: it helps **you** stay focused and hea
 
 ### Core
 
-| Feature                         | Description                                                                               |
-| ------------------------------- | ----------------------------------------------------------------------------------------- |
-| 🔍 Doom-scroll detection        | Detects high-risk scrolling on Instagram, YouTube Shorts, Reddit, Facebook, X, and TikTok |
-| 👁️ Fullscreen eye-break overlay | Guided 6-step exercise with moving dot, countdown, and progress bar                       |
-| 💧 Hydration reminder           | Global water reminder every 2 hours                                                       |
-| 😌 Post-break recovery          | Mood logging, time-on-site alert, and hydration reminders after every break               |
-| 🔔 Gentle reminder              | Soft corner reminder during normal non-DS browsing                                        |
-
-### Monitoring & Syncing
-
-| Feature                 | Description                                                                                              |
-| ----------------------- | -------------------------------------------------------------------------------------------------------- |
-| 🕵️ Incognito Mode Sync  | Tracks doom scrolling seamlessly even if the user opens an Incognito window                              |
-| 📧 Weekly Email Reports | Automatically emails a weekly breakdown of time spent, session logs, and feed-hopping swaps via Webhooks |
+| Feature                         | Description                                                                       |
+| ------------------------------- | --------------------------------------------------------------------------------- |
+| 🔍 Doom-scroll detection        | Knows the feed surfaces of 9 platforms and ignores chats, profiles and settings   |
+| 👁️ Fullscreen eye-break overlay | Guided exercise with a moving dot, countdown and progress bar; the feed is paused |
+| 💧 Water reminder               | Every 1 to 4 hours; a toast on normal pages, a short water break on feeds         |
+| 😌 Post-break check-in          | Mood tap, time on site, and a "close tab and step away" button                    |
+| 🔔 Gentle reminder              | Small toast on normal pages, never on banking, sign-in, meeting or video pages    |
+| 🔊 Background chime (optional)  | A soft sound every 20 to 30 min while Chrome is open but not the window in front  |
+| ⌨️ Break on demand              | `Ctrl+Shift+E` (`Command+Shift+E` on Mac) starts an eye break on the current page |
 
 ### Smart Behavior
 
-| Feature                    | Description                                                                      |
-| -------------------------- | -------------------------------------------------------------------------------- |
-| 🎯 Context-aware detection | Instagram DMs, login pages, payment flows, typing — all suppressed automatically |
-| 📺 Passive video detection | Watching a long YouTube video without scrolling? Extension stays quiet           |
-| 🔄 Tab sync                | DS timer is shared across all open doom-scroll tabs                              |
-| 😴 Idle detection          | Walk away from your laptop — timers pause automatically                          |
-| ⏸️ Work mode snooze        | Pause gentle reminders for 1h, 2h, or 4h without disabling DS protection         |
+| Feature                  | Description                                                                         |
+| ------------------------ | ----------------------------------------------------------------------------------- |
+| 🎯 Context-aware         | Instagram DMs, login pages, payment flows and typing never trigger anything         |
+| ⏱️ Active time only      | The break timer runs only while you are actually scrolling or watching short videos |
+| 🔄 One shared timer      | Hopping from Instagram to YouTube Shorts to Reddit continues the same break cycle   |
+| 😴 Idle aware            | Walk away and the timers hold; lock the screen and the session resets               |
+| ⏸️ Work mode snooze      | Pause gentle reminders for 1h, 2h or 4h. Doom-scroll protection stays on            |
+| 🪶 Light on normal pages | Outside the tracked sites the extension runs no timers and sends no messages        |
 
-### User Control
+### Control
 
-| Feature               | Description                                                         |
-| --------------------- | ------------------------------------------------------------------- |
-| ⚙️ Popup settings     | Sensitivity, timing, snooze, theme, and webhooks — all configurable |
-| 🎨 Dark / Light theme | Popup supports both themes                                          |
-| 📊 Stats dashboard    | Blocked sessions, breaks taken, weekly history, mood trends         |
-| 🧭 Onboarding         | 3 preset modes on first install — Strict, Balanced, or Gentle       |
-
----
-
-## 👨‍👩‍👧‍👦 How to Setup Sibling Monitoring
-
-EyeFlow is an excellent tool for keeping track of how much time a sibling spends doom scrolling.
-
-### Step 1: Enable Incognito Tracking
-
-By default, Chrome extensions are disabled in Incognito mode. To prevent your sibling from hiding their usage:
-
-1. Open the EyeFlow popup.
-2. If Incognito is disabled, you will see a prominent **❌ Incognito Tracking** warning.
-3. Click the **Enable** button to open Chrome's extension settings.
-4. Toggle **Allow in Incognito** to ON.
-   Now, the tracking and eye-breaks will function seamlessly across both regular and Incognito tabs!
-
-### Step 2: Setup Weekly Email Reports
-
-EyeFlow can email you a weekly report containing the total minutes spent on each site. Because extensions cannot send emails directly, it uses a free Webhook service:
-
-1. Create a free account at [Formspree](https://formspree.io/) or [Make.com](https://make.com).
-2. Create a form/webhook and copy the unique URL.
-3. Open the EyeFlow popup and expand **Advanced Controls**.
-4. Paste the URL into the **Weekly Email Report** box.
-5. Click **Send Test Report** to verify it works.
-   Every Monday at midnight, you will receive a silent email report containing their statistics, complete session activity log tables (when they opened the site, duration, and exercise completion status), and a feed-hopping summary of tab transitions between social media sites.
-
-### Sibling Monitor Protection (Safe Toggle Lock)
-
-To prevent your sibling from disabling the tracker, saving a Webhook URL immediately locks the main **"Extension Active"** toggle switch in the popup to **ON** and disables the switch (greying it out so it cannot be toggled). The status bar will change to green indicating **"Active - Locked by Sibling Monitor"** (and the Incognito Tracking warning card is automatically hidden from view for normal users, appearing only when a webhook is active).
+| Feature               | Description                                                                        |
+| --------------------- | ---------------------------------------------------------------------------------- |
+| ⚙️ Popup settings     | Sensitivity, fixed or surprise timing, break length, reminder toggles              |
+| 🎨 Dark / light theme | For the popup                                                                      |
+| 📊 Stats              | Today's top doom-scroll sites and your peak scrolling time                         |
+| 📤 Export             | Download your stats as JSON, or a debug log as text                                |
+| 📧 Weekly report      | Optional: a weekly summary posted to a webhook you provide (Formspree, Make, etc.) |
+| 🧭 Onboarding         | One recommended setup on first install; everything is adjustable later             |
 
 ---
 
@@ -116,52 +82,68 @@ To prevent your sibling from disabling the tracker, saving a Webhook URL immedia
 ```
 You open Instagram
     ↓
-EyeFlow detects you are on a doom-scroll surface
+EyeFlow sees you are on a feed surface and starts counting active time
     ↓
-Your doom-scrolling time limit is reached
+You switch to YouTube Shorts → the same timer keeps counting
+You open your DMs, or stop scrolling → the timer pauses
     ↓
-Stage 1 → Small nudge appears at the corner
-          "Still here?"
+The break interval is reached (5 min by default)
     ↓
-You ignore it
+Fullscreen eye break: follow the dot for 20 seconds.
+The feed is paused and cannot be scrolled behind the overlay.
     ↓
-Stage 2 → Warning banner appears
-          "30 seconds — that's all"
+Break complete → mood check → close the tab or continue
     ↓
-You ignore that too
-    ↓
-Stage 3 → Fullscreen eye-break overlay
-          Guided 6-step exercise with moving dot
-    ↓
-Break complete → Mood check → Next-step suggestion
-    ↓
-Timer resets — cycle begins again
+A new cycle begins
 ```
+
+On the strictest feeds (Instagram, TikTok, Reddit, Facebook, X, YouTube Shorts) the break cannot be skipped. Elsewhere there is a "Not right now" button; skipping restarts the cycle but does not count as a completed break.
+
+The **Sensitivity** slider scales the interval: 50% uses it as set, 100% halves it, 0% stretches it by half. A break never fires sooner than 2 minutes.
 
 ---
 
 ## Supported Sites
 
-| Site            | Strong DS surfaces          | Gentle only                    | Suppressed                |
-| --------------- | --------------------------- | ------------------------------ | ------------------------- |
-| **Instagram**   | Home, Explore, Reels        | Direct messages, single posts  | Live streams, video calls |
-| **YouTube**     | Shorts                      | Long-form videos               | Live chat                 |
-| **Reddit**      | Home, Popular, feeds        | Single post + comments         | Notifications, settings   |
-| **X / Twitter** | Home, Explore, Likes, Media | Single tweet, notifications    | Direct messages           |
-| **Facebook**    | Home, Watch, Groups         | —                              | Messenger                 |
-| **TikTok**      | Everything                  | —                              | Direct messages           |
-| **Snapchat**    | Spotlight (feed & clips)    | Chat                           | Direct messages           |
-| **LinkedIn**    | Feed, Video feeds           | Messaging, Jobs, Notifications | Profile pages             |
+| Site            | Counts as doom scrolling                 | Does not count                           |
+| --------------- | ---------------------------------------- | ---------------------------------------- |
+| **Instagram**   | Home, Explore, Reels                     | Direct messages, profiles, login         |
+| **YouTube**     | Shorts, a channel's Shorts tab           | Long-form videos, everything else        |
+| **Reddit**      | Home, Popular, community feeds           | Explore, News, settings                  |
+| **X / Twitter** | Home, Explore, Communities, Likes, Media | Messages, notifications, profiles        |
+| **Facebook**    | Home, Watch, Reels, Groups, feed filters | Messenger, Favourites and Friends feeds  |
+| **TikTok**      | Everything except messages               | Messages, login                          |
+| **Snapchat**    | Spotlight, Stories, Discover             | The home/sign-in page, chat              |
+| **LinkedIn**    | Feed, video                              | Messaging, jobs, profiles, notifications |
+| **Twitch**      | Clips feeds                              | Live channels, settings                  |
+
+A single post (a Reddit thread, a tweet, an Instagram post, a LinkedIn post, a Twitch clip) gets a one-minute reading window before it starts counting.
 
 ---
 
-## Onboarding Modes
+## 👨‍👩‍👧‍👦 Sibling Monitoring (Optional)
 
-| Mode            | What It Does                                             |
-| --------------- | -------------------------------------------------------- |
-| 🔒 **Strict**   | Higher sensitivity, faster reminders, no skip button     |
-| ⚖️ **Balanced** | Recommended — nudge first, then warning, then full break |
-| 🌿 **Gentle**   | Lower sensitivity, fewer interruptions                   |
+EyeFlow can send you a weekly report of someone's doom-scrolling time. Chrome extensions cannot send email themselves, so the report is posted to a webhook service that emails it to you.
+
+### Step 1: Set up the weekly report
+
+1. Create a free form or webhook at [Formspree](https://formspree.io/) or [Make.com](https://make.com) and copy its **https** URL.
+2. Open the EyeFlow popup and expand **Advanced Controls**.
+3. Paste the URL into **Weekly Email Report** and click **Save changes**. Chrome asks you to allow access to that one address.
+4. **Write down the 6-digit Removal PIN.** It is shown once and never stored in readable form.
+5. Click **Send Test Report** to check that it arrives.
+
+The report is sent on the first day Chrome is used in a new week (normally Monday). It contains break counts, compliance rate, minutes per site, the peak scrolling time, feed-hopping between sites, and a log of the last 30 sessions.
+
+### Step 2: What gets locked
+
+While a webhook is saved, the popup shows **"Active - Locked by Sibling Monitor"**: the on/off switch and all advanced settings are disabled. They unlock only when the Removal PIN is entered. Five wrong PINs in a row lock removal for five minutes.
+
+### Step 3: Enable incognito tracking
+
+Chrome disables extensions in incognito windows by default. With a webhook active, the popup shows an **Incognito Tracking** card; click **Enable** and switch on **Allow in Incognito** on the page that opens.
+
+> The lock is visible to whoever uses the browser, by design. EyeFlow is not hidden monitoring software.
 
 ---
 
@@ -169,119 +151,75 @@ Timer resets — cycle begins again
 
 ```
 eyeflow-chrome-extension/
-│
-├── src/                    ← Source code files
-│   ├── manifest.json       ← Chrome extension config (MV3)
-│   ├── background.js       ← Global scheduler, timers, storage, alarms
-│   ├── content.js          ← Page detection, per-tab behavior
-│   ├── overlay.js          ← Fullscreen eye-break and post-break UI
-│   ├── intelligence.js     ← Detection heuristics
-│   ├── popup.js            ← Popup logic
-│   ├── utils.js            ← Shared configuration and utility functions
-│   └── ...                 ← HTML/CSS files
-│
-├── dist/                   ← Bundled output files (Load this in Chrome)
-│
-├── build.js                ← ESBuild bundling script
-├── eslint.config.js        ← ESLint v9 Flat Config
-└── package.json            ← Dependencies and NPM scripts
+├── src/
+│   ├── manifest.json     ← Extension config (Manifest V3)
+│   ├── background.js     ← Service worker: owns all state, timers, stats, weekly report
+│   ├── content.js        ← Feed detection, presence tracking, in-page reminders
+│   ├── overlay.js        ← Eye-break and water-break UI (pure UI, driven by content.js)
+│   ├── overlay.css       ← Styles injected with the content script, scoped to EyeFlow nodes
+│   ├── popup.*           ← Toolbar popup
+│   ├── onboarding.*      ← First-run page
+│   ├── offscreen.*       ← Hidden page that plays the optional chime
+│   └── utils.js          ← Shared limits and timing helpers
+├── tests/                ← Unit tests and Puppeteer browser tests
+├── scripts/package.js    ← Builds the Chrome Web Store zip
+├── docs/                 ← Landing page and privacy policy (GitHub Pages)
+├── build.js              ← esbuild bundling into dist/
+└── dist/                 ← Build output. This is the folder Chrome loads
 ```
+
+How the pieces talk: content scripts on tracked sites send a heartbeat to the service worker every 2 seconds while you are actively doom scrolling. The service worker keeps the one shared timer, decides when a break is due, and tells pages what to show. All storage writes go through a single queue in the service worker, so two tabs can never overwrite each other's updates.
 
 ---
 
 ## Install Locally (Developer Mode)
 
-The project uses ES Modules and `esbuild` for bundling.
-
 > [!IMPORTANT]
-> **Load `/dist`, not `/src`:** Always select and load the built `/dist` folder when loading the unpacked extension in Chrome. The `/src` folder contains unbundled ES modules and CSS templates which must be compiled via the build pipeline to run properly inside the browser.
+> Load the built **`dist/`** folder, not `src/`. The source files are ES modules that must be bundled first.
 
 ```bash
-# 1. Clone the repo
 git clone https://github.com/kumaraharsh84/eye_flow_chrome_extension.git
-
-# 2. Install dependencies
+cd eye_flow_chrome_extension
 npm install
-
-# 3. Build the extension into the /dist folder
 npm run build
-
-# 4. Open Chrome and go to
-chrome://extensions/
-
-# 5. Turn on Developer Mode (top right toggle)
-
-# 6. Click "Load unpacked"
-
-# 7. Select the `dist/` folder inside the cloned repository!
-
-# 8. Pin the EyeFlow icon to your toolbar
 ```
+
+Then open `chrome://extensions/`, turn on **Developer mode**, click **Load unpacked**, and select the `dist/` folder. Requires Chrome 116 or newer.
 
 ---
 
-## Testing
+## Development
 
-### Automated Tests
+| Command              | What it does                                                        |
+| -------------------- | ------------------------------------------------------------------- |
+| `npm run build`      | Clean build into `dist/`                                            |
+| `npm run watch`      | Rebuild on change, unminified                                       |
+| `npm run lint`       | ESLint over source, scripts and tests                               |
+| `npm run test:unit`  | Fast unit tests in Node                                             |
+| `npm test`           | Build, unit tests, then a browser smoke test                        |
+| `npm run test:e2e`   | Full Puppeteer suite: onboarding, popup, live sites                 |
+| `npm run test:popup` | Popup suite only (also `test:onboarding`, `test:sites`)             |
+| `npm run package`    | Build and create `release/eyeflow-v<version>.zip` for the Web Store |
 
-```bash
-# Run unit tests and puppeteer smoke tests
-npm test
+The browser tests open a real Chrome window. Set `CHROME_PATH` if Chrome is not in its default location.
 
-# Run full E2E suite
-npm run test:e2e
+### Publishing to the Chrome Web Store
 
-# Test specific flows
-npm run test:onboarding
-npm run test:popup
-```
-
----
-
-## Current Status
-
-```
-✅ Extension runtime         working
-✅ Popup and onboarding      working
-✅ Shared timer logic        working
-✅ Fullscreen overlay flow   working
-✅ Automated test coverage   working
-✅ ESLint warnings fixed     working
-✅ Incognito mode sync       working
-✅ Webhook Email Reports     working
-✅ XSS & data safety patches applied
-✅ Sibling Monitor Lock    working
-```
-
-### Recent Fixes & Improvements
-
-- **Feed-Hopping (Chain-Scrolling) Detection**: Automatically detects direct transitions between different doom-scrolling sites in under 60 seconds. Provides a summary of these "app swaps" in the weekly email report.
-- **Detailed Session Logs**: Logs the exact start time, duration, and exercise completion status of every individual browsing session on social media sites.
-- **Removed Scroll-Density Trigger**: Removed direct popup triggers based on fast scrolling to keep the system simple and reliable. Scrolling now acts solely as an activity checker to keep the countdown active.
-- **Download Debug Logs**: Added a "Download Debug Logs" button in the Advanced section of the popup to export chronological, real-time audit logs of timers, actions, and limits during testing.
-- **Debug Timer HUD**: Restored a floating debug HUD widget in the bottom-left corner of all pages during development/testing, showing live countdowns for all three timers (Eye Break, Gentle Reminder, and Water Reminder).
-- **Stuck Timer & Close Tab Loop Fix**: Configured the Doom Scroll timer to immediately reset in background storage upon eye-break exercise completion, resolving the loop where closing the tab during the post-break screen prevented timer resets.
-- **Continuous Gentle Reminder**: Refactored the Subtle/Gentle Reminder to function as a global continuous countdown clock (similar to the water reminder), removing window focus and idle/inactivity pausing rules so that it doesn't get stuck in `Hold` states.
-- **YouTube Channel Selector Refinement**: Updated the YouTube channel Shorts tab selector to only trigger if the Shorts tab is actively selected (`[selected]`, `[aria-selected="true"]`, or `.iron-selected`), preventing false positive matches on standard channel pages.
-- **Reliability & Idle Pause**: Added logic to pause the gentle reminder timer when the system is inactive, preventing background notifications from firing repeatedly when the user is away.
-- **Timer Reset Precision**: Implemented re-anchoring of timestamps upon timer resets and route navigation back to doom scroll feeds, resolving the stuck `00:00` timer and phantom accumulated time.
-- **DOM-Independent FB Detection**: Facebook Home is now immediately recognized on load, avoiding timer races with lazy-loaded feed components.
-- **Snapchat, X, and Reddit Support**: Expanded detection for Snapchat Spotlight clip pages (`/spotlight/*`), Twitter Likes (`/:user/likes`) & Media (`/:user/media`) feeds, and Reddit feeds (with trailing slash normalization).
-- **Security Hardening**: Replaced all dynamic `innerHTML` rendering with secure DOM manipulation / `textContent` assignments to block XSS. Stripped webhook URLs from telemetry settings before transmission to page content scripts.
-- **Privacy Partitioning**: Manifest upgraded to utilize split-process Incognito runtimes (`"incognito": "split"`).
-- **Refactoring & Performance**: Extracted limits and settings constants to a shared `src/utils.js` library, cleaned up unused legacy files (`src/site-rules.js`), removed dead debug variables, and added storage-saving `Object.freeze()` safety guards.
+1. Bump `version` in `src/manifest.json` and `package.json`, and add a changelog entry.
+2. Run `npm run package`.
+3. Upload `release/eyeflow-v<version>.zip` in the [Developer Dashboard](https://chrome.google.com/webstore/devconsole).
+4. Use [store-listing.md](store-listing.md) for the listing text and the permission justifications, and link the privacy policy at `docs/privacy-policy.html` (served by GitHub Pages).
 
 ---
 
 ## Privacy
 
-EyeFlow does not collect, transmit, or store any personal data on any server.
+- EyeFlow has no server and no analytics. Settings and stats live in Chrome's local storage on your device.
+- No remote code, fonts or other resources are loaded.
+- The only data that ever leaves the device is the optional weekly report, sent to the webhook address you enter yourself.
+- On websites outside the tracked list, the extension is dormant until it has a reminder to show.
 
-- All data lives in your browser's local storage only
-- No accounts required
-- No analytics or tracking
-- Only weekly reports are transmitted to the webhook URL explicitly provided by you
-- No data ever leaves your device otherwise
+Full policy: [docs/privacy-policy.html](docs/privacy-policy.html)
 
 ---
 

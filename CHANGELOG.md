@@ -78,6 +78,54 @@ This release focuses on manual QA feedback, security hardening, privacy enhancem
 
 - **Admin PIN Lock feature**: Removed the toggle-off PIN modal — the hardcoded default PIN (`1234`) was a security anti-pattern and the feature added complexity without protecting against anything.
 
+## [1.0.2] - 2026-11
+
+### Store-readiness release: bug fixes, cleanup, and efficiency
+
+#### Fixed
+
+- **Sensitivity slider did nothing**: the break timer now scales with sensitivity (100% halves the interval, 0% stretches it by half, never below 2 minutes).
+- **Water reminders could stop forever**: a water prompt queued for the next eye break stayed queued if that break never came or the prompt was ignored. It now expires and is asked again.
+- **A water break reset the eye-break timer**: closing the water overlay was treated as closing an eye break. The two flows are now separate.
+- **Phantom doom-scroll time**: a tab that crashed, slept or navigated away could leave the shared timer running. Time is now credited only for continuous heartbeats.
+- **Closing the feed tab did not always reset the cycle**, and the first timer tick after install could zero the "today" counters.
+- **Weekly report was skipped** if Chrome was not open on a Monday, and the next one then covered two weeks. It now goes out on the first day of use in a new week. "Send Test Report" reports the real result instead of always saying "Sent!".
+- **snapchat.com home and sign-in page counted as a feed** and could trigger a break during login.
+- **Time was credited to the wrong site** when leaving a feed just before the minute was reported.
+- **Gentle reminders never showed on some normal sites** because keyword checks matched inside words ("pinterest" contains "test"). Checks are now label-based.
+- **The page could still be scrolled behind a break** with the wheel or keyboard. Input is now held by the overlay, with a focus trap for keyboard users.
+- **Concurrent updates could be lost**: stats were written from both pages and the service worker. All writes now go through one queue in the service worker.
+- The popup version badge was hard-coded, several popup buttons had no styling, and the onboarding summary could show values that were not what was saved.
+
+#### Added
+
+- Popup toggles for **Gentle reminders** and **Background chime**. Both settings existed but had no way to be changed.
+- Water break buttons now read "Already drank water" and "Remind me soon"; the break countdown pauses while the tab is hidden.
+- Removal PIN lockout: five wrong attempts lock webhook removal for five minutes.
+- `npm run package` builds the Chrome Web Store zip; CI now lints, tests and uploads the package.
+
+#### Privacy and store compliance
+
+- **Removed the Google Fonts import that was injected into every website** through the content-script stylesheet, and from the popup and onboarding. No remote resources are loaded any more.
+- **Injected CSS no longer leaks into pages**: generic `:root` variables (`--bg`, `--text`, ...) and keyframe names are scoped to EyeFlow's own elements.
+- Dropped the `tabs` permission and the `http://` optional host permission. Webhooks must be https.
+- Stopped writing every page load of every site into the debug log.
+- Manifest description shortened to fit the 132-character store limit; `minimum_chrome_version` set to 116.
+- Settings-changing messages are accepted only from the extension's own pages; unknown settings keys are dropped; the PIN hash is never sent to the popup.
+- Overlay is built with DOM APIs instead of `innerHTML`.
+- Privacy policy now describes the weekly report and why the extension runs on all sites.
+
+#### Efficiency
+
+- On sites outside the tracked list the content script runs no timers, adds one key listener, and sends nothing on page load. Previously every tab on every site messaged the service worker every 2 seconds, each causing a storage read and write.
+- Tracked tabs send a heartbeat only while actively doom scrolling, plus one message when that stops. One bootstrap message replaces three on page load.
+- Storage is written only when a value actually changed.
+- Source JavaScript went from about 7,600 lines to about 4,000.
+
+#### Removed (dead code)
+
+- `src/intelligence.js` (scroll-density and staged-interruption logic that was no longer called), the unused warning banner, the debug timer HUD, the per-tab hydration timer that duplicated the global one, unused message handlers, the `siteTiers` and `customTimingEnabled` settings, and the unused Strict/Gentle onboarding presets.
+
 ## Planned - Future
 
 - Richer weekly insights and habit summaries.

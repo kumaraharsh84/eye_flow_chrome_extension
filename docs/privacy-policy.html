@@ -55,11 +55,12 @@
   </head>
   <body>
     <h1>Privacy Policy — EyeFlow</h1>
-    <p class="updated">Last updated: June 2026</p>
+    <p class="updated">Last updated: November 2026</p>
 
     <div class="highlight">
-      <strong>Short version:</strong> EyeFlow does not collect, transmit, or store any personal data
-      on any server. Everything stays on your device, in your browser's local storage.
+      <strong>Short version:</strong> EyeFlow has no servers and collects nothing. Everything stays
+      on your device, in your browser's local storage. The only time data leaves your device is the
+      optional weekly report, which is sent to a webhook address that you enter yourself.
     </div>
 
     <h2>What is EyeFlow?</h2>
@@ -92,10 +93,23 @@
       <li>We do not collect your name, email, or any personal identifiers</li>
       <li>We do not read the content of pages you visit</li>
       <li>We do not record what you type</li>
-      <li>We do not send any data to any server</li>
-      <li>We do not share any data with third parties</li>
-      <li>We do not use analytics tools, trackers, or ads</li>
+      <li>We do not operate any server and receive no data from the extension</li>
+      <li>We do not sell or share any data with third parties</li>
+      <li>We do not use analytics tools, trackers, ads, or remote fonts</li>
     </ul>
+
+    <h2>Optional weekly report (webhook)</h2>
+    <p>
+      This feature is off by default. If you paste an https webhook address (for example a Formspree
+      or Make.com form) into the popup, EyeFlow sends a weekly summary to that address and nowhere
+      else. The summary contains eye-break and water-break counts, minutes spent per tracked site,
+      the peak scrolling time, and a log of recent doom-scroll sessions (site name, start time,
+      duration). It never contains page content, URLs of normal sites, or anything you typed. Chrome
+      asks for your permission for that one address before it is saved. While a webhook is active
+      the popup shows "Locked by Sibling Monitor", and the webhook can only be removed with the PIN
+      shown when it was created. The service that receives the report handles it under its own
+      privacy policy.
+    </p>
 
     <h2>Where is data stored?</h2>
     <p>
@@ -104,25 +118,19 @@
       uninstall the extension or clear your browser data.
     </p>
 
-    <h2>Why does EyeFlow need host permissions?</h2>
+    <h2>Why does EyeFlow run on websites?</h2>
     <p>
-      EyeFlow runs on a small set of tracked browsing sites only, such as Instagram, YouTube,
-      Reddit, Facebook, X, TikTok, LinkedIn, Twitch, and Snapchat. It does not read page content —
-      it only tracks scroll events and the current URL to determine which reminder mode to use
-      (e.g., doom scroll site vs normal work site).
-    </p>
-
-    <h2>Why does EyeFlow need the "tabs" permission?</h2>
-    <p>
-      The tabs permission is used to broadcast settings changes to all open tabs when you update
-      your preferences in the popup. It is not used to read tab content or history.
+      Doom-scroll tracking happens only on a fixed list of sites: Instagram, YouTube, Reddit,
+      Facebook, X, TikTok, LinkedIn, Twitch, and Snapchat. There it looks at the current URL and at
+      scroll, tap, and key activity to tell whether you are actively scrolling a feed. On every
+      other website EyeFlow stays dormant. It runs no timers and sends nothing. It is present only
+      so it can show a gentle eye or water reminder on the page you are looking at, and it checks
+      the page address and form fields first so it stays quiet on banking, sign-in, and meeting
+      pages. Page content is never read, stored, or transmitted.
     </p>
 
     <h2>Changes to this policy</h2>
-    <p>
-      If this policy changes, we will update the date at the top of this page. Since no data is
-      collected externally, changes would only ever restrict data use further.
-    </p>
+    <p>If this policy changes, we will update the date at the top of this page.</p>
 
     <h2>Contact</h2>
     <p>
